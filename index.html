@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#14181c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>GeoField Core</title>
+<link rel="manifest" href='data:application/manifest+json,{"name":"GeoField Core","short_name":"GeoField","start_url":".","display":"standalone","background_color":"%2314181c","theme_color":"%2314181c"}'>
+<style>
+  :root{
+    --bg:#14181c;
+    --surface:#1c2227;
+    --surface-2:#232a30;
+    --border:#333c44;
+    --border-soft:#2a3239;
+    --text:#eef2f5;
+    --text-dim:#8a97a3;
+    --text-faint:#5c6770;
+    --accent:#e8a33d;
+    --accent-dim:#7a5a25;
+    --accent-text:#1a1400;
+    --danger:#e0645c;
+    --danger-dim:#4a2422;
+    --ok:#5fb583;
+    --warn:#e8a33d;
+    --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --radius: 10px;
+    --topbar-h: 52px;
+    --navbar-h: 60px;
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg); color:var(--text);
+    font-family:var(--sans);
+    touch-action:manipulation;
+    overscroll-behavior-y:none;
+    -webkit-text-size-adjust:100%;
+  }
+  body{ display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; }
+  input,select,textarea,button{ font-family:inherit; }
+  h1,h2,h3,p{ margin:0; }
+  ::selection{ background:var(--accent-dim); }
+
+  #topbar{
+    flex:0 0 auto;
+    padding-top:var(--safe-t);
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:10px;
+    height:calc(var(--topbar-h) + var(--safe-t));
+    padding-left:14px; padding-right:10px;
+  }
+  #topbar .brand{ display:flex; flex-direction:column; line-height:1.1; margin-right:auto; }
+  #topbar .brand b{ font-size:15px; letter-spacing:.3px; }
+  #topbar .brand span{ font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.8px; }
+  .status-dot{ width:9px; height:9px; border-radius:50%; display:inline-block; background:var(--text-faint); box-shadow:0 0 0 3px rgba(255,255,255,0.03); }
+  .status-dot.ok{ background:var(--ok); }
+  .status-dot.warn{ background:var(--warn); animation:pulse 1.4s infinite; }
+  .status-dot.err{ background:var(--danger); }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .status-chip{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); padding:6px 8px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border-soft); }
+  .icon-btn{ width:36px; height:36px; border-radius:8px; border:1px solid var(--border-soft); background:var(--surface-2); color:var(--text); display:flex; align-items:center; justify-content:center; font-size:16px; }
+
+  #app{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px 14px calc(24px + var(--safe-b)) 14px; }
+  #app.no-pad{ padding:0; }
+
+  #navbar{
+    flex:0 0 auto;
+    display:flex;
+    background:var(--surface);
+    border-top:1px solid var(--border);
+    padding-bottom:var(--safe-b);
+    height:calc(var(--navbar-h) + var(--safe-b));
+  }
+  .nav-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    background:transparent; border:none; color:var(--text-faint); font-size:10px; letter-spacing:.3px;
+  }
+  .nav-btn .ic{ font-size:19px; }
+  .nav-btn.active{ color:var(--accent); }
+
+  /* Botones y controles generales */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    min-height:48px; padding:10px 16px; border-radius:var(--radius);
+    border:1px solid var(--border); background:var(--surface-2); color:var(--text);
+    font-size:15px; font-weight:600; width:100%;
+  }
+  .btn:active{ filter:brightness(1.15); }
+  .btn.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+  .btn.danger{ background:var(--danger-dim); color:#ffd7d3; border-color:#5c2f2c; }
+  .btn.ghost{ background:transparent; }
+  .btn.small{ min-height:38px; padding:6px 12px; font-size:13px; width:auto; }
+  .btn-row{ display:flex; gap:10px; }
+  .btn-row .btn{ flex:1; }
+
+  .fab{
+    position:fixed; right:calc(18px); bottom:calc(var(--navbar-h) + var(--safe-b) + 18px);
+    width:56px; height:56px; border-radius:50%; background:var(--accent); color:var(--accent-text);
+    border:none; font-size:28px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(0,0,0,.4); z-index:20;
+  }
+
+  .card{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); padding:14px; margin-bottom:12px; }
+  .card.tap{ }
+  .card-title{ font-size:16px; font-weight:700; }
+  .card-sub{ font-size:12px; color:var(--text-dim); margin-top:2px; }
+  .badge-row{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .badge{ font-size:10.5px; background:var(--surface-2); color:var(--text-dim); border:1px solid var(--border-soft); padding:3px 8px; border-radius:20px; }
+  .badge.accent{ color:var(--accent); border-color:var(--accent-dim); }
+
+  .empty{ text-align:center; padding:60px 20px; color:var(--text-faint); }
+  .empty .big{ font-size:38px; margin-bottom:10px; }
+
+  label{ display:block; font-size:12px; color:var(--text-dim); margin:14px 0 6px; font-weight:600; letter-spacing:.2px; }
+  label:first-child{ margin-top:0; }
+  .hint{ font-size:11px; color:var(--text-faint); margin-top:4px; }
+  input[type=text], input[type=number], input[type=datetime-local], select, textarea{
+    width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:12px 12px; font-size:15px; min-height:46px;
+  }
+  select{ -webkit-appearance:none; appearance:none; background-image:linear-gradient(45deg,transparent 50%,var(--text-dim) 50%),linear-gradient(135deg,var(--text-dim) 50%,transparent 50%); background-position:calc(100% - 18px) center, calc(100% - 13px) center; background-size:5px 5px,5px 5px; background-repeat:no-repeat; }
+  textarea{ min-height:70px; resize:vertical; }
+  input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--accent); }
+  input[readonly]{ color:var(--text-dim); }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .check-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px; }
+  .check-item{ display:flex; align-items:center; gap:8px; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:9px 10px; font-size:13px; }
+  .check-item input{ width:16px; height:16px; min-height:unset; }
+  .radio-row{ display:flex; gap:8px; margin-top:6px; }
+  .radio-row label.opt{ flex:1; display:flex; align-items:center; justify-content:center; gap:6px; margin:0; padding:10px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border-soft); font-size:12.5px; font-weight:600; color:var(--text-dim); }
+  .radio-row input{ display:none; }
+  .radio-row input:checked + span, .radio-row label.opt.on{ }
+  .radio-row label.opt.on{ border-color:var(--accent); color:var(--accent); background:rgba(232,163,61,0.08); }
+
+  .switch-row{ display:flex; align-items:center; justify-content:space-between; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:10px 12px; margin-top:10px; }
+  .switch{ position:relative; width:46px; height:26px; }
+  .switch input{ opacity:0; width:100%; height:100%; position:absolute; margin:0; }
+  .switch .track{ position:absolute; inset:0; background:var(--border); border-radius:20px; transition:.15s; }
+  .switch .thumb{ position:absolute; top:3px; left:3px; width:20px; height:20px; background:#fff; border-radius:50%; transition:.15s; }
+  .switch input:checked + .track{ background:var(--accent); }
+  .switch input:checked + .track .thumb{ transform:translateX(20px); }
+
+  .section-hdr{ display:flex; align-items:center; justify-content:space-between; margin:22px 0 10px; }
+  .section-hdr h3{ font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-dim); }
+  .section-hdr:first-child{ margin-top:0; }
+
+  details.accordion{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); margin-bottom:10px; overflow:hidden; }
+  details.accordion > summary{ list-style:none; padding:14px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+  details.accordion > summary::-webkit-details-marker{ display:none; }
+  details.accordion .sum-l{ display:flex; align-items:center; gap:10px; font-weight:700; font-size:14.5px; }
+  details.accordion .chev{ color:var(--text-faint); transition:.15s; }
+  details.accordion[open] .chev{ transform:rotate(90deg); }
+  .accordion-body{ padding:0 14px 14px; }
+  .mini-row{ display:flex; align-items:center; justify-content:space-between; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:10px 12px; margin-top:8px; }
+  .mini-row .ml{ font-size:13px; }
+  .mini-row .ml b{ display:block; font-size:14px; }
+  .mini-row .ml span{ color:var(--text-dim); font-size:11.5px; font-family:var(--mono); }
+  .mini-actions{ display:flex; gap:6px; }
+  .icon-sm{ width:32px; height:32px; border-radius:7px; border:1px solid var(--border-soft); background:var(--bg); color:var(--text-dim); display:flex; align-items:center; justify-content:center; font-size:14px; }
+
+  .topline{ display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .back-btn{ width:38px; height:38px; border-radius:9px; background:var(--surface-2); border:1px solid var(--border-soft); color:var(--text); font-size:18px; display:flex; align-items:center; justify-content:center; }
+  .topline h2{ font-size:18px; }
+  .topline .sub{ font-size:11px; color:var(--text-dim); }
+
+  .sensor-box{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); padding:14px; margin:14px 0; }
+  .sensor-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .sensor-head b{ font-size:13px; }
+  .dial-wrap{ display:flex; gap:14px; align-items:center; margin-top:10px; }
+  .dial-readout{ flex:1; }
+  .readout-line{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:12.5px; padding:3px 0; border-bottom:1px dashed var(--border-soft); }
+  .readout-line b{ color:var(--accent); font-size:15px; }
+  .clino-bar{ position:relative; height:10px; background:var(--surface-2); border-radius:6px; margin-top:8px; overflow:hidden; border:1px solid var(--border-soft); }
+  .clino-fill{ position:absolute; left:0; top:0; bottom:0; background:var(--accent); border-radius:6px; width:0%; }
+
+  .numfield-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .derived{ margin-top:10px; font-size:11.5px; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:8px 10px; font-family:var(--mono); }
+
+  .toast{ position:fixed; left:50%; bottom:calc(var(--navbar-h) + var(--safe-b) + 16px); transform:translateX(-50%); background:var(--surface-2); border:1px solid var(--accent-dim); color:var(--text); padding:10px 16px; border-radius:20px; font-size:13px; z-index:50; box-shadow:0 4px 16px rgba(0,0,0,.4); }
+
+  .modal-bg{ position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:60; display:flex; align-items:flex-end; }
+  .modal{ background:var(--surface); width:100%; border-radius:16px 16px 0 0; padding:18px; padding-bottom:calc(18px + var(--safe-b)); border-top:1px solid var(--border); }
+  .modal h3{ font-size:16px; margin-bottom:6px; }
+  .modal p{ font-size:13px; color:var(--text-dim); margin-bottom:16px; }
+
+  .field-help{ font-size:11px; color:var(--text-faint); margin-top:3px; }
+  .divider{ height:1px; background:var(--border-soft); margin:16px 0; }
+</style>
+</head>
+<body>
+
+  <div id="topbar">
+    <div class="brand"><b>GeoField Core</b><span id="stationCountLabel">Libreta de terreno</span></div>
+    <div class="status-chip"><span id="gpsDot" class="status-dot"></span>GPS</div>
+    <div class="status-chip"><span id="sensorDot" class="status-dot"></span>Sensor</div>
+    <button class="icon-btn" onclick="Nav.settings()" title="Ajustes">⚙</button>
+  </div>
+
+  <main id="app"></main>
+
+  <nav id="navbar">
+    <button class="nav-btn" id="navHome" onclick="Nav.home()"><span class="ic">📓</span>Libreta</button>
+    <button class="nav-btn" id="navExport" onclick="Nav.exportView()"><span class="ic">⇩</span>Exportar</button>
+    <button class="nav-btn" id="navSettings" onclick="Nav.settings()"><span class="ic">⚙</span>Ajustes</button>
+  </nav>
+
+<script>
+"use strict";
+
+/* =========================================================
+   UTILIDADES GENERALES
+   ========================================================= */
+function uid(){ return 'id_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
+function nowIso(){ return new Date().toISOString(); }
+function fmtDate(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toRad(d){ return d*Math.PI/180; }
+function toDeg(r){ return r*180/Math.PI; }
+function norm360(x){ return ((x%360)+360)%360; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function round1(v){ return v==null||isNaN(v)?null:Math.round(v*10)/10; }
+function toast(msg){
+  const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
+  document.body.appendChild(el); setTimeout(()=>el.remove(),2200);
+}
+function dateStamp(){ const d=new Date(); return d.toISOString().slice(0,19).replace(/[:T]/g,'-'); }
+function downloadFile(content, filename, mime){
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+}
+
+/* =========================================================
+   MATEMÁTICA GEOLÓGICA: orientación de dispositivo -> actitudes
+   =========================================================
+   Convención mundial (E,N,U) = (Este, Norte, Vertical-arriba).
+   Se usa la matriz de rotación estándar W3C DeviceOrientation
+   (alpha=Z, beta=X', gamma=Y'') para llevar los ejes del
+   dispositivo al marco del mundo.
+   MODO PLANO: se apoya el reverso del teléfono (pantalla hacia
+   arriba, alejándose de la roca) sobre la superficie a medir.
+   El eje Z del dispositivo (normal a la pantalla) da el polo
+   hacia arriba del plano -> Dip y DipDirection.
+   MODO LINEAL: se orienta el borde superior del teléfono (eje Y)
+   apuntando/apoyado a lo largo de la lineación -> Trend y Plunge.
+*/
+function computeOrientation(alphaDeg, betaDeg, gammaDeg){
+  const a=toRad(alphaDeg), b=toRad(betaDeg), g=toRad(gammaDeg);
+  const cA=Math.cos(a), sA=Math.sin(a);
+  const cB=Math.cos(b), sB=Math.sin(b);
+  const cG=Math.cos(g), sG=Math.sin(g);
+  // columna Z (normal a pantalla) de la matriz de rotación
+  const E = cA*sG + cG*sA*sB;
+  const N = sA*sG - cA*cG*sB;
+  const U = cB*cG;
+  const dip = toDeg(Math.acos(clamp(U,-1,1)));
+  const dipDir = norm360(toDeg(Math.atan2(E,N)) + 180);
+  const strike = norm360(dipDir - 90);
+  // columna Y (borde superior del teléfono) para lineaciones
+  const Ey = -cB*sA;
+  const Ny = cA*cB;
+  const Uy = sB;
+  let trend = norm360(toDeg(Math.atan2(Ey,Ny)));
+  let plunge = toDeg(-Math.asin(clamp(Uy,-1,1)));
+  if(plunge<0){ trend=norm360(trend+180); plunge=-plunge; }
+  return { dip, dipDir, strike, trend, plunge };
+}
+function toQuadrant(strikeAz){
+  if(strikeAz==null||isNaN(strikeAz)) return '—';
+  let s = norm360(strikeAz) % 180;
+  let ns, ew, angle;
+  if(s<=90){ ns='N'; ew='E'; angle=s; } else { ns='S'; ew='W'; angle=180-s; }
+  angle=Math.round(angle);
+  if(angle===0) return 'N-S';
+  if(angle===90) return 'E-W';
+  return ns+angle+'°'+(ew==='W'?'O':'E');
+}
+function dipDirQuadrant(dipDirAz){
+  if(dipDirAz==null||isNaN(dipDirAz)) return '—';
+  const az=norm360(dipDirAz);
+  const dirs=[['N',0],['NNE',22.5],['NE',45],['ENE',67.5],['E',90],['ESE',112.5],['SE',135],['SSE',157.5],
+              ['S',180],['SSO',202.5],['SO',225],['OSO',247.5],['O',270],['ONO',292.5],['NO',315],['NNO',337.5]];
+  let best=dirs[0], bd=999;
+  dirs.forEach(d=>{ let diff=Math.abs(az-d[1]); if(diff>180) diff=360-diff; if(diff<bd){bd=diff; best=d;} });
+  return best[0];
+}
+
+/* =========================================================
+   COORDENADAS UTM (WGS84) — fórmulas de Snyder, sin dependencias
+   ========================================================= */
+const UTM_A=6378137.0, UTM_ECC2=0.00669438, UTM_K0=0.9996;
+function llToUTM(lat, lon){
+  const latRad=toRad(lat), lonRad=toRad(lon);
+  const zoneNumber = Math.floor((lon+180)/6)+1;
+  const lonOrigin = (zoneNumber-1)*6-180+3;
+  const lonOriginRad = toRad(lonOrigin);
+  const eccPrime2 = UTM_ECC2/(1-UTM_ECC2);
+  const N = UTM_A/Math.sqrt(1-UTM_ECC2*Math.sin(latRad)*Math.sin(latRad));
+  const T = Math.tan(latRad)*Math.tan(latRad);
+  const C = eccPrime2*Math.cos(latRad)*Math.cos(latRad);
+  const A = Math.cos(latRad)*(lonRad-lonOriginRad);
+  const M = UTM_A*((1-UTM_ECC2/4-3*UTM_ECC2*UTM_ECC2/64-5*Math.pow(UTM_ECC2,3)/256)*latRad
+            - (3*UTM_ECC2/8+3*UTM_ECC2*UTM_ECC2/32+45*Math.pow(UTM_ECC2,3)/1024)*Math.sin(2*latRad)
+            + (15*UTM_ECC2*UTM_ECC2/256+45*Math.pow(UTM_ECC2,3)/1024)*Math.sin(4*latRad)
+            - (35*Math.pow(UTM_ECC2,3)/3072)*Math.sin(6*latRad));
+  let easting = UTM_K0*N*(A+(1-T+C)*Math.pow(A,3)/6
+              + (5-18*T+T*T+72*C-58*eccPrime2)*Math.pow(A,5)/120) + 500000.0;
+  let northing = UTM_K0*(M+N*Math.tan(latRad)*(A*A/2+(5-T+9*C+4*C*C)*Math.pow(A,4)/24
+              + (61-58*T+T*T+600*C-330*eccPrime2)*Math.pow(A,6)/720));
+  const hemisphere = lat<0 ? 'S' : 'N';
+  if(lat<0) northing += 10000000.0;
+  return { zoneNumber, hemisphere, easting, northing };
+}
+function utmToLL(easting, northing, zoneNumber, hemisphere){
+  const e1=(1-Math.sqrt(1-UTM_ECC2))/(1+Math.sqrt(1-UTM_ECC2));
+  const x=easting-500000.0;
+  let y=northing;
+  if(hemisphere==='S') y -= 10000000.0;
+  const lonOrigin=(zoneNumber-1)*6-180+3;
+  const eccPrime2=UTM_ECC2/(1-UTM_ECC2);
+  const M=y/UTM_K0;
+  const mu=M/(UTM_A*(1-UTM_ECC2/4-3*UTM_ECC2*UTM_ECC2/64-5*Math.pow(UTM_ECC2,3)/256));
+  const phi1 = mu + (3*e1/2-27*Math.pow(e1,3)/32)*Math.sin(2*mu)
+             + (21*e1*e1/16-55*Math.pow(e1,4)/32)*Math.sin(4*mu)
+             + (151*Math.pow(e1,3)/96)*Math.sin(6*mu)
+             + (1097*Math.pow(e1,4)/512)*Math.sin(8*mu);
+  const N1=UTM_A/Math.sqrt(1-UTM_ECC2*Math.sin(phi1)*Math.sin(phi1));
+  const T1=Math.tan(phi1)*Math.tan(phi1);
+  const C1=eccPrime2*Math.cos(phi1)*Math.cos(phi1);
+  const R1=UTM_A*(1-UTM_ECC2)/Math.pow(1-UTM_ECC2*Math.sin(phi1)*Math.sin(phi1),1.5);
+  const D=x/(N1*UTM_K0);
+  let lat = phi1 - (N1*Math.tan(phi1)/R1)*(D*D/2
+          - (5+3*T1+10*C1-4*C1*C1-9*eccPrime2)*Math.pow(D,4)/24
+          + (61+90*T1+298*C1+45*T1*T1-252*eccPrime2-3*C1*C1)*Math.pow(D,6)/720);
+  let lon = (D-(1+2*T1+C1)*Math.pow(D,3)/6
+          + (5-2*C1+28*T1-3*C1*C1+8*eccPrime2+24*T1*T1)*Math.pow(D,5)/120)/Math.cos(phi1);
+  return { lat: toDeg(lat), lon: lonOrigin+toDeg(lon) };
+}
+function utmLabel(lat, lon){
+  if(lat==null||lon==null||isNaN(lat)||isNaN(lon)) return null;
+  const r=llToUTM(lat,lon);
+  return { text: Math.round(r.easting)+' E, '+Math.round(r.northing)+' N (Huso '+r.zoneNumber+r.hemisphere+')', ...r };
+}
+
+/* =========================================================
+   BASE DE DATOS: IndexedDB puro
+   ========================================================= */
+const DB_NAME='geofieldcore_db', DB_VERSION=1;
+let DB=null;
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded=(e)=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains('stations')){
+        d.createObjectStore('stations',{keyPath:'id'});
+      }
+      if(!d.objectStoreNames.contains('measurements')){
+        const m=d.createObjectStore('measurements',{keyPath:'id'});
+        m.createIndex('stationId','stationId',{unique:false});
+      }
+    };
+    req.onsuccess=(e)=>{ DB=e.target.result; resolve(DB); };
+    req.onerror=(e)=>reject(e.target.error);
+  });
+}
+function tx(store,mode){ return DB.transaction(store,mode).objectStore(store); }
+function dbPut(store,obj){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').put(obj); r.onsuccess=()=>res(obj); r.onerror=()=>rej(r.error); }); }
+function dbGet(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').get(id); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function dbGetAll(store){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); }); }
+function dbDelete(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
+function dbGetByStation(stationId){
+  return new Promise((res,rej)=>{
+    const idx=tx('measurements','readonly').index('stationId');
+    const r=idx.getAll(stationId);
+    r.onsuccess=()=>res(r.result||[]);
+    r.onerror=()=>rej(r.error);
+  });
+}
+function dbDeleteByStation(stationId){
+  return dbGetByStation(stationId).then(list=>Promise.all(list.map(m=>dbDelete('measurements',m.id))));
+}
+
+/* =========================================================
+   ESTADO GLOBAL
+   ========================================================= */
+const state={ view:'home', stationId:null, measId:null, measType:null };
+const gpsState={ status:'idle', lat:null, lon:null, alt:null, accuracy:null, errorMsg:'' };
+const sensorState={ available:false, granted:null, status:'idle', errorMsg:'', last:null };
+let dialRAF=false;
+const IS_SECURE = window.isSecureContext === true;
+
+/* =========================================================
+   SENSORES: brújula / clinómetro
+   ========================================================= */
+function sensorNeedsPermission(){
+  return typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function';
+}
+function requestSensorPermission(){
+  if(!IS_SECURE){
+    sensorState.status='insecure';
+    sensorState.errorMsg='El navegador bloquea los sensores fuera de HTTPS o localhost.';
+    updateTopbarStatus(); render();
+    toast('Los sensores requieren HTTPS o localhost');
+    return;
+  }
+  if(typeof DeviceOrientationEvent==='undefined'){
+    sensorState.status='unsupported';
+    sensorState.errorMsg='Este navegador no expone DeviceOrientationEvent.';
+    updateTopbarStatus(); render();
+    toast('Sensores no soportados en este navegador');
+    return;
+  }
+  if(sensorNeedsPermission()){
+    DeviceOrientationEvent.requestPermission().then(resp=>{
+      sensorState.granted = (resp==='granted');
+      if(sensorState.granted){ sensorState.status='pending'; attachOrientationListener(); }
+      else { sensorState.status='denied'; sensorState.errorMsg='Permiso denegado por el usuario. Revisa Ajustes del sistema > Safari/Chrome > Movimiento y orientación.'; }
+      updateTopbarStatus(); render();
+      toast(sensorState.granted? 'Sensores activados' : 'Permiso de sensores denegado');
+    }).catch((err)=>{
+      sensorState.granted=false; sensorState.status='denied'; sensorState.errorMsg=String(err&&err.message||err);
+      updateTopbarStatus(); render();
+    });
+  } else {
+    sensorState.status='pending';
+    attachOrientationListener();
+    toast('Sensores activados');
+    // si en unos segundos no llega ningún evento, probablemente el dispositivo no tiene sensores o el navegador los bloquea
+    setTimeout(()=>{
+      if(!sensorState.available && sensorState.status==='pending'){
+        sensorState.status='no_data';
+        sensorState.errorMsg='No han llegado datos del giroscopio/magnetómetro. Verifica que el dispositivo tenga estos sensores y que el navegador tenga permiso de "Movimiento y orientación" habilitado en su configuración de sitio.';
+        updateTopbarStatus();
+        if(state.view==='settings') render();
+      }
+    }, 4000);
+  }
+}
+let orientationHandlerAttached=false;
+function attachOrientationListener(){
+  if(orientationHandlerAttached) return;
+  orientationHandlerAttached=true;
+  const handler=(e)=>{
+    if(e.alpha==null && e.beta==null && e.gamma==null) return;
+    let alphaDeg;
+    if(typeof e.webkitCompassHeading==='number'){
+      alphaDeg = norm360(360 - e.webkitCompassHeading); // iOS: heading horario directo
+    } else {
+      alphaDeg = e.alpha||0;
+    }
+    sensorState.available=true;
+    sensorState.status='active';
+    sensorState.last = computeOrientation(alphaDeg, e.beta||0, e.gamma||0);
+    if(!dialRAF){
+      dialRAF=true;
+      requestAnimationFrame(()=>{ dialRAF=false; updateLiveDial(); updateTopbarStatus(); });
+    }
+  };
+  if('ondeviceorientationabsolute' in window){
+    window.addEventListener('deviceorientationabsolute', handler);
+  } else {
+    window.addEventListener('deviceorientation', handler);
+  }
+}
+function initSensors(){
+  if(!IS_SECURE){ sensorState.status='insecure'; sensorState.errorMsg='El navegador bloquea los sensores fuera de HTTPS o localhost.'; return; }
+  if(typeof DeviceOrientationEvent==='undefined'){ sensorState.status='unsupported'; sensorState.errorMsg='Este navegador no expone DeviceOrientationEvent.'; return; }
+  if(!sensorNeedsPermission()){ sensorState.status='pending'; attachOrientationListener(); }
+  else { sensorState.status='needs_permission'; }
+  // en iOS se requiere gesto del usuario -> botón en Ajustes
+}
+function gpsStatusLabel(){
+  switch(gpsState.status){
+    case 'fix': return 'Con señal GPS';
+    case 'searching': return 'Buscando señal…';
+    case 'insecure': return 'Bloqueado: se requiere HTTPS o localhost';
+    case 'unsupported': return 'Este navegador no soporta geolocalización';
+    case 'denied': return 'Permiso de ubicación denegado';
+    case 'unavailable': return 'Posición no disponible (revisa que el GPS/ubicación del sistema esté activado)';
+    case 'timeout': return 'Tiempo de espera agotado buscando señal';
+    default: return 'Sin iniciar';
+  }
+}
+function sensorStatusLabel(){
+  switch(sensorState.status){
+    case 'active': return 'Sensores activos';
+    case 'pending': return 'Esperando datos del sensor…';
+    case 'needs_permission': return 'Requiere autorización (toca Activar en Ajustes)';
+    case 'denied': return 'Permiso denegado';
+    case 'insecure': return 'Bloqueado: se requiere HTTPS o localhost';
+    case 'unsupported': return 'Este navegador no soporta sensores de orientación';
+    case 'no_data': return 'Sin datos de giroscopio/magnetómetro';
+    default: return 'Sin iniciar';
+  }
+}
+function updateTopbarStatus(){
+  const gDot=document.getElementById('gpsDot');
+  if(gDot){
+    gDot.className='status-dot'+(gpsState.status==='fix'?' ok':gpsState.status==='searching'?' warn':' err');
+    gDot.parentElement.title = gpsStatusLabel();
+  }
+  const sDot=document.getElementById('sensorDot');
+  if(sDot){
+    sDot.className='status-dot'+(sensorState.status==='active'?' ok':(sensorState.status==='pending'||sensorState.status==='needs_permission')?' warn':' err');
+    sDot.parentElement.title = sensorStatusLabel();
+  }
+}
+function initGPS(){
+  if(!IS_SECURE){ gpsState.status='insecure'; gpsState.errorMsg='El navegador bloquea la geolocalización fuera de HTTPS o localhost.'; updateTopbarStatus(); return; }
+  if(!navigator.geolocation){ gpsState.status='unsupported'; updateTopbarStatus(); return; }
+  gpsState.status='searching';
+  navigator.geolocation.watchPosition(pos=>{
+    gpsState.status='fix';
+    gpsState.lat=pos.coords.latitude;
+    gpsState.lon=pos.coords.longitude;
+    gpsState.alt=pos.coords.altitude;
+    gpsState.accuracy=pos.coords.accuracy;
+    gpsState.errorMsg='';
+    updateTopbarStatus();
+    if(state.view==='settings') render();
+  }, err=>{
+    // err.code: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
+    if(err.code===1) gpsState.status='denied';
+    else if(err.code===2) gpsState.status='unavailable';
+    else if(err.code===3) gpsState.status='timeout';
+    else gpsState.status='unavailable';
+    gpsState.errorMsg=err.message||'';
+    updateTopbarStatus();
+    if(state.view==='settings') render();
+  }, { enableHighAccuracy:true, maximumAge:4000, timeout:20000 });
+}
+
+/* Panel de sensor reutilizable dentro de formularios */
+function renderSensorPanel(mode, formKey){
+  const label = mode==='planar' ? 'Modo plano (apoyar reverso del teléfono sobre la superficie)' : 'Modo lineación (alinear borde superior con la línea)';
+  return `
+  <div class="sensor-box" data-mode="${mode}" data-formkey="${formKey}">
+    <div class="sensor-head"><b>📡 Captura con sensores</b>
+      <div class="switch-row" style="margin:0; padding:4px 8px;">
+        <span style="font-size:11px;color:var(--text-dim);">Manual</span>
+        <label class="switch"><input type="checkbox" id="manualToggle_${formKey}" onchange="onManualToggle('${formKey}')"><span class="track"><span class="thumb"></span></span></label>
+        <span style="font-size:11px;color:var(--text-dim);">Auto</span>
+      </div>
+    </div>
+    <div class="hint">${label}</div>
+    <div id="autoBlock_${formKey}">
+      <div class="dial-wrap">
+        <svg id="dial_${formKey}" viewBox="0 0 140 140" width="110" height="110"></svg>
+        <div class="dial-readout">
+          <div class="readout-line"><span>Dip Dir.</span><b id="live_dipdir_${formKey}">—</b></div>
+          <div class="readout-line"><span>Manteo</span><b id="live_dip_${formKey}">—</b></div>
+          <div class="readout-line"><span>Trend</span><b id="live_trend_${formKey}">—</b></div>
+          <div class="readout-line"><span>Plunge</span><b id="live_plunge_${formKey}">—</b></div>
+        </div>
+      </div>
+      <button type="button" class="btn primary" style="margin-top:10px;" onclick="captureSensorReading('${formKey}','${mode}')">📍 Capturar lectura</button>
+    </div>
+  </div>`;
+}
+function onManualToggle(formKey){
+  const manual=document.getElementById('manualToggle_'+formKey).checked;
+  const block=document.getElementById('autoBlock_'+formKey);
+  if(block) block.style.display = manual ? 'none' : '';
+}
+function updateLiveDial(){
+  document.querySelectorAll('[id^="dial_"]').forEach(svg=>{
+    const formKey=svg.id.replace('dial_','');
+    const mode=svg.closest('.sensor-box')?.dataset.mode||'planar';
+    drawDial(svg, mode);
+    const r=sensorState.last;
+    const dd=document.getElementById('live_dipdir_'+formKey);
+    const dp=document.getElementById('live_dip_'+formKey);
+    const tr=document.getElementById('live_trend_'+formKey);
+    const pl=document.getElementById('live_plunge_'+formKey);
+    if(r && dd) dd.textContent = round1(r.dipDir)+'°';
+    if(r && dp) dp.textContent = round1(r.dip)+'°';
+    if(r && tr) tr.textContent = round1(r.trend)+'°';
+    if(r && pl) pl.textContent = round1(r.plunge)+'°';
+  });
+}
+function drawDial(svg, mode){
+  const r=sensorState.last;
+  const heading = r ? (mode==='planar'? r.dipDir : r.trend) : 0;
+  const mag = r ? (mode==='planar'? r.dip : r.plunge) : 0;
+  let ticks='';
+  for(let i=0;i<36;i++){
+    const ang=i*10, len = (i%3===0)?12:6;
+    const rad=toRad(ang);
+    const x1=70+58*Math.sin(rad), y1=70-58*Math.cos(rad);
+    const x2=70+(58-len)*Math.sin(rad), y2=70-(58-len)*Math.cos(rad);
+    ticks+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--border)" stroke-width="${i%9===0?2:1}"/>`;
+  }
+  const needleRad=toRad(heading);
+  const nx=70+46*Math.sin(needleRad), ny=70-46*Math.cos(needleRad);
+  const barW = clamp(mag/90,0,1)*100;
+  svg.innerHTML = `
+    <circle cx="70" cy="70" r="62" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1.5"/>
+    ${ticks}
+    <text x="70" y="16" text-anchor="middle" fill="var(--text-dim)" font-size="9">N</text>
+    <text x="124" y="74" text-anchor="middle" fill="var(--text-dim)" font-size="9">E</text>
+    <text x="70" y="130" text-anchor="middle" fill="var(--text-dim)" font-size="9">S</text>
+    <text x="16" y="74" text-anchor="middle" fill="var(--text-dim)" font-size="9">O</text>
+    <line x1="70" y1="70" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="70" cy="70" r="4" fill="var(--accent)"/>
+    <rect x="20" y="118" width="100" height="6" rx="3" fill="var(--surface)" stroke="var(--border)" />
+    <rect x="20" y="118" width="${barW}" height="6" rx="3" fill="var(--accent)" />
+  `;
+}
+function captureSensorReading(formKey, mode){
+  if(!sensorState.last){ toast('Sin datos de sensor todavía'); return; }
+  const r=sensorState.last;
+  if(mode==='planar'){
+    setVal('dipDir_'+formKey, round1(r.dipDir));
+    setVal('dip_'+formKey, round1(r.dip));
+    onOrientationInputChange(formKey);
+  } else {
+    setVal('trend_'+formKey, round1(r.trend));
+    setVal('plunge_'+formKey, round1(r.plunge));
+  }
+  toast('Lectura capturada');
+}
+function setVal(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
+function onOrientationInputChange(formKey){
+  const dipDir=parseFloat(document.getElementById('dipDir_'+formKey)?.value);
+  const dip=parseFloat(document.getElementById('dip_'+formKey)?.value);
+  const out=document.getElementById('derived_'+formKey);
+  if(!out) return;
+  if(isNaN(dipDir)||isNaN(dip)){ out.textContent='Strike RHR: — · Cuadrante: —'; return; }
+  const strike=norm360(dipDir-90);
+  out.innerHTML = `Strike (RHR): <b style="color:var(--accent)">${round1(strike)}°</b> &nbsp;·&nbsp; Rumbo cuadrante: <b style="color:var(--accent)">${toQuadrant(strike)}</b> &nbsp;·&nbsp; Manteo hacia: <b style="color:var(--accent)">${dipDirQuadrant(dipDir)}</b>`;
+}
+
+/* =========================================================
+   NAVEGACIÓN / ROUTER
+   ========================================================= */
+const Nav={
+  home(){ state.view='home'; state.stationId=null; render(); },
+  settings(){ state.view='settings'; render(); },
+  exportView(){ state.view='export'; render(); },
+  newStation(){ state.view='stationForm'; state.stationId=null; render(); },
+  editStation(id){ state.view='stationForm'; state.stationId=id; render(); },
+  station(id){ state.view='stationDetail'; state.stationId=id; render(); },
+  newMeasurement(stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=null; render(); },
+  editMeasurement(id, stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=id; render(); },
+  back(){ if(state.view==='measForm'){ Nav.station(state.stationId); } else if(state.view==='stationForm' && state.stationId){ Nav.station(state.stationId); } else { Nav.home(); } }
+};
+
+function setActiveNav(){
+  ['navHome','navExport','navSettings'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  if(state.view==='home'||state.view==='stationDetail'||state.view==='stationForm'||state.view==='measForm') document.getElementById('navHome').classList.add('active');
+  if(state.view==='export') document.getElementById('navExport').classList.add('active');
+  if(state.view==='settings') document.getElementById('navSettings').classList.add('active');
+}
+
+async function render(){
+  const app=document.getElementById('app');
+  setActiveNav();
+  if(state.view==='home'){ app.innerHTML = await renderHome(); }
+  else if(state.view==='stationForm'){ app.innerHTML = await renderStationForm(); utmFromLatLon(); }
+  else if(state.view==='stationDetail'){ app.innerHTML = await renderStationDetail(); }
+  else if(state.view==='measForm'){ app.innerHTML = await renderMeasForm(); attachSensorInit(); postRenderMeasForm(); }
+  else if(state.view==='export'){ app.innerHTML = await renderExport(); }
+  else if(state.view==='settings'){ app.innerHTML = renderSettings(); }
+  window.scrollTo(0,0); app.scrollTop=0;
+}
+function attachSensorInit(){
+  // dibuja el dial inicial vacío
+  document.querySelectorAll('[id^="dial_"]').forEach(svg=>{
+    const mode=svg.closest('.sensor-box')?.dataset.mode||'planar';
+    drawDial(svg, mode);
+  });
+}
+function postRenderMeasForm(){
+  const type=state.measType;
+  if(type==='planar'){ onOrientationInputChange('p1'); }
+  else if(type==='fault'){ onOrientationInputChange('fp'); }
+  else if(type==='contact'){ onOrientationInputChange('c1'); calcThickness(); }
+  else if(type==='vein'){ onOrientationInputChange('v1'); }
+}
+
+/* =========================================================
+   VISTA: HOME / LIBRETA
+   ========================================================= */
+async function renderHome(){
+  const stations = (await dbGetAll('stations')).sort((a,b)=> (b.timestamp||'').localeCompare(a.timestamp||''));
+  const allMeas = await dbGetAll('measurements');
+  document.getElementById('stationCountLabel').textContent = stations.length+' estación(es)';
+  const banner = !IS_SECURE ? `
+    <div class="card" style="border-color:#5c2f2c;background:var(--danger-dim);">
+      <div class="card-title" style="color:#ffd7d3;">⚠ GPS y sensores desactivados</div>
+      <div class="card-sub" style="color:#ffd7d3;">Abriste la app en <code>${esc(location.protocol)}</code>. Estas funciones solo se habilitan en HTTPS o localhost. Toca ⚙ Ajustes para ver cómo solucionarlo.</div>
+    </div>` : '';
+  if(stations.length===0){
+    return `
+    ${banner}
+    <div class="empty">
+      <div class="big">🧭</div>
+      <p>Aún no hay estaciones registradas.<br>Crea tu primera estación de muestreo para comenzar.</p>
+    </div>
+    <button class="fab" onclick="Nav.newStation()">+</button>`;
+  }
+  const cards = stations.map(s=>{
+    const meas = allMeas.filter(m=>m.stationId===s.id);
+    const counts={planar:0, fault:0, contact:0, vein:0};
+    meas.forEach(m=>{ if(counts[m.type]!=null) counts[m.type]++; });
+    const badges = [
+      counts.planar? `<span class="badge accent">${counts.planar} Estructural</span>`:'',
+      counts.fault? `<span class="badge accent">${counts.fault} Falla</span>`:'',
+      counts.contact? `<span class="badge accent">${counts.contact} Contacto</span>`:'',
+      counts.vein? `<span class="badge accent">${counts.vein} Veta</span>`:'',
+      meas.length===0? `<span class="badge">Sin datos aún</span>`:''
+    ].join('');
+    const coords = (s.lat!=null && s.lon!=null) ? `${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}` : 'sin coordenadas';
+    const utmInfo = utmLabel(s.lat, s.lon);
+    return `
+      <div class="card" onclick="Nav.station('${s.id}')">
+        <div class="card-title">${esc(s.name||s.id)}</div>
+        <div class="card-sub">${fmtDate(s.timestamp)} · <span style="font-family:var(--mono)">${coords}</span></div>
+        ${utmInfo? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>`:''}
+        <div class="badge-row">${badges}</div>
+      </div>`;
+  }).join('');
+  return `${banner}<div>${cards}</div><button class="fab" onclick="Nav.newStation()">+</button>`;
+}
+
+/* =========================================================
+   VISTA: FORMULARIO DE ESTACIÓN
+   ========================================================= */
+async function nextStationName(){
+  const stations=await dbGetAll('stations');
+  let max=0;
+  stations.forEach(s=>{ const m=/EST-(\d+)/.exec(s.name||''); if(m) max=Math.max(max,parseInt(m[1],10)); });
+  return 'EST-'+String(max+1).padStart(2,'0');
+}
+async function renderStationForm(){
+  let st = state.stationId ? await dbGet('stations', state.stationId) : null;
+  const isNew = !st;
+  if(isNew){
+    st = { id: uid(), name: await nextStationName(), timestamp: nowIso(),
+           lat: gpsState.lat, lon: gpsState.lon, alt: gpsState.alt, notes:'' };
+  }
+  const localDt = new Date(st.timestamp || Date.now());
+  const localDtVal = new Date(localDt.getTime() - localDt.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>${isNew?'Nueva estación':'Editar estación'}</h2><div class="sub">Estación de muestreo</div></div>
+  </div>
+  <label>ID / Nombre de estación</label>
+  <input type="text" id="f_name" value="${esc(st.name)}">
+
+  <label>Fecha y hora</label>
+  <input type="datetime-local" id="f_dt" value="${localDtVal}">
+
+  <div class="grid3">
+    <div><label>Latitud</label><input type="number" step="0.000001" id="f_lat" value="${st.lat??''}" oninput="utmFromLatLon()"></div>
+    <div><label>Longitud</label><input type="number" step="0.000001" id="f_lon" value="${st.lon??''}" oninput="utmFromLatLon()"></div>
+    <div><label>Altitud (m)</label><input type="number" step="0.1" id="f_alt" value="${st.alt??''}"></div>
+  </div>
+  <button type="button" class="btn ghost small" style="width:100%;margin-top:8px;" onclick="captureGpsIntoStation()">📍 Usar posición GPS actual</button>
+  <div class="hint" id="gpsAccHint">${gpsState.accuracy? 'Precisión actual: ±'+Math.round(gpsState.accuracy)+' m':'Buscando señal GPS…'}</div>
+
+  <div class="section-hdr"><h3>Coordenadas UTM (WGS84)</h3></div>
+  <div class="grid2">
+    <div><label>Huso</label><input type="number" id="f_utmZone" min="1" max="60" value=""></div>
+    <div><label>Hemisferio</label>
+      <select id="f_utmHemi"><option value="S">S</option><option value="N">N</option></select>
+    </div>
+  </div>
+  <div class="grid2">
+    <div><label>Este (m)</label><input type="number" step="1" id="f_utmEast" value=""></div>
+    <div><label>Norte (m)</label><input type="number" step="1" id="f_utmNorth" value=""></div>
+  </div>
+  <div class="btn-row" style="margin-top:6px;">
+    <button type="button" class="btn ghost small" onclick="utmFromLatLon()">↻ Desde Lat/Lon</button>
+    <button type="button" class="btn ghost small" onclick="latLonFromUtm()">↻ Aplicar UTM → Lat/Lon</button>
+  </div>
+  <div class="hint">Datum WGS84. El huso y hemisferio se calculan automáticamente desde Lat/Lon; edítalos solo si necesitas forzar un huso distinto (por ejemplo, cerca de un límite de zona) y luego presiona "Aplicar UTM → Lat/Lon".</div>
+
+  <label>Notas de estación</label>
+  <textarea id="f_notes" placeholder="Contexto general, acceso, afloramiento, litología dominante...">${esc(st.notes||'')}</textarea>
+
+  <div class="btn-row" style="margin-top:22px;">
+    <button class="btn ghost" onclick="Nav.back()">Cancelar</button>
+    <button class="btn primary" onclick="saveStation('${st.id}', ${isNew})">Guardar estación</button>
+  </div>
+  ${!isNew? `<button class="btn danger" style="margin-top:10px;" onclick="confirmDeleteStation('${st.id}')">Eliminar estación y sus datos</button>`:''}
+  `;
+}
+function utmFromLatLon(){
+  const lat=parseFloat(document.getElementById('f_lat')?.value);
+  const lon=parseFloat(document.getElementById('f_lon')?.value);
+  if(isNaN(lat)||isNaN(lon)) return;
+  const r=llToUTM(lat,lon);
+  setVal('f_utmZone', r.zoneNumber);
+  const hemiEl=document.getElementById('f_utmHemi'); if(hemiEl) hemiEl.value=r.hemisphere;
+  setVal('f_utmEast', Math.round(r.easting));
+  setVal('f_utmNorth', Math.round(r.northing));
+}
+function latLonFromUtm(){
+  const zone=parseInt(document.getElementById('f_utmZone')?.value,10);
+  const hemi=document.getElementById('f_utmHemi')?.value||'S';
+  const east=parseFloat(document.getElementById('f_utmEast')?.value);
+  const north=parseFloat(document.getElementById('f_utmNorth')?.value);
+  if(isNaN(zone)||isNaN(east)||isNaN(north)){ toast('Completa huso, este y norte'); return; }
+  const r=utmToLL(east, north, zone, hemi);
+  setVal('f_lat', r.lat.toFixed(6));
+  setVal('f_lon', r.lon.toFixed(6));
+  toast('Lat/Lon actualizados desde UTM');
+}
+function captureGpsIntoStation(){
+  if(gpsState.lat==null){ toast('GPS aún sin señal'); return; }
+  setVal('f_lat', gpsState.lat.toFixed(6));
+  setVal('f_lon', gpsState.lon.toFixed(6));
+  if(gpsState.alt!=null) setVal('f_alt', Math.round(gpsState.alt));
+  utmFromLatLon();
+  toast('Coordenadas GPS aplicadas');
+}
+async function saveStation(id, isNew){
+  const name=document.getElementById('f_name').value.trim() || id;
+  const dt=document.getElementById('f_dt').value;
+  const lat=parseFloat(document.getElementById('f_lat').value);
+  const lon=parseFloat(document.getElementById('f_lon').value);
+  const alt=parseFloat(document.getElementById('f_alt').value);
+  const notes=document.getElementById('f_notes').value;
+  const obj={ id, name, timestamp: dt? new Date(dt).toISOString(): nowIso(),
+              lat: isNaN(lat)?null:lat, lon: isNaN(lon)?null:lon, alt: isNaN(alt)?null:alt, notes };
+  await dbPut('stations', obj);
+  toast('Estación guardada');
+  Nav.station(id);
+}
+async function confirmDeleteStation(id){
+  if(!confirm('¿Eliminar esta estación y todas sus mediciones? Esta acción no se puede deshacer.')) return;
+  await dbDeleteByStation(id);
+  await dbDelete('stations', id);
+  toast('Estación eliminada');
+  Nav.home();
+}
+
+/* =========================================================
+   VISTA: DETALLE DE ESTACIÓN (libreta de campo por estación)
+   ========================================================= */
+const CATS = [
+  { key:'planar', title:'Estructuras planares / lineares', icon:'📐' },
+  { key:'fault',  title:'Fallas y cinemática', icon:'⚡' },
+  { key:'contact',title:'Contactos litológicos', icon:'🪨' },
+  { key:'vein',   title:'Vetas, vetillas y alteración', icon:'💠' },
+];
+function measLabel(m){
+  if(m.type==='planar') return m.subtype||'Estructura';
+  if(m.type==='fault') return 'Falla ('+(m.sense||'sentido s/d')+')';
+  if(m.type==='contact') return 'Contacto '+(m.contactType||'');
+  if(m.type==='vein') return 'Veta/vetilla';
+  return m.type;
+}
+function measSub(m){
+  if(m.type==='planar'){
+    if(m.strike!=null) return `${pad3(m.strike)}/${pad2(m.dip)} (RHR) · DipDir ${pad3(m.dipDir)}`;
+    if(m.trend!=null) return `Trend/Plunge ${pad3(m.trend)}/${pad2(m.plunge)}`;
+    return '';
+  }
+  if(m.type==='fault') return `Plano ${pad3(m.strike)}/${pad2(m.dip)} · ${m.senseQuality||''}`;
+  if(m.type==='contact') return `${esc(m.lithoTop||'?')} / ${esc(m.lithoBottom||'?')} · e=${m.trueThickness??'?'} m`;
+  if(m.type==='vein') return `${m.veinThickness??'?'} cm · ${(m.alteration||[]).join(', ')||'sin alteración registrada'}`;
+  return '';
+}
+function pad3(v){ return v==null?'—':String(Math.round(v)).padStart(3,'0'); }
+function pad2(v){ return v==null?'—':String(Math.round(v)).padStart(2,'0'); }
+
+async function renderStationDetail(){
+  const st = await dbGet('stations', state.stationId);
+  if(!st){ Nav.home(); return ''; }
+  const meas = await dbGetByStation(st.id);
+  const coords = (st.lat!=null&&st.lon!=null) ? `${st.lat.toFixed(6)}, ${st.lon.toFixed(6)}${st.alt!=null?' · '+Math.round(st.alt)+' m':''}` : 'Sin coordenadas';
+  const utmInfo = utmLabel(st.lat, st.lon);
+  const utmLine = utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:12.5px;">UTM ${esc(utmInfo.text)}</div>` : '';
+
+  const cats = CATS.map(c=>{
+    const items = meas.filter(m=>m.type===c.key).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+    const rows = items.map(m=>`
+      <div class="mini-row">
+        <div class="ml"><b>${esc(measLabel(m))}</b><span>${esc(measSub(m))}</span></div>
+        <div class="mini-actions">
+          <button class="icon-sm" onclick="event.stopPropagation();Nav.editMeasurement('${m.id}','${st.id}','${m.type}')">✎</button>
+          <button class="icon-sm" onclick="event.stopPropagation();deleteMeasurement('${m.id}')">🗑</button>
+        </div>
+      </div>`).join('') || `<div class="hint" style="margin-top:8px;">Sin registros en esta categoría.</div>`;
+    return `
+    <details class="accordion">
+      <summary><span class="sum-l">${c.icon} ${c.title} <span class="badge">${items.length}</span></span><span class="chev">›</span></summary>
+      <div class="accordion-body">
+        ${rows}
+        <button class="btn primary small" style="width:100%;margin-top:10px;" onclick="Nav.newMeasurement('${st.id}','${c.key}')">+ Añadir ${c.title.toLowerCase()}</button>
+      </div>
+    </details>`;
+  }).join('');
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.home()">←</button>
+    <div><h2>${esc(st.name)}</h2><div class="sub">${fmtDate(st.timestamp)}</div></div>
+  </div>
+  <div class="card">
+    <div class="card-sub" style="font-family:var(--mono);font-size:12.5px;">${coords}</div>
+    ${utmLine}
+    ${st.notes? `<p style="margin-top:8px;font-size:13.5px;">${esc(st.notes)}</p>`:''}
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn ghost small" onclick="Nav.editStation('${st.id}')">✎ Editar estación</button>
+    </div>
+  </div>
+  <div class="section-hdr"><h3>Registros de terreno</h3></div>
+  ${cats}
+  `;
+}
+async function deleteMeasurement(id){
+  if(!confirm('¿Eliminar este registro?')) return;
+  await dbDelete('measurements', id);
+  toast('Registro eliminado');
+  render();
+}
+
+/* =========================================================
+   VISTA: FORMULARIO DE MEDICIÓN (por tipo)
+   ========================================================= */
+const PLANAR_SUBTYPES = ['Estratificación (S0)','Foliación (S1)','Foliación (S2)','Diaclasa / Fractura','Clivaje','Lineación mineral','Eje de pliegue'];
+const LINEAR_SUBTYPES = ['Lineación mineral','Eje de pliegue'];
+const FAULT_SENSES = ['Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso'];
+const KIN_QUALITY = ['Definida','Probable','Posible'];
+const KIN_CRITERIA = ['Fibras minerales','Escalones de crecimiento','Estructuras S-C','Estilolitos','Brechas','Estrías simples','Otro'];
+const CONTACT_TYPES = ['Concordante','Discordante angular','Discordante erosiva','Falla','Intrusivo','Transicional / gradacional'];
+const VEIN_TEXTURES = ['Masiva','Bandeada','Brechosa','Peine (comb)','Coloforme','Otro'];
+const VEIN_MINERALS = ['Cuarzo','Calcita','Pirita','Calcopirita','Turmalina','Especularita','Yeso','Clorita','Epidota'];
+const ALTERATION_TYPES = ['Propilítica','Fílica (sericítica)','Potásica','Argílica intermedia','Argílica avanzada','Silicificación','Skarn','Sin alteración visible'];
+const ALTERATION_INTENSITY = ['Débil','Moderada','Fuerte','Pervasiva'];
+
+async function renderMeasForm(){
+  const isNew = !state.measId;
+  const m = isNew ? { id:uid(), stationId:state.stationId, type:state.measType, timestamp: nowIso() }
+                  : await dbGet('measurements', state.measId);
+  const catTitle = CATS.find(c=>c.key===m.type)?.title || m.type;
+  let fields='';
+  if(m.type==='planar') fields=renderPlanarFields(m);
+  else if(m.type==='fault') fields=renderFaultFields(m);
+  else if(m.type==='contact') fields=renderContactFields(m);
+  else if(m.type==='vein') fields=renderVeinFields(m);
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.station('${state.stationId}')">←</button>
+    <div><h2>${isNew?'Nuevo registro':'Editar registro'}</h2><div class="sub">${esc(catTitle)}</div></div>
+  </div>
+  <form id="measForm" onsubmit="event.preventDefault(); saveMeasurement('${m.id}', ${isNew});">
+    ${fields}
+    <label>Notas</label>
+    <textarea id="f_notes">${esc(m.notes||'')}</textarea>
+    <div class="btn-row" style="margin-top:22px;">
+      <button type="button" class="btn ghost" onclick="Nav.station('${state.stationId}')">Cancelar</button>
+      <button type="submit" class="btn primary">Guardar registro</button>
+    </div>
+  </form>
+  `;
+}
+
+function renderPlanarFields(m){
+  const isLinear = LINEAR_SUBTYPES.includes(m.subtype);
+  return `
+  <label>Tipo de estructura</label>
+  <select id="f_subtype" onchange="onPlanarSubtypeChange()">
+    ${PLANAR_SUBTYPES.map(s=>`<option ${m.subtype===s?'selected':''}>${s}</option>`).join('')}
+  </select>
+
+  <div id="planarBlock" style="display:${isLinear?'none':''}">
+    ${renderSensorPanel('planar','p1')}
+    <div class="numfield-row">
+      <div><label>Dip Direction (0–360°)</label><input type="number" id="dipDir_p1" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('p1')"></div>
+      <div><label>Manteo / Dip (0–90°)</label><input type="number" id="dip_p1" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('p1')"></div>
+    </div>
+    <div class="derived" id="derived_p1">Strike RHR: — · Cuadrante: —</div>
+  </div>
+  <div id="linearBlock" style="display:${isLinear?'':'none'}">
+    ${renderSensorPanel('linear','l1')}
+    <div class="numfield-row">
+      <div><label>Trend (0–360°)</label><input type="number" id="trend_l1" min="0" max="360" value="${m.trend??''}"></div>
+      <div><label>Plunge (0–90°)</label><input type="number" id="plunge_l1" min="0" max="90" value="${m.plunge??''}"></div>
+    </div>
+  </div>
+  `;
+}
+function onPlanarSubtypeChange(){
+  const sel=document.getElementById('f_subtype').value;
+  const isLinear = LINEAR_SUBTYPES.includes(sel);
+  document.getElementById('planarBlock').style.display = isLinear?'none':'';
+  document.getElementById('linearBlock').style.display = isLinear?'':'none';
+}
+
+function renderFaultFields(m){
+  const rakeMode = m.striaeMode!=='trendplunge';
+  return `
+  <label>Plano de falla</label>
+  ${renderSensorPanel('planar','fp')}
+  <div class="numfield-row">
+    <div><label>Dip Direction (0–360°)</label><input type="number" id="dipDir_fp" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('fp')"></div>
+    <div><label>Manteo (0–90°)</label><input type="number" id="dip_fp" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('fp')"></div>
+  </div>
+  <div class="derived" id="derived_fp">Strike RHR: — · Cuadrante: —</div>
+
+  <label>Lineación de estría — modo de registro</label>
+  <div class="radio-row">
+    <label class="opt ${rakeMode?'on':''}"><input type="radio" name="striaeMode" value="rake" ${rakeMode?'checked':''} onchange="onStriaeModeChange(this)">Rake / Pitch</label>
+    <label class="opt ${!rakeMode?'on':''}"><input type="radio" name="striaeMode" value="trendplunge" ${!rakeMode?'checked':''} onchange="onStriaeModeChange(this)">Trend / Plunge</label>
+  </div>
+  <div id="rakeBlock" style="display:${rakeMode?'':'none'}">
+    <div class="numfield-row">
+      <div><label>Rake / Pitch (0–90°)</label><input type="number" id="f_rake" min="0" max="90" value="${m.rake??''}"></div>
+      <div><label>Cuadrante de referencia</label>
+        <select id="f_rakeQuad">${['N','NE','E','SE','S','SO','O','NO'].map(q=>`<option ${m.rakeQuadrant===q?'selected':''}>${q}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="field-help">Ángulo medido sobre el plano de falla desde el extremo del rumbo indicado.</div>
+  </div>
+  <div id="tpBlock" style="display:${!rakeMode?'':'none'}">
+    ${renderSensorPanel('linear','fl')}
+    <div class="numfield-row">
+      <div><label>Trend estría (0–360°)</label><input type="number" id="trend_fl" min="0" max="360" value="${m.trend??''}"></div>
+      <div><label>Plunge estría (0–90°)</label><input type="number" id="plunge_fl" min="0" max="90" value="${m.plunge??''}"></div>
+    </div>
+  </div>
+
+  <label>Sentido de movimiento</label>
+  <select id="f_sense">${FAULT_SENSES.map(s=>`<option ${m.sense===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Calidad cinemática</label>
+  <select id="f_senseQuality">${KIN_QUALITY.map(s=>`<option ${m.senseQuality===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Criterio cinemático observado</label>
+  <div class="check-grid">
+    ${KIN_CRITERIA.map(c=>`<label class="check-item"><input type="checkbox" value="${c}" ${((m.criteria||[]).includes(c))?'checked':''} class="crit-chk">${c}</label>`).join('')}
+  </div>
+  `;
+}
+function onStriaeModeChange(inputEl){
+  const mode=inputEl.value;
+  const row=inputEl.closest('.radio-row');
+  row.querySelectorAll('label.opt').forEach(l=>l.classList.remove('on'));
+  inputEl.closest('label').classList.add('on');
+  document.getElementById('rakeBlock').style.display = mode==='rake'?'':'none';
+  document.getElementById('tpBlock').style.display = mode==='trendplunge'?'':'none';
+}
+
+function renderContactFields(m){
+  return `
+  <label>Tipo de contacto</label>
+  <select id="f_contactType">${CONTACT_TYPES.map(s=>`<option ${m.contactType===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Actitud del contacto (opcional)</label>
+  ${renderSensorPanel('planar','c1')}
+  <div class="numfield-row">
+    <div><label>Dip Direction</label><input type="number" id="dipDir_c1" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('c1')"></div>
+    <div><label>Manteo</label><input type="number" id="dip_c1" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('c1')"></div>
+  </div>
+  <div class="derived" id="derived_c1">Strike RHR: — · Cuadrante: —</div>
+
+  <div class="grid2">
+    <div><label>Litología de techo</label><input type="text" id="f_lithoTop" value="${esc(m.lithoTop||'')}"></div>
+    <div><label>Litología de piso</label><input type="text" id="f_lithoBottom" value="${esc(m.lithoBottom||'')}"></div>
+  </div>
+
+  <div class="section-hdr"><h3>Cálculo de espesor real</h3></div>
+  <div class="grid2">
+    <div><label>Espesor aparente (m)</label><input type="number" step="0.01" id="f_appThickness" value="${m.appThickness??''}" oninput="calcThickness()"></div>
+    <div><label>Manteo de la capa (°)</label><input type="number" id="f_bedDip" value="${m.bedDip ?? m.dip ?? ''}" oninput="calcThickness()"></div>
+  </div>
+  <div class="grid2">
+    <div><label>Pendiente del terreno (°)</label><input type="number" id="f_slope" value="${m.slope??0}" oninput="calcThickness()"></div>
+    <div><label>Sentido pendiente vs. manteo</label>
+      <select id="f_slopeSense" onchange="calcThickness()">
+        <option value="same" ${m.slopeSense==='same'?'selected':''}>Igual sentido</option>
+        <option value="opp" ${(!m.slopeSense || m.slopeSense==='opp')?'selected':''}>Sentido opuesto</option>
+        <option value="flat" ${m.slopeSense==='flat'?'selected':''}>Terreno plano</option>
+      </select>
+    </div>
+  </div>
+  <div class="field-help">Espesor aparente medido en línea de pendiente, perpendicular al rumbo. Fórmula: e = Ta·sin(dip ± pendiente).</div>
+  <div class="derived" id="thicknessOut">Espesor real: — m</div>
+  `;
+}
+function calcThickness(){
+  const ta=parseFloat(document.getElementById('f_appThickness').value);
+  const dip=parseFloat(document.getElementById('f_bedDip').value);
+  const slope=parseFloat(document.getElementById('f_slope').value)||0;
+  const sense=document.getElementById('f_slopeSense').value;
+  const out=document.getElementById('thicknessOut');
+  if(isNaN(ta)||isNaN(dip)){ out.textContent='Espesor real: — m'; return null; }
+  let angle;
+  if(sense==='flat') angle=dip;
+  else if(sense==='same') angle=dip-slope;
+  else angle=dip+slope;
+  const t = ta*Math.sin(toRad(angle));
+  const val = Math.abs(round1(t));
+  out.textContent = 'Espesor real ≈ '+val+' m';
+  return val;
+}
+
+function renderVeinFields(m){
+  return `
+  <label>Actitud de veta / vetilla</label>
+  ${renderSensorPanel('planar','v1')}
+  <div class="numfield-row">
+    <div><label>Dip Direction</label><input type="number" id="dipDir_v1" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('v1')"></div>
+    <div><label>Manteo</label><input type="number" id="dip_v1" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('v1')"></div>
+  </div>
+  <div class="derived" id="derived_v1">Strike RHR: — · Cuadrante: —</div>
+
+  <div class="grid2">
+    <div><label>Espesor</label><input type="number" step="0.1" id="f_veinThick" value="${m.veinThickness??''}"></div>
+    <div><label>Unidad</label>
+      <select id="f_veinUnit"><option ${m.veinUnit==='mm'?'selected':''}>mm</option><option ${(!m.veinUnit||m.veinUnit==='cm')?'selected':''}>cm</option></select>
+    </div>
+  </div>
+  <label>Densidad de vetillas (vetillas/metro)</label>
+  <input type="number" step="0.1" id="f_veinDensity" value="${m.veinDensity??''}">
+
+  <label>Mineralogía de relleno</label>
+  <div class="check-grid">
+    ${VEIN_MINERALS.map(mn=>`<label class="check-item"><input type="checkbox" value="${mn}" ${((m.mineralogy||[]).includes(mn))?'checked':''} class="min-chk">${mn}</label>`).join('')}
+  </div>
+  <input type="text" id="f_mineralOther" placeholder="Otro mineral (opcional)" value="${esc(m.mineralOther||'')}" style="margin-top:8px;">
+
+  <label>Textura</label>
+  <select id="f_texture">${VEIN_TEXTURES.map(s=>`<option ${m.texture===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Ensamble de alteración hidrotermal</label>
+  <div class="check-grid">
+    ${ALTERATION_TYPES.map(a=>`<label class="check-item"><input type="checkbox" value="${a}" ${((m.alteration||[]).includes(a))?'checked':''} class="alt-chk">${a}</label>`).join('')}
+  </div>
+
+  <label>Intensidad de alteración</label>
+  <select id="f_intensity">${ALTERATION_INTENSITY.map(s=>`<option ${m.intensity===s?'selected':''}>${s}</option>`).join('')}</select>
+  `;
+}
+
+async function saveMeasurement(id, isNew){
+  const type=state.measType;
+  const obj={ id, stationId:state.stationId, type, timestamp: nowIso(),
+              notes: document.getElementById('f_notes').value };
+
+  if(type==='planar'){
+    obj.subtype=document.getElementById('f_subtype').value;
+    const isLinear=LINEAR_SUBTYPES.includes(obj.subtype);
+    if(isLinear){
+      obj.trend=numOrNull('trend_l1'); obj.plunge=numOrNull('plunge_l1');
+    } else {
+      obj.dipDir=numOrNull('dipDir_p1'); obj.dip=numOrNull('dip_p1');
+      obj.strike = obj.dipDir!=null? norm360(obj.dipDir-90) : null;
+    }
+  } else if(type==='fault'){
+    obj.dipDir=numOrNull('dipDir_fp'); obj.dip=numOrNull('dip_fp');
+    obj.strike = obj.dipDir!=null? norm360(obj.dipDir-90) : null;
+    const mode=document.querySelector('input[name=striaeMode]:checked').value;
+    obj.striaeMode=mode;
+    if(mode==='rake'){ obj.rake=numOrNull('f_rake'); obj.rakeQuadrant=document.getElementById('f_rakeQuad').value; }
+    else { obj.trend=numOrNull('trend_fl'); obj.plunge=numOrNull('plunge_fl'); }
+    obj.sense=document.getElementById('f_sense').value;
+    obj.senseQuality=document.getElementById('f_senseQuality').value;
+    obj.criteria=[...document.querySelectorAll('.crit-chk:checked')].map(c=>c.value);
+  } else if(type==='contact'){
+    obj.contactType=document.getElementById('f_contactType').value;
+    obj.dipDir=numOrNull('dipDir_c1'); obj.dip=numOrNull('dip_c1');
+    obj.strike = obj.dipDir!=null? norm360(obj.dipDir-90) : null;
+    obj.lithoTop=document.getElementById('f_lithoTop').value;
+    obj.lithoBottom=document.getElementById('f_lithoBottom').value;
+    obj.appThickness=numOrNull('f_appThickness');
+    obj.bedDip=numOrNull('f_bedDip');
+    obj.slope=numOrNull('f_slope');
+    obj.slopeSense=document.getElementById('f_slopeSense').value;
+    obj.trueThickness=calcThickness();
+  } else if(type==='vein'){
+    obj.dipDir=numOrNull('dipDir_v1'); obj.dip=numOrNull('dip_v1');
+    obj.strike = obj.dipDir!=null? norm360(obj.dipDir-90) : null;
+    obj.veinThickness=numOrNull('f_veinThick');
+    obj.veinUnit=document.getElementById('f_veinUnit').value;
+    obj.veinDensity=numOrNull('f_veinDensity');
+    obj.mineralogy=[...document.querySelectorAll('.min-chk:checked')].map(c=>c.value);
+    obj.mineralOther=document.getElementById('f_mineralOther').value;
+    obj.texture=document.getElementById('f_texture').value;
+    obj.alteration=[...document.querySelectorAll('.alt-chk:checked')].map(c=>c.value);
+    obj.intensity=document.getElementById('f_intensity').value;
+  }
+  await dbPut('measurements', obj);
+  toast('Registro guardado');
+  Nav.station(state.stationId);
+}
+function numOrNull(id){ const v=parseFloat(document.getElementById(id)?.value); return isNaN(v)?null:v; }
+
+/* =========================================================
+   VISTA: EXPORTAR
+   ========================================================= */
+async function renderExport(){
+  const stations=await dbGetAll('stations');
+  const meas=await dbGetAll('measurements');
+  return `
+  <div class="topline"><div><h2>Exportar datos</h2><div class="sub">${stations.length} estaciones · ${meas.length} mediciones</div></div></div>
+  <div class="card">
+    <div class="card-title">CSV / Excel</div>
+    <div class="card-sub">Tabla estructurada con todas las mediciones, lista para abrir en Excel o Google Sheets.</div>
+    <button class="btn primary" style="margin-top:12px;" onclick="exportCSV()">⇩ Exportar CSV</button>
+  </div>
+  <div class="card">
+    <div class="card-title">GeoJSON</div>
+    <div class="card-sub">Puntos espaciales con propiedades estructurales, listos para importar en QGIS o ArcGIS.</div>
+    <button class="btn primary" style="margin-top:12px;" onclick="exportGeoJSON()">⇩ Exportar GeoJSON</button>
+  </div>
+  <div class="hint" style="margin-top:6px;">Los archivos se generan localmente en tu dispositivo; la app no envía datos a internet.</div>
+  `;
+}
+function structTypeLabel(m){
+  if(m.type==='planar') return m.subtype||'Estructura planar';
+  if(m.type==='fault') return 'Falla';
+  if(m.type==='contact') return 'Contacto - '+(m.contactType||'');
+  if(m.type==='vein') return 'Veta/Vetilla';
+  return m.type;
+}
+function csvEsc(v){ v=String(v??''); if(/[",\n]/.test(v)){ v='"'+v.replace(/"/g,'""')+'"'; } return v; }
+async function exportCSV(){
+  const stations=await dbGetAll('stations');
+  const measurements=await dbGetAll('measurements');
+  const stMap={}; stations.forEach(s=>stMap[s.id]=s);
+  const headers=['Station_ID','Timestamp','Lat','Lon','Alt','UTM_Zone','UTM_Hemisphere','UTM_Easting','UTM_Northing','Struct_Type','Strike','Dip','DipDir','Trend','Plunge','Rake','Sense','Contact_Type','Litho_Top','Litho_Bottom','True_Thickness','Vein_Thick','Vein_Density','Alteration','Notes'];
+  const rows=[headers.join(',')];
+  measurements.forEach(m=>{
+    const st=stMap[m.stationId]||{};
+    const u = utmLabel(st.lat, st.lon);
+    rows.push([
+      csvEsc(st.name||st.id||''), csvEsc(m.timestamp||st.timestamp||''),
+      st.lat??'', st.lon??'', st.alt??'',
+      u? u.zoneNumber:'', u? u.hemisphere:'', u? Math.round(u.easting):'', u? Math.round(u.northing):'',
+      csvEsc(structTypeLabel(m)),
+      m.strike!=null?round1(m.strike):'', m.dip!=null?round1(m.dip):'', m.dipDir!=null?round1(m.dipDir):'',
+      m.trend!=null?round1(m.trend):'', m.plunge!=null?round1(m.plunge):'', m.rake??'',
+      csvEsc(m.sense||''), csvEsc(m.contactType||''), csvEsc(m.lithoTop||''), csvEsc(m.lithoBottom||''),
+      m.trueThickness??'', m.veinThickness??'', m.veinDensity??'',
+      csvEsc((m.alteration||[]).join('; ')), csvEsc(m.notes||'')
+    ].join(','));
+  });
+  downloadFile('\uFEFF'+rows.join('\r\n'), 'GeoFieldCore_'+dateStamp()+'.csv', 'text/csv;charset=utf-8');
+  toast('CSV exportado');
+}
+async function exportGeoJSON(){
+  const stations=await dbGetAll('stations');
+  const measurements=await dbGetAll('measurements');
+  const stMap={}; stations.forEach(s=>stMap[s.id]=s);
+  const features=measurements.filter(m=>{ const s=stMap[m.stationId]; return s && s.lat!=null && s.lon!=null; }).map(m=>{
+    const st=stMap[m.stationId];
+    const u = utmLabel(st.lat, st.lon);
+    return {
+      type:'Feature',
+      geometry:{ type:'Point', coordinates:[Number(st.lon), Number(st.lat), st.alt!=null?Number(st.alt):0] },
+      properties:{
+        Station_ID: st.name||st.id, Timestamp: m.timestamp||st.timestamp,
+        UTM_Zone: u? u.zoneNumber:null, UTM_Hemisphere: u? u.hemisphere:null,
+        UTM_Easting: u? Math.round(u.easting):null, UTM_Northing: u? Math.round(u.northing):null,
+        Struct_Type: structTypeLabel(m),
+        Strike: m.strike!=null?round1(m.strike):null, Dip: m.dip!=null?round1(m.dip):null, DipDir: m.dipDir!=null?round1(m.dipDir):null,
+        Trend: m.trend!=null?round1(m.trend):null, Plunge: m.plunge!=null?round1(m.plunge):null, Rake: m.rake??null,
+        Sense: m.sense||null, Contact_Type: m.contactType||null,
+        Litho_Top: m.lithoTop||null, Litho_Bottom: m.lithoBottom||null,
+        True_Thickness: m.trueThickness??null,
+        Vein_Thick: m.veinThickness??null, Vein_Density: m.veinDensity??null,
+        Alteration: (m.alteration||[]).join('; ')||null,
+        Notes: m.notes||null
+      }
+    };
+  });
+  const fc={ type:'FeatureCollection', features };
+  downloadFile(JSON.stringify(fc,null,2), 'GeoFieldCore_'+dateStamp()+'.geojson', 'application/geo+json');
+  toast('GeoJSON exportado');
+}
+
+/* =========================================================
+   VISTA: AJUSTES
+   ========================================================= */
+function renderSettings(){
+  const protoWarn = !IS_SECURE ? `
+  <div class="card" style="border-color:#5c2f2c;background:var(--danger-dim);">
+    <div class="card-title" style="color:#ffd7d3;">⚠ GPS y sensores bloqueados</div>
+    <div class="card-sub" style="color:#ffd7d3;">
+      Estás abriendo la app como <code>${esc(location.protocol)}//...</code>. Los navegadores solo permiten
+      geolocalización y sensores de movimiento en <b>HTTPS</b> o en <b>localhost</b> — es una restricción de seguridad
+      del navegador, no de esta app.
+    </div>
+    <div class="hint" style="color:#ffd7d3;margin-top:8px;">
+      Cómo solucionarlo:<br>
+      1) Sube este archivo a un hosting con HTTPS (ej. GitHub Pages, Netlify, Vercel) y ábrelo desde ahí, o<br>
+      2) Sírvelo desde un servidor local en tu red y ábrelo como <code>http://localhost:PUERTO</code>, o<br>
+      3) En Chrome/Android puedes probar visitando <code>chrome://flags</code> y habilitando "Insecure origins treated as secure" agregando tu IP local (solo para pruebas).
+    </div>
+  </div>` : '';
+  return `
+  <div class="topline"><div><h2>Ajustes</h2><div class="sub">Sensores, GPS y datos</div></div></div>
+  ${protoWarn}
+  <div class="card">
+    <div class="card-title">Sensores de orientación</div>
+    <div class="card-sub">Estado: ${esc(sensorStatusLabel())}</div>
+    ${sensorState.errorMsg? `<div class="hint" style="color:var(--danger);margin-top:6px;">${esc(sensorState.errorMsg)}</div>`:''}
+    <button class="btn primary" style="margin-top:12px;" onclick="requestSensorPermission()">📡 Activar / solicitar permiso</button>
+    <div class="hint">En iPhone, iOS pedirá autorización explícita la primera vez (botón de arriba). Calibra moviendo el teléfono en forma de ocho si la brújula del sistema lo solicita. Revisa también que el sitio tenga permiso de "Movimiento y orientación" en la configuración del navegador.</div>
+  </div>
+  <div class="card">
+    <div class="card-title">GPS</div>
+    <div class="card-sub">Estado: ${esc(gpsStatusLabel())}</div>
+    ${gpsState.errorMsg? `<div class="hint" style="color:var(--danger);margin-top:6px;">${esc(gpsState.errorMsg)}</div>`:''}
+    ${gpsState.lat!=null? `<div class="hint" style="font-family:var(--mono)">${gpsState.lat.toFixed(6)}, ${gpsState.lon.toFixed(6)} · ±${Math.round(gpsState.accuracy||0)} m</div>`:''}
+    <button class="btn ghost small" style="width:100%;margin-top:10px;" onclick="initGPS(); toast('Reintentando GPS…')">↻ Reintentar GPS</button>
+    <div class="hint">Verifica también que la ubicación (GPS) del sistema esté activada y que le hayas dado permiso al navegador.</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Base de datos local</div>
+    <div class="card-sub">Todos los datos se guardan en este dispositivo mediante IndexedDB. No se envía información a internet.</div>
+    <button class="btn danger" style="margin-top:12px;" onclick="wipeAllData()">🗑 Borrar toda la base de datos</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Acerca de</div>
+    <div class="card-sub">GeoField Core · Libreta digital de geología estructural de terreno.<br>App 100% offline, un solo archivo, sin dependencias externas.</div>
+  </div>
+  `;
+}
+async function wipeAllData(){
+  if(!confirm('Esto eliminará TODAS las estaciones y mediciones guardadas en este dispositivo. ¿Continuar?')) return;
+  const stations=await dbGetAll('stations');
+  for(const s of stations){ await dbDeleteByStation(s.id); await dbDelete('stations', s.id); }
+  toast('Base de datos borrada');
+  Nav.home();
+}
+
+/* =========================================================
+   ARRANQUE
+   ========================================================= */
+(async function init(){
+  await openDB();
+  initGPS();
+  initSensors();
+  updateTopbarStatus();
+  setInterval(updateTopbarStatus, 3000);
+  render();
+})();
+</script>
+</body>
+</html>
