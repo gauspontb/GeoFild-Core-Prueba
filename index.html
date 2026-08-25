@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#14181c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>GeoField Core</title>
+<link rel="manifest" href='data:application/manifest+json,{"name":"GeoField Core","short_name":"GeoField","start_url":".","display":"standalone","background_color":"%2314181c","theme_color":"%2314181c"}'>
+<style>
+  :root{
+    --bg:#14181c;
+    --surface:#1c2227;
+    --surface-2:#232a30;
+    --border:#333c44;
+    --border-soft:#2a3239;
+    --text:#eef2f5;
+    --text-dim:#8a97a3;
+    --text-faint:#5c6770;
+    --accent:#e8a33d;
+    --accent-dim:#7a5a25;
+    --accent-text:#1a1400;
+    --danger:#e0645c;
+    --danger-dim:#4a2422;
+    --ok:#5fb583;
+    --warn:#e8a33d;
+    --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --radius: 10px;
+    --topbar-h: 52px;
+    --navbar-h: 60px;
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg); color:var(--text);
+    font-family:var(--sans);
+    touch-action:manipulation;
+    overscroll-behavior-y:none;
+    -webkit-text-size-adjust:100%;
+  }
+  body{ display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; }
+  input,select,textarea,button{ font-family:inherit; }
+  h1,h2,h3,p{ margin:0; }
+  ::selection{ background:var(--accent-dim); }
+
+  #topbar{
+    flex:0 0 auto;
+    padding-top:var(--safe-t);
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:10px;
+    height:calc(var(--topbar-h) + var(--safe-t));
+    padding-left:14px; padding-right:10px;
+  }
+  #topbar .brand{ display:flex; flex-direction:column; line-height:1.1; margin-right:auto; }
+  #topbar .brand b{ font-size:15px; letter-spacing:.3px; }
+  #topbar .brand span{ font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.8px; }
+  .status-dot{ width:9px; height:9px; border-radius:50%; display:inline-block; background:var(--text-faint); box-shadow:0 0 0 3px rgba(255,255,255,0.03); }
+  .status-dot.ok{ background:var(--ok); }
+  .status-dot.warn{ background:var(--warn); animation:pulse 1.4s infinite; }
+  .status-dot.err{ background:var(--danger); }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .status-chip{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); padding:6px 8px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border-soft); }
+  .icon-btn{ width:36px; height:36px; border-radius:8px; border:1px solid var(--border-soft); background:var(--surface-2); color:var(--text); display:flex; align-items:center; justify-content:center; font-size:16px; cursor:pointer; }
+
+  #app{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px 14px calc(24px + var(--safe-b)) 14px; }
+
+  #navbar{
+    flex:0 0 auto;
+    display:flex;
+    background:var(--surface);
+    border-top:1px solid var(--border);
+    padding-bottom:var(--safe-b);
+    height:calc(var(--navbar-h) + var(--safe-b));
+  }
+  .nav-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    background:transparent; border:none; color:var(--text-faint); font-size:10px; letter-spacing:.3px; cursor:pointer;
+  }
+  .nav-btn .ic{ font-size:19px; }
+  .nav-btn.active{ color:var(--accent); }
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    min-height:48px; padding:10px 16px; border-radius:var(--radius);
+    border:1px solid var(--border); background:var(--surface-2); color:var(--text);
+    font-size:15px; font-weight:600; width:100%; cursor:pointer;
+  }
+  .btn:active{ filter:brightness(1.15); }
+  .btn.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+  .btn.danger{ background:var(--danger-dim); color:#ffd7d3; border-color:#5c2f2c; }
+  .btn.ghost{ background:transparent; }
+  .btn.small{ min-height:38px; padding:6px 12px; font-size:13px; width:auto; }
+  .btn-row{ display:flex; gap:10px; }
+  .btn-row .btn{ flex:1; }
+
+  .fab{
+    position:fixed; right:calc(18px); bottom:calc(var(--navbar-h) + var(--safe-b) + 18px);
+    width:56px; height:56px; border-radius:50%; background:var(--accent); color:var(--accent-text);
+    border:none; font-size:28px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(0,0,0,.4); z-index:20; cursor:pointer;
+  }
+
+  .card{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); padding:14px; margin-bottom:12px; cursor:pointer; }
+  .card-title{ font-size:16px; font-weight:700; }
+  .card-sub{ font-size:12px; color:var(--text-dim); margin-top:2px; }
+  .badge-row{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .badge{ font-size:10.5px; background:var(--surface-2); color:var(--text-dim); border:1px solid var(--border-soft); padding:3px 8px; border-radius:20px; }
+  .badge.accent{ color:var(--accent); border-color:var(--accent-dim); }
+
+  .empty{ text-align:center; padding:40px 20px; color:var(--text-faint); }
+  .empty .big{ font-size:38px; margin-bottom:10px; }
+
+  label{ display:block; font-size:12px; color:var(--text-dim); margin:14px 0 6px; font-weight:600; letter-spacing:.2px; }
+  label:first-child{ margin-top:0; }
+  .hint{ font-size:11px; color:var(--text-faint); margin-top:4px; }
+  input[type=text], input[type=number], input[type=datetime-local], select, textarea{
+    width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:12px 12px; font-size:15px; min-height:46px;
+  }
+  select{ -webkit-appearance:none; appearance:none; background-image:linear-gradient(45deg,transparent 50%,var(--text-dim) 50%),linear-gradient(135deg,var(--text-dim) 50%,transparent 50%); background-position:calc(100% - 18px) center, calc(100% - 13px) center; background-size:5px 5px,5px 5px; background-repeat:no-repeat; }
+  textarea{ min-height:70px; resize:vertical; }
+  input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--accent); }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .switch-row{ display:flex; align-items:center; justify-content:space-between; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:10px 12px; margin-top:10px; }
+  .switch{ position:relative; width:46px; height:26px; }
+  .switch input{ opacity:0; width:100%; height:100%; position:absolute; margin:0; cursor:pointer; }
+  .switch .track{ position:absolute; inset:0; background:var(--border); border-radius:20px; transition:.15s; }
+  .switch .thumb{ position:absolute; top:3px; left:3px; width:20px; height:20px; background:#fff; border-radius:50%; transition:.15s; }
+  .switch input:checked + .track{ background:var(--accent); }
+  .switch input:checked + .track .thumb{ transform:translateX(20px); }
+
+  .section-hdr{ display:flex; align-items:center; justify-content:space-between; margin:20px 0 10px; }
+  .section-hdr h3{ font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-dim); }
+
+  details.accordion{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); margin-bottom:10px; overflow:hidden; }
+  details.accordion > summary{ list-style:none; padding:14px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+  details.accordion > summary::-webkit-details-marker{ display:none; }
+  details.accordion .sum-l{ display:flex; align-items:center; gap:10px; font-weight:700; font-size:14.5px; }
+  details.accordion .chev{ color:var(--text-faint); transition:.15s; }
+  details.accordion[open] .chev{ transform:rotate(90deg); }
+  .accordion-body{ padding:0 14px 14px; }
+  .mini-row{ display:flex; align-items:center; justify-content:space-between; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:10px 12px; margin-top:8px; }
+  .mini-row .ml{ font-size:13px; }
+  .mini-row .ml b{ display:block; font-size:14px; }
+  .mini-row .ml span{ color:var(--text-dim); font-size:11.5px; font-family:var(--mono); }
+  .mini-actions{ display:flex; gap:6px; }
+  .icon-sm{ width:32px; height:32px; border-radius:7px; border:1px solid var(--border-soft); background:var(--bg); color:var(--text-dim); display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; }
+
+  .topline{ display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .back-btn{ width:38px; height:38px; border-radius:9px; background:var(--surface-2); border:1px solid var(--border-soft); color:var(--text); font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .topline h2{ font-size:18px; }
+  .topline .sub{ font-size:11px; color:var(--text-dim); }
+
+  .sensor-box{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); padding:14px; margin:14px 0; }
+  .sensor-box.scale-lg{ padding:20px; border-width:2px; }
+  .sensor-box.scale-xl{ padding:26px; border-width:2px; }
+  .sensor-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .sensor-head b{ font-size:13px; }
+  .dial-wrap{ display:flex; gap:14px; align-items:center; margin-top:10px; }
+  .dial-readout{ flex:1; }
+  .readout-line{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:12.5px; padding:3px 0; border-bottom:1px dashed var(--border-soft); }
+  .readout-line b{ color:var(--accent); font-size:15px; }
+
+  .scale-lg .readout-line{ font-size:14px; padding:5px 0; }
+  .scale-lg .readout-line b{ font-size:18px; }
+  .scale-xl .readout-line{ font-size:16px; padding:7px 0; }
+  .scale-xl .readout-line b{ font-size:22px; }
+
+  .numfield-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .derived{ margin-top:10px; font-size:11.5px; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:8px 10px; font-family:var(--mono); }
+
+  .toast{ position:fixed; left:50%; bottom:calc(var(--navbar-h) + var(--safe-b) + 16px); transform:translateX(-50%); background:var(--surface-2); border:1px solid var(--accent-dim); color:var(--text); padding:10px 16px; border-radius:20px; font-size:13px; z-index:50; box-shadow:0 4px 16px rgba(0,0,0,.4); }
+</style>
+</head>
+<body>
+
+  <div id="topbar">
+    <div class="brand"><b>GeoField Core</b><span id="stationCountLabel">...</span></div>
+    <div class="status-chip"><span id="gpsDot" class="status-dot"></span>GPS</div>
+    <div class="status-chip"><span id="sensorDot" class="status-dot"></span>Sensor</div>
+    <button class="icon-btn" onclick="Nav.settings()" title="Ajustes">⚙</button>
+  </div>
+
+  <main id="app"></main>
+
+  <nav id="navbar">
+    <button class="nav-btn" id="navHome" onclick="Nav.home()"><span class="ic">📁</span><span id="navHomeTxt">Campañas</span></button>
+    <button class="nav-btn" id="navExport" onclick="Nav.exportView()"><span class="ic">⇩</span><span id="navExportTxt">Exportar</span></button>
+    <button class="nav-btn" id="navSettings" onclick="Nav.settings()"><span class="ic">⚙</span><span id="navSettingsTxt">Ajustes</span></button>
+  </nav>
+
+<script>
+"use strict";
+
+const I18N = {
+  es: {
+    campaigns: 'Campañas',
+    campaign: 'Campaña',
+    newCampaign: 'Nueva campaña',
+    editCampaign: 'Editar campaña',
+    noCampaigns: 'No hay campañas registradas todavía.',
+    campName: 'Nombre de la campaña / expedición',
+    stationsInCamp: 'Estaciones en esta campaña',
+    stations: 'estación(es)',
+    station: 'Estación',
+    newStation: 'Nueva estación',
+    editStation: 'Editar estación',
+    noStations: 'No hay estaciones en esta campaña.',
+    addStationBtn: '+ Añadir estación a esta campaña',
+    addCampBtn: '+ Crear primera campaña',
+    export: 'Exportar datos',
+    settings: 'Ajustes',
+    save: 'Guardar',
+    cancel: 'Cancelar',
+    delete: 'Eliminar',
+    lat: 'Latitud',
+    lon: 'Longitud',
+    alt: 'Altitud (m)',
+    notes: 'Notas',
+    captureSensor: '📍 Capturar lectura',
+    compassSize: 'Tamaño de la brújula / visor',
+    sensorBoxSize: 'Tamaño del contenedor de toma de datos',
+    lang: 'Idioma',
+    exportScope: 'Alcance de exportación',
+    exportAll: 'Todo el proyecto (Todas las campañas)',
+    selectCamp: 'Selecciona una campaña',
+    exportCsv: '⇩ Exportar CSV',
+    exportGeoJson: '⇩ Exportar GeoJSON',
+    structural: 'Estructural',
+    fault: 'Falla',
+    contact: 'Contacto',
+    vein: 'Veta',
+    strikeRHR: 'Strike (RHR)',
+    quadrant: 'Cuadrante',
+    dipTowards: 'Manteo hacia',
+    trueThick: 'Espesor real',
+    manual: 'Manual',
+    auto: 'Auto',
+    useGps: '📍 Usar posición GPS actual'
+  },
+  en: {
+    campaigns: 'Campaigns',
+    campaign: 'Campaign',
+    newCampaign: 'New Campaign',
+    editCampaign: 'Edit Campaign',
+    noCampaigns: 'No campaigns recorded yet.',
+    campName: 'Campaign / Expedition Name',
+    stationsInCamp: 'Stations in this campaign',
+    stations: 'station(s)',
+    station: 'Station',
+    newStation: 'New Station',
+    editStation: 'Edit Station',
+    noStations: 'No stations in this campaign.',
+    addStationBtn: '+ Add station to this campaign',
+    addCampBtn: '+ Create first campaign',
+    export: 'Export Data',
+    settings: 'Settings',
+    save: 'Save',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    lat: 'Latitude',
+    lon: 'Longitude',
+    alt: 'Altitude (m)',
+    notes: 'Notes',
+    captureSensor: '📍 Capture Reading',
+    compassSize: 'Compass / Dial Size',
+    sensorBoxSize: 'Measurement Container Size',
+    lang: 'Language',
+    exportScope: 'Export Scope',
+    exportAll: 'Entire project (All campaigns)',
+    selectCamp: 'Select a campaign',
+    exportCsv: '⇩ Export CSV',
+    exportGeoJson: '⇩ Export GeoJSON',
+    structural: 'Structural',
+    fault: 'Fault',
+    contact: 'Contact',
+    vein: 'Vein',
+    strikeRHR: 'Strike (RHR)',
+    quadrant: 'Quadrant',
+    dipTowards: 'Dip direction',
+    trueThick: 'True thickness',
+    manual: 'Manual',
+    auto: 'Auto',
+    useGps: '📍 Use current GPS position'
+  }
+};
+
+let currentLang = localStorage.getItem('geo_lang') || 'es';
+let compassScale = localStorage.getItem('geo_compass_scale') || 'md';
+let boxScale = localStorage.getItem('geo_box_scale') || 'md';
+
+function t(key){ return I18N[currentLang]?.[key] || I18N.es[key] || key; }
+
+function uid(){ return 'id_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
+function nowIso(){ return new Date().toISOString(); }
+function fmtDate(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleDateString(currentLang==='es'?'es-CL':'en-US',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString(currentLang==='es'?'es-CL':'en-US',{hour:'2-digit',minute:'2-digit'}); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toRad(d){ return d*Math.PI/180; }
+function toDeg(r){ return r*180/Math.PI; }
+function norm360(x){ return ((x%360)+360)%360; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function roundInt(v){ return v==null||isNaN(v)?null:Math.round(v); }
+
+function toast(msg){
+  const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
+  document.body.appendChild(el); setTimeout(()=>el.remove(),2200);
+}
+function dateStamp(){ const d=new Date(); return d.toISOString().slice(0,19).replace(/[:T]/g,'-'); }
+function downloadFile(content, filename, mime){
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+}
+
+function computeOrientation(alphaDeg, betaDeg, gammaDeg){
+  const a=toRad(alphaDeg), b=toRad(betaDeg), g=toRad(gammaDeg);
+  const cA=Math.cos(a), sA=Math.sin(a);
+  const cB=Math.cos(b), sB=Math.sin(b);
+  const cG=Math.cos(g), sG=Math.sin(g);
+  const E = cA*sG + cG*sA*sB;
+  const N = sA*sG - cA*cG*sB;
+  const U = cB*cG;
+  const dip = toDeg(Math.acos(clamp(U,-1,1)));
+  const dipDir = norm360(toDeg(Math.atan2(E,N)) + 180);
+  const strike = norm360(dipDir - 90);
+  const Ey = -cB*sA, Ny = cA*cB, Uy = sB;
+  let trend = norm360(toDeg(Math.atan2(Ey,Ny)));
+  let plunge = toDeg(-Math.asin(clamp(Uy,-1,1)));
+  if(plunge<0){ trend=norm360(trend+180); plunge=-plunge; }
+  return { dip: roundInt(dip), dipDir: roundInt(dipDir), strike: roundInt(strike), trend: roundInt(trend), plunge: roundInt(plunge) };
+}
+function toQuadrant(strikeAz){
+  if(strikeAz==null||isNaN(strikeAz)) return '—';
+  let s = norm360(strikeAz) % 180;
+  let ns, ew, angle;
+  if(s<=90){ ns='N'; ew='E'; angle=s; } else { ns='S'; ew='W'; angle=180-s; }
+  angle=Math.round(angle);
+  if(angle===0) return 'N-S';
+  if(angle===90) return 'E-W';
+  return ns+angle+'°'+(ew==='W'?(currentLang==='es'?'O':'W'):'E');
+}
+function dipDirQuadrant(dipDirAz){
+  if(dipDirAz==null||isNaN(dipDirAz)) return '—';
+  const az=norm360(dipDirAz);
+  const dirsEs=[['N',0],['NNE',22.5],['NE',45],['ENE',67.5],['E',90],['ESE',112.5],['SE',135],['SSE',157.5],
+                ['S',180],['SSO',202.5],['SO',225],['OSO',247.5],['O',270],['ONO',292.5],['NO',315],['NNO',337.5]];
+  const dirsEn=[['N',0],['NNE',22.5],['NE',45],['ENE',67.5],['E',90],['ESE',112.5],['SE',135],['SSE',157.5],
+                ['S',180],['SSW',202.5],['SW',225],['WSW',247.5],['W',270],['WNW',292.5],['NW',315],['NNW',337.5]];
+  const dirs = currentLang==='en'? dirsEn : dirsEs;
+  let best=dirs[0], bd=999;
+  dirs.forEach(d=>{ let diff=Math.abs(az-d[1]); if(diff>180) diff=360-diff; if(diff<bd){bd=diff; best=d;} });
+  return best[0];
+}
+
+const UTM_A=6378137.0, UTM_ECC2=0.00669438, UTM_K0=0.9996;
+function llToUTM(lat, lon){
+  const latRad=toRad(lat), lonRad=toRad(lon);
+  const zoneNumber = Math.floor((lon+180)/6)+1;
+  const lonOrigin = (zoneNumber-1)*6-180+3;
+  const lonOriginRad = toRad(lonOrigin);
+  const eccPrime2 = UTM_ECC2/(1-UTM_ECC2);
+  const N = UTM_A/Math.sqrt(1-UTM_ECC2*Math.sin(latRad)*Math.sin(latRad));
+  const T = Math.tan(latRad)*Math.tan(latRad);
+  const C = eccPrime2*Math.cos(latRad)*Math.cos(latRad);
+  const A = Math.cos(latRad)*(lonRad-lonOriginRad);
+  const M = UTM_A*((1-UTM_ECC2/4-3*UTM_ECC2*UTM_ECC2/64-5*Math.pow(UTM_ECC2,3)/256)*latRad
+            - (3*UTM_ECC2/8+3*UTM_ECC2*UTM_ECC2/32+45*Math.pow(UTM_ECC2,3)/1024)*Math.sin(2*latRad)
+            + (15*UTM_ECC2*UTM_ECC2/256+45*Math.pow(UTM_ECC2,3)/1024)*Math.sin(4*latRad)
+            - (35*Math.pow(UTM_ECC2,3)/3072)*Math.sin(6*latRad));
+  let easting = UTM_K0*N*(A+(1-T+C)*Math.pow(A,3)/6
+              + (5-18*T+T*T+72*C-58*eccPrime2)*Math.pow(A,5)/120) + 500000.0;
+  let northing = UTM_K0*(M+N*Math.tan(latRad)*(A*A/2+(5-T+9*C+4*C*C)*Math.pow(A,4)/24
+              + (61-58*T+T*T+600*C-330*eccPrime2)*Math.pow(A,6)/720));
+  const hemisphere = lat<0 ? 'S' : 'N';
+  if(lat<0) northing += 10000000.0;
+  return { zoneNumber, hemisphere, easting: Math.round(easting), northing: Math.round(northing) };
+}
+function utmToLL(easting, northing, zoneNumber, hemisphere){
+  const e1=(1-Math.sqrt(1-UTM_ECC2))/(1+Math.sqrt(1-UTM_ECC2));
+  const x=easting-500000.0;
+  let y=northing;
+  if(hemisphere==='S') y -= 10000000.0;
+  const lonOrigin=(zoneNumber-1)*6-180+3;
+  const eccPrime2=UTM_ECC2/(1-UTM_ECC2);
+  const M=y/UTM_K0;
+  const mu=M/(UTM_A*(1-UTM_ECC2/4-3*UTM_ECC2*UTM_ECC2/64-5*Math.pow(UTM_ECC2,3)/256));
+  const phi1 = mu + (3*e1/2-27*Math.pow(e1,3)/32)*Math.sin(2*mu)
+             + (21*e1*e1/16-55*Math.pow(e1,4)/32)*Math.sin(4*mu)
+             + (151*Math.pow(e1,3)/96)*Math.sin(6*mu)
+             + (1097*Math.pow(e1,4)/512)*Math.sin(8*mu);
+  const N1=UTM_A/Math.sqrt(1-UTM_ECC2*Math.sin(phi1)*Math.sin(phi1));
+  const T1=Math.tan(phi1)*Math.tan(phi1);
+  const C1=eccPrime2*Math.cos(phi1)*Math.cos(phi1);
+  const R1=UTM_A*(1-UTM_ECC2)/Math.pow(1-UTM_ECC2*Math.sin(phi1)*Math.sin(phi1),1.5);
+  const D=x/(N1*UTM_K0);
+  let lat = phi1 - (N1*Math.tan(phi1)/R1)*(D*D/2
+          - (5+3*T1+10*C1-4*C1*C1-9*eccPrime2)*Math.pow(D,4)/24
+          + (61+90*T1+298*C1+45*T1*T1-252*eccPrime2-3*C1*C1)*Math.pow(D,6)/720);
+  let lon = (D-(1+2*T1+C1)*Math.pow(D,3)/6
+          + (5-2*C1+28*T1-3*C1*C1+8*eccPrime2+24*T1*T1)*Math.pow(D,5)/120)/Math.cos(phi1);
+  return { lat: Number(lat.toFixed(6)), lon: Number((lonOrigin+toDeg(lon)).toFixed(6)) };
+}
+function utmLabel(lat, lon){
+  if(lat==null||lon==null||isNaN(lat)||isNaN(lon)) return null;
+  const r=llToUTM(lat,lon);
+  return { text: r.easting+' E, '+r.northing+' N ('+(currentLang==='es'?'Huso ':'Zone ')+r.zoneNumber+r.hemisphere+')', ...r };
+}
+
+/* =========================================================
+   BASE DE DATOS
+   ========================================================= */
+const DB_NAME='geofieldcore_db', DB_VERSION=3;
+let DB=null;
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded=(e)=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains('campaigns')){
+        d.createObjectStore('campaigns',{keyPath:'id'});
+      }
+      if(!d.objectStoreNames.contains('stations')){
+        d.createObjectStore('stations',{keyPath:'id'});
+      }
+      if(!d.objectStoreNames.contains('measurements')){
+        d.createObjectStore('measurements',{keyPath:'id'});
+      }
+    };
+    req.onsuccess=(e)=>{ DB=e.target.result; resolve(DB); };
+    req.onerror=(e)=>reject(e.target.error);
+  });
+}
+function tx(store,mode){ return DB.transaction(store,mode).objectStore(store); }
+function dbPut(store,obj){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').put(obj); r.onsuccess=()=>res(obj); r.onerror=()=>rej(r.error); }); }
+function dbGet(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').get(id); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function dbGetAll(store){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); }); }
+function dbDelete(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
+
+async function dbGetByStation(stationId){
+  const all = await dbGetAll('measurements');
+  return all.filter(m => m.stationId === stationId);
+}
+async function dbGetByCampaign(campId){
+  const all = await dbGetAll('stations');
+  return all.filter(s => s.campaignId === campId);
+}
+async function dbDeleteStationCascade(stationId){
+  const meas = await dbGetByStation(stationId);
+  for(const m of meas) await dbDelete('measurements', m.id);
+  await dbDelete('stations', stationId);
+}
+async function dbDeleteCampaignCascade(campId){
+  const sts = await dbGetByCampaign(campId);
+  for(const s of sts) await dbDeleteStationCascade(s.id);
+  await dbDelete('campaigns', campId);
+}
+
+/* =========================================================
+   ESTADO GLOBAL Y SENSORES
+   ========================================================= */
+const state={ view:'campaigns', campId:null, stationId:null, measId:null, measType:null };
+const gpsState={ status:'idle', lat:null, lon:null, alt:null, accuracy:null, errorMsg:'' };
+const sensorState={ available:false, granted:null, status:'idle', errorMsg:'', last:null };
+let dialRAF=false;
+const IS_SECURE = window.isSecureContext === true;
+
+function requestSensorPermission(){
+  if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission().then(resp=>{
+      sensorState.granted = (resp==='granted');
+      if(sensorState.granted){ sensorState.status='pending'; attachOrientationListener(); }
+      render();
+    }).catch(()=>{ sensorState.granted=false; render(); });
+  } else {
+    sensorState.status='pending';
+    attachOrientationListener();
+    toast('Sensores activados');
+  }
+}
+let orientationHandlerAttached=false;
+function attachOrientationListener(){
+  if(orientationHandlerAttached) return;
+  orientationHandlerAttached=true;
+  const handler=(e)=>{
+    if(e.alpha==null && e.beta==null && e.gamma==null) return;
+    let alphaDeg = typeof e.webkitCompassHeading==='number'? norm360(360 - e.webkitCompassHeading) : (e.alpha||0);
+    sensorState.available=true;
+    sensorState.status='active';
+    sensorState.last = computeOrientation(alphaDeg, e.beta||0, e.gamma||0);
+    if(!dialRAF){
+      dialRAF=true;
+      requestAnimationFrame(()=>{ dialRAF=false; updateLiveDial(); updateTopbarStatus(); });
+    }
+  };
+  window.addEventListener('deviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation', handler);
+}
+function initSensors(){
+  if(!IS_SECURE || typeof DeviceOrientationEvent==='undefined') return;
+  if(typeof DeviceOrientationEvent.requestPermission!=='function'){ sensorState.status='pending'; attachOrientationListener(); }
+}
+function updateTopbarStatus(){
+  const gDot=document.getElementById('gpsDot');
+  if(gDot) gDot.className='status-dot'+(gpsState.status==='fix'?' ok':gpsState.status==='searching'?' warn':' err');
+  const sDot=document.getElementById('sensorDot');
+  if(sDot) sDot.className='status-dot'+(sensorState.status==='active'?' ok':(sensorState.status==='pending')?' warn':' err');
+}
+function initGPS(){
+  if(!IS_SECURE || !navigator.geolocation) return;
+  gpsState.status='searching';
+  navigator.geolocation.watchPosition(pos=>{
+    gpsState.status='fix';
+    gpsState.lat=pos.coords.latitude;
+    gpsState.lon=pos.coords.longitude;
+    gpsState.alt=pos.coords.altitude ? Math.round(pos.coords.altitude) : null;
+    gpsState.accuracy=pos.coords.accuracy ? Math.round(pos.coords.accuracy) : null;
+    updateTopbarStatus();
+  }, ()=>{ gpsState.status='unavailable'; updateTopbarStatus(); }, { enableHighAccuracy:true, maximumAge:4000, timeout:20000 });
+}
+
+function getDialDiameter(){
+  if(compassScale==='sm') return 90;
+  if(compassScale==='lg') return 160;
+  if(compassScale==='xl') return 210;
+  return 120;
+}
+
+function renderSensorPanel(mode, formKey){
+  const label = mode==='planar' 
+    ? (currentLang==='es'?'Modo plano (apoyar reverso del teléfono sobre superficie)':'Planar mode (back of phone on plane)')
+    : (currentLang==='es'?'Modo lineación (alinear borde con la línea)':'Linear mode (align edge with line)');
+  const dSize = getDialDiameter();
+  return `
+  <div class="sensor-box scale-${boxScale}" data-mode="${mode}" data-formkey="${formKey}">
+    <div class="sensor-head"><b>📡 ${currentLang==='es'?'Captura con sensores':'Sensor Capture'}</b>
+      <div class="switch-row" style="margin:0; padding:4px 8px;">
+        <span style="font-size:11px;color:var(--text-dim);">${t('manual')}</span>
+        <label class="switch"><input type="checkbox" id="manualToggle_${formKey}" onchange="onManualToggle('${formKey}')"><span class="track"><span class="thumb"></span></span></label>
+        <span style="font-size:11px;color:var(--text-dim);">${t('auto')}</span>
+      </div>
+    </div>
+    <div class="hint">${label}</div>
+    <div id="autoBlock_${formKey}">
+      <div class="dial-wrap" style="flex-wrap:wrap; justify-content:center;">
+        <svg id="dial_${formKey}" viewBox="0 0 140 140" width="${dSize}" height="${dSize}"></svg>
+        <div class="dial-readout" style="min-width:140px;">
+          <div class="readout-line"><span>Dip Dir.</span><b id="live_dipdir_${formKey}">—</b></div>
+          <div class="readout-line"><span>${currentLang==='es'?'Manteo':'Dip'}</span><b id="live_dip_${formKey}">—</b></div>
+          <div class="readout-line"><span>Trend</span><b id="live_trend_${formKey}">—</b></div>
+          <div class="readout-line"><span>Plunge</span><b id="live_plunge_${formKey}">—</b></div>
+        </div>
+      </div>
+      <button type="button" class="btn primary" style="margin-top:10px;" onclick="captureSensorReading('${formKey}','${mode}')">${t('captureSensor')}</button>
+    </div>
+  </div>`;
+}
+function onManualToggle(formKey){
+  const manual=document.getElementById('manualToggle_'+formKey).checked;
+  const block=document.getElementById('autoBlock_'+formKey);
+  if(block) block.style.display = manual ? 'none' : '';
+}
+function updateLiveDial(){
+  document.querySelectorAll('[id^="dial_"]').forEach(svg=>{
+    const formKey=svg.id.replace('dial_','');
+    const mode=svg.closest('.sensor-box')?.dataset.mode||'planar';
+    drawDial(svg, mode);
+    const r=sensorState.last;
+    const dd=document.getElementById('live_dipdir_'+formKey);
+    const dp=document.getElementById('live_dip_'+formKey);
+    const tr=document.getElementById('live_trend_'+formKey);
+    const pl=document.getElementById('live_plunge_'+formKey);
+    if(r && dd) dd.textContent = roundInt(r.dipDir)+'°';
+    if(r && dp) dp.textContent = roundInt(r.dip)+'°';
+    if(r && tr) tr.textContent = roundInt(r.trend)+'°';
+    if(r && pl) pl.textContent = roundInt(r.plunge)+'°';
+  });
+}
+function drawDial(svg, mode){
+  const r=sensorState.last;
+  const heading = r ? (mode==='planar'? r.dipDir : r.trend) : 0;
+  const mag = r ? (mode==='planar'? r.dip : r.plunge) : 0;
+  let ticks='';
+  for(let i=0;i<36;i++){
+    const ang=i*10, len = (i%3===0)?12:6;
+    const rad=toRad(ang);
+    const x1=70+58*Math.sin(rad), y1=70-58*Math.cos(rad);
+    const x2=70+(58-len)*Math.sin(rad), y2=70-(58-len)*Math.cos(rad);
+    ticks+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--border)" stroke-width="${i%9===0?2:1}"/>`;
+  }
+  const needleRad=toRad(heading);
+  const nx=70+46*Math.sin(needleRad), ny=70-46*Math.cos(needleRad);
+  const barW = clamp(mag/90,0,1)*100;
+  svg.innerHTML = `
+    <circle cx="70" cy="70" r="62" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1.5"/>
+    ${ticks}
+    <text x="70" y="16" text-anchor="middle" fill="var(--text-dim)" font-size="9">N</text>
+    <text x="124" y="74" text-anchor="middle" fill="var(--text-dim)" font-size="9">E</text>
+    <text x="70" y="130" text-anchor="middle" fill="var(--text-dim)" font-size="9">S</text>
+    <text x="16" y="74" text-anchor="middle" fill="var(--text-dim)" font-size="9">${currentLang==='es'?'O':'W'}</text>
+    <line x1="70" y1="70" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="70" cy="70" r="4" fill="var(--accent)"/>
+    <rect x="20" y="118" width="100" height="6" rx="3" fill="var(--surface)" stroke="var(--border)" />
+    <rect x="20" y="118" width="${barW}" height="6" rx="3" fill="var(--accent)" />
+  `;
+}
+function captureSensorReading(formKey, mode){
+  if(!sensorState.last){ toast(currentLang==='es'?'Sin datos de sensor':'No sensor data yet'); return; }
+  const r=sensorState.last;
+  if(mode==='planar'){
+    setVal('dipDir_'+formKey, roundInt(r.dipDir));
+    setVal('dip_'+formKey, roundInt(r.dip));
+    onOrientationInputChange(formKey);
+  } else {
+    setVal('trend_'+formKey, roundInt(r.trend));
+    setVal('plunge_'+formKey, roundInt(r.plunge));
+  }
+  toast(currentLang==='es'?'Lectura capturada':'Reading captured');
+}
+function setVal(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
+function onOrientationInputChange(formKey){
+  const dipDir=parseInt(document.getElementById('dipDir_'+formKey)?.value, 10);
+  const dip=parseInt(document.getElementById('dip_'+formKey)?.value, 10);
+  const out=document.getElementById('derived_'+formKey);
+  if(!out) return;
+  if(isNaN(dipDir)||isNaN(dip)){ out.textContent='Strike RHR: — · '+t('quadrant')+': —'; return; }
+  const strike=roundInt(norm360(dipDir-90));
+  out.innerHTML = `${t('strikeRHR')}: <b style="color:var(--accent)">${strike}°</b> &nbsp;·&nbsp; ${t('quadrant')}: <b style="color:var(--accent)">${toQuadrant(strike)}</b> &nbsp;·&nbsp; ${t('dipTowards')}: <b style="color:var(--accent)">${dipDirQuadrant(dipDir)}</b>`;
+}
+
+/* =========================================================
+   NAVEGACIÓN / ROUTER
+   ========================================================= */
+const Nav={
+  home(){ state.view='campaigns'; state.campId=null; state.stationId=null; render(); },
+  newCampaign(){ state.view='campForm'; state.campId=null; render(); },
+  editCampaign(id){ state.view='campForm'; state.campId=id; render(); },
+  campaign(id){ state.view='campaignDetail'; state.campId=id; state.stationId=null; render(); },
+  newStation(campId){ state.view='stationForm'; state.campId=campId; state.stationId=null; render(); },
+  editStation(id, campId){ state.view='stationForm'; state.campId=campId; state.stationId=id; render(); },
+  station(id, campId){ state.view='stationDetail'; state.stationId=id; if(campId) state.campId=campId; render(); },
+  newMeasurement(stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=null; render(); },
+  editMeasurement(id, stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=id; render(); },
+  exportView(){ state.view='export'; render(); },
+  settings(){ state.view='settings'; render(); },
+  back(){
+    if(state.view==='measForm') Nav.station(state.stationId, state.campId);
+    else if(state.view==='stationForm') { if(state.stationId) Nav.station(state.stationId, state.campId); else Nav.campaign(state.campId); }
+    else if(state.view==='stationDetail') { if(state.campId) Nav.campaign(state.campId); else Nav.home(); }
+    else Nav.home();
+  }
+};
+
+function setActiveNav(){
+  ['navHome','navExport','navSettings'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
+  if(['campaigns','campForm','campaignDetail','stationForm','stationDetail','measForm'].includes(state.view)) document.getElementById('navHome')?.classList.add('active');
+  if(state.view==='export') document.getElementById('navExport')?.classList.add('active');
+  if(state.view==='settings') document.getElementById('navSettings')?.classList.add('active');
+
+  document.getElementById('navHomeTxt').textContent = t('campaigns');
+  document.getElementById('navExportTxt').textContent = t('export');
+  document.getElementById('navSettingsTxt').textContent = t('settings');
+}
+
+async function render(){
+  const app=document.getElementById('app');
+  setActiveNav();
+  if(state.view==='campaigns') app.innerHTML = await renderCampaigns();
+  else if(state.view==='campForm') app.innerHTML = await renderCampaignForm();
+  else if(state.view==='campaignDetail') app.innerHTML = await renderCampaignDetail();
+  else if(state.view==='stationForm'){ app.innerHTML = await renderStationForm(); utmFromLatLon(); }
+  else if(state.view==='stationDetail') app.innerHTML = await renderStationDetail();
+  else if(state.view==='measForm'){ app.innerHTML = await renderMeasForm(); attachSensorInit(); postRenderMeasForm(); }
+  else if(state.view==='export') app.innerHTML = await renderExport();
+  else if(state.view==='settings') app.innerHTML = renderSettings();
+  window.scrollTo(0,0); app.scrollTop=0;
+}
+function attachSensorInit(){
+  document.querySelectorAll('[id^="dial_"]').forEach(svg=>{
+    const mode=svg.closest('.sensor-box')?.dataset.mode||'planar';
+    drawDial(svg, mode);
+  });
+}
+function postRenderMeasForm(){
+  const type=state.measType;
+  if(type==='planar') onOrientationInputChange('p1');
+  else if(type==='fault') onOrientationInputChange('fp');
+  else if(type==='contact'){ onOrientationInputChange('c1'); calcThickness(); }
+  else if(type==='vein') onOrientationInputChange('v1');
+}
+
+/* =========================================================
+   VISTAS
+   ========================================================= */
+async function renderCampaigns(){
+  const camps = (await dbGetAll('campaigns')).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+  const allSts = await dbGetAll('stations');
+  document.getElementById('stationCountLabel').textContent = camps.length+' '+(currentLang==='es'?'campañas':'campaigns');
+
+  if(camps.length===0){
+    return `
+    <div class="empty">
+      <div class="big">📁</div>
+      <p>${t('noCampaigns')}</p>
+      <button class="btn primary" style="margin-top:16px;" onclick="Nav.newCampaign()">${t('addCampBtn')}</button>
+    </div>
+    <button class="fab" onclick="Nav.newCampaign()">+</button>`;
+  }
+
+  const cards = camps.map(c=>{
+    const stCount = allSts.filter(s=>s.campaignId===c.id).length;
+    return `
+      <div class="card" onclick="Nav.campaign('${c.id}')">
+        <div class="card-title">📁 ${esc(c.name)}</div>
+        <div class="card-sub">${fmtDate(c.timestamp)} · ${stCount} ${t('stations')}</div>
+        ${c.notes? `<div class="card-sub" style="margin-top:6px;">${esc(c.notes)}</div>`:''}
+      </div>`;
+  }).join('');
+
+  return `<div>${cards}</div><button class="fab" onclick="Nav.newCampaign()">+</button>`;
+}
+
+async function renderCampaignForm(){
+  let c = state.campId ? await dbGet('campaigns', state.campId) : null;
+  const isNew = !c;
+  if(isNew) c = { id: uid(), name: '', timestamp: nowIso(), notes: '' };
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>${isNew? t('newCampaign') : t('editCampaign')}</h2></div>
+  </div>
+  <label>${t('campName')}</label>
+  <input type="text" id="f_campName" value="${esc(c.name)}" placeholder="ej. Expedición Atacama 2026">
+
+  <label>${t('notes')}</label>
+  <textarea id="f_campNotes" placeholder="Objetivo, cuadrángulo, geólogo...">${esc(c.notes||'')}</textarea>
+
+  <div class="btn-row" style="margin-top:22px;">
+    <button class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
+    <button class="btn primary" onclick="saveCampaign('${c.id}', ${isNew})">${t('save')}</button>
+  </div>
+  ${!isNew? `<button class="btn danger" style="margin-top:10px;" onclick="confirmDeleteCampaign('${c.id}')">${t('delete')} ${t('campaign')}</button>`:''}
+  `;
+}
+async function saveCampaign(id, isNew){
+  const name=document.getElementById('f_campName').value.trim() || (currentLang==='es'?'Campaña sin nombre':'Unnamed Campaign');
+  const notes=document.getElementById('f_campNotes').value;
+  await dbPut('campaigns', { id, name, timestamp: nowIso(), notes });
+  toast(currentLang==='es'?'Campaña guardada':'Campaign saved');
+  Nav.campaign(id);
+}
+async function confirmDeleteCampaign(id){
+  if(!confirm(currentLang==='es'?'¿Eliminar esta campaña y todas sus estaciones?':'Delete campaign and stations?')) return;
+  await dbDeleteCampaignCascade(id);
+  Nav.home();
+}
+
+async function renderCampaignDetail(){
+  const camp = await dbGet('campaigns', state.campId);
+  if(!camp){ Nav.home(); return ''; }
+  const stations = (await dbGetByCampaign(camp.id)).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+  const allMeas = await dbGetAll('measurements');
+
+  const cards = stations.map(s=>{
+    const meas = allMeas.filter(m=>m.stationId===s.id);
+    const counts={planar:0, fault:0, contact:0, vein:0};
+    meas.forEach(m=>{ if(counts[m.type]!=null) counts[m.type]++; });
+    const badges = [
+      counts.planar? `<span class="badge accent">${counts.planar} ${t('structural')}</span>`:'',
+      counts.fault? `<span class="badge accent">${counts.fault} ${t('fault')}</span>`:'',
+      counts.contact? `<span class="badge accent">${counts.contact} ${t('contact')}</span>`:'',
+      counts.vein? `<span class="badge accent">${counts.vein} ${t('vein')}</span>`:'',
+      meas.length===0? `<span class="badge">0 datos</span>`:''
+    ].join('');
+    const coords = (s.lat!=null && s.lon!=null) ? `${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}` : 'sin GPS';
+    const utmInfo = utmLabel(s.lat, s.lon);
+    return `
+      <div class="card" onclick="Nav.station('${s.id}','${camp.id}')">
+        <div class="card-title">📍 ${esc(s.name||s.id)}</div>
+        <div class="card-sub">${fmtDate(s.timestamp)} · <span style="font-family:var(--mono)">${coords}</span></div>
+        ${utmInfo? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>`:''}
+        <div class="badge-row">${badges}</div>
+      </div>`;
+  }).join('');
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.home()">←</button>
+    <div><h2>📁 ${esc(camp.name)}</h2><div class="sub">${stations.length} ${t('stations')}</div></div>
+  </div>
+  <div class="card" style="cursor:default;">
+    <div class="card-sub">${fmtDate(camp.timestamp)}</div>
+    ${camp.notes? `<p style="margin-top:6px;font-size:13px;">${esc(camp.notes)}</p>`:''}
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn ghost small" onclick="Nav.editCampaign('${camp.id}')">✎ ${t('editCampaign')}</button>
+      <button class="btn primary small" onclick="Nav.newStation('${camp.id}')">${t('addStationBtn')}</button>
+    </div>
+  </div>
+  <div class="section-hdr"><h3>${t('stationsInCamp')}</h3></div>
+  ${stations.length===0 ? `<div class="empty"><p>${t('noStations')}</p><button class="btn primary" style="margin-top:10px;" onclick="Nav.newStation('${camp.id}')">${t('addStationBtn')}</button></div>` : cards}
+  <button class="fab" onclick="Nav.newStation('${camp.id}')">+</button>
+  `;
+}
+
+async function nextStationName(campId){
+  const stations=await dbGetByCampaign(campId);
+  let max=0;
+  stations.forEach(s=>{ const m=/EST-(\d+)/.exec(s.name||''); if(m) max=Math.max(max,parseInt(m[1],10)); });
+  return 'EST-'+String(max+1).padStart(2,'0');
+}
+async function renderStationForm(){
+  let st = state.stationId ? await dbGet('stations', state.stationId) : null;
+  const isNew = !st;
+  if(isNew){
+    st = { id: uid(), campaignId: state.campId, name: await nextStationName(state.campId), timestamp: nowIso(),
+           lat: gpsState.lat, lon: gpsState.lon, alt: gpsState.alt ? Math.round(gpsState.alt) : null, notes:'' };
+  }
+  const localDt = new Date(st.timestamp || Date.now());
+  const localDtVal = new Date(localDt.getTime() - localDt.getTimezoneOffset()*60000).toISOString().slice(0,16);
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>${isNew? t('newStation') : t('editStation')}</h2></div>
+  </div>
+  <label>ID / ${t('station')}</label>
+  <input type="text" id="f_name" value="${esc(st.name)}">
+
+  <label>${currentLang==='es'?'Fecha y hora':'Date & Time'}</label>
+  <input type="datetime-local" id="f_dt" value="${localDtVal}">
+
+  <div class="grid3">
+    <div><label>${t('lat')}</label><input type="number" step="0.000001" id="f_lat" value="${st.lat??''}" oninput="utmFromLatLon()"></div>
+    <div><label>${t('lon')}</label><input type="number" step="0.000001" id="f_lon" value="${st.lon??''}" oninput="utmFromLatLon()"></div>
+    <div><label>${t('alt')}</label><input type="number" step="1" id="f_alt" value="${st.alt??''}"></div>
+  </div>
+  <button type="button" class="btn ghost small" style="width:100%;margin-top:8px;" onclick="captureGpsIntoStation()">${t('useGps')}</button>
+
+  <div class="section-hdr"><h3>Coordenadas UTM (WGS84)</h3></div>
+  <div class="grid2">
+    <div><label>${currentLang==='es'?'Huso':'Zone'}</label><input type="number" id="f_utmZone" min="1" max="60" value=""></div>
+    <div><label>${currentLang==='es'?'Hemisferio':'Hemisphere'}</label>
+      <select id="f_utmHemi"><option value="S">S</option><option value="N">N</option></select>
+    </div>
+  </div>
+  <div class="grid2">
+    <div><label>${currentLang==='es'?'Este (m)':'Easting (m)'}</label><input type="number" step="1" id="f_utmEast" value=""></div>
+    <div><label>${currentLang==='es'?'Norte (m)':'Northing (m)'}</label><input type="number" step="1" id="f_utmNorth" value=""></div>
+  </div>
+  <div class="btn-row" style="margin-top:6px;">
+    <button type="button" class="btn ghost small" onclick="utmFromLatLon()">↻ Lat/Lon → UTM</button>
+    <button type="button" class="btn ghost small" onclick="latLonFromUtm()">↻ UTM → Lat/Lon</button>
+  </div>
+
+  <label>${t('notes')}</label>
+  <textarea id="f_notes" placeholder="Afloramiento, litología...">${esc(st.notes||'')}</textarea>
+
+  <div class="btn-row" style="margin-top:22px;">
+    <button class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
+    <button class="btn primary" onclick="saveStation('${st.id}', ${isNew})">${t('save')}</button>
+  </div>
+  ${!isNew? `<button class="btn danger" style="margin-top:10px;" onclick="confirmDeleteStation('${st.id}')">${t('delete')} ${t('station')}</button>`:''}
+  `;
+}
+function utmFromLatLon(){
+  const lat=parseFloat(document.getElementById('f_lat')?.value);
+  const lon=parseFloat(document.getElementById('f_lon')?.value);
+  if(isNaN(lat)||isNaN(lon)) return;
+  const r=llToUTM(lat,lon);
+  setVal('f_utmZone', r.zoneNumber);
+  const hemiEl=document.getElementById('f_utmHemi'); if(hemiEl) hemiEl.value=r.hemisphere;
+  setVal('f_utmEast', r.easting);
+  setVal('f_utmNorth', r.northing);
+}
+function latLonFromUtm(){
+  const zone=parseInt(document.getElementById('f_utmZone')?.value,10);
+  const hemi=document.getElementById('f_utmHemi')?.value||'S';
+  const east=parseInt(document.getElementById('f_utmEast')?.value, 10);
+  const north=parseInt(document.getElementById('f_utmNorth')?.value, 10);
+  if(isNaN(zone)||isNaN(east)||isNaN(north)){ toast('Completa UTM'); return; }
+  const r=utmToLL(east, north, zone, hemi);
+  setVal('f_lat', r.lat);
+  setVal('f_lon', r.lon);
+}
+function captureGpsIntoStation(){
+  if(gpsState.lat==null){ toast('Sin señal GPS'); return; }
+  setVal('f_lat', gpsState.lat.toFixed(6));
+  setVal('f_lon', gpsState.lon.toFixed(6));
+  if(gpsState.alt!=null) setVal('f_alt', Math.round(gpsState.alt));
+  utmFromLatLon();
+}
+async function saveStation(id, isNew){
+  const name=document.getElementById('f_name').value.trim() || id;
+  const dt=document.getElementById('f_dt').value;
+  const lat=parseFloat(document.getElementById('f_lat').value);
+  const lon=parseFloat(document.getElementById('f_lon').value);
+  const alt=parseInt(document.getElementById('f_alt').value, 10);
+  const notes=document.getElementById('f_notes').value;
+  const obj={ id, campaignId: state.campId, name, timestamp: dt? new Date(dt).toISOString(): nowIso(),
+              lat: isNaN(lat)?null:lat, lon: isNaN(lon)?null:lon, alt: isNaN(alt)?null:alt, notes };
+  await dbPut('stations', obj);
+  toast(currentLang==='es'?'Estación guardada':'Station saved');
+  Nav.station(id, state.campId);
+}
+async function confirmDeleteStation(id){
+  if(!confirm(currentLang==='es'?'¿Eliminar esta estación?':'Delete station?')) return;
+  await dbDeleteStationCascade(id);
+  Nav.campaign(state.campId);
+}
+
+const CATS = [
+  { key:'planar', title:'Estructuras planares / lineares', titleEn:'Planar / Linear Structures', icon:'📐' },
+  { key:'fault',  title:'Fallas y cinemática', titleEn:'Faults & Kinematics', icon:'⚡' },
+  { key:'contact',title:'Contactos litológicos', titleEn:'Lithological Contacts', icon:'🪨' },
+  { key:'vein',   title:'Vetas, vetillas y alteración', titleEn:'Veins & Alteration', icon:'💠' },
+];
+function measSub(m){
+  if(m.type==='planar'){
+    if(m.strike!=null) return `${pad3(m.strike)}/${pad2(m.dip)} (RHR) · DipDir ${pad3(m.dipDir)}`;
+    if(m.trend!=null) return `Trend/Plunge ${pad3(m.trend)}/${pad2(m.plunge)}`;
+    return '';
+  }
+  if(m.type==='fault') return `Plano ${pad3(m.strike)}/${pad2(m.dip)} · ${m.sense||''}`;
+  if(m.type==='contact') return `${esc(m.lithoTop||'?')} / ${esc(m.lithoBottom||'?')} · e=${m.trueThickness??'?'} m`;
+  if(m.type==='vein') return `${m.veinThickness??'?'} ${m.veinUnit||'cm'}`;
+  return '';
+}
+function pad3(v){ return v==null?'—':String(roundInt(v)).padStart(3,'0'); }
+function pad2(v){ return v==null?'—':String(roundInt(v)).padStart(2,'0'); }
+
+async function renderStationDetail(){
+  const st = await dbGet('stations', state.stationId);
+  if(!st){ Nav.home(); return ''; }
+  const meas = await dbGetByStation(st.id);
+  const coords = (st.lat!=null&&st.lon!=null) ? `${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}${st.alt!=null?' · '+st.alt+' m':''}` : 'Sin GPS';
+  const utmInfo = utmLabel(st.lat, st.lon);
+
+  const cats = CATS.map(c=>{
+    const items = meas.filter(m=>m.type===c.key).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+    const rows = items.map(m=>`
+      <div class="mini-row">
+        <div class="ml"><b>${esc(m.subtype||c.title)}</b><span>${esc(measSub(m))}</span></div>
+        <div class="mini-actions">
+          <button class="icon-sm" onclick="event.stopPropagation();Nav.editMeasurement('${m.id}','${st.id}','${m.type}')">✎</button>
+          <button class="icon-sm" onclick="event.stopPropagation();deleteMeasurement('${m.id}')">🗑</button>
+        </div>
+      </div>`).join('') || `<div class="hint" style="margin-top:8px;">${currentLang==='es'?'Sin registros aún':'No records yet'}</div>`;
+    const title = currentLang==='en'? c.titleEn : c.title;
+    return `
+    <details class="accordion" open>
+      <summary><span class="sum-l">${c.icon} ${title} <span class="badge">${items.length}</span></span><span class="chev">›</span></summary>
+      <div class="accordion-body">
+        ${rows}
+        <button class="btn primary small" style="width:100%;margin-top:10px;" onclick="Nav.newMeasurement('${st.id}','${c.key}')">+ Añadir ${title.toLowerCase()}</button>
+      </div>
+    </details>`;
+  }).join('');
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>📍 ${esc(st.name)}</h2><div class="sub">${fmtDate(st.timestamp)}</div></div>
+  </div>
+  <div class="card" style="cursor:default;">
+    <div class="card-sub" style="font-family:var(--mono);font-size:12px;">${coords}</div>
+    ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>` : ''}
+    ${st.notes? `<p style="margin-top:6px;font-size:13px;">${esc(st.notes)}</p>`:''}
+    <button class="btn ghost small" style="margin-top:8px;" onclick="Nav.editStation('${st.id}','${st.campaignId}')">✎ ${t('editStation')}</button>
+  </div>
+  <div class="section-hdr"><h3>Toma de datos geológicos</h3></div>
+  ${cats}
+  `;
+}
+async function deleteMeasurement(id){
+  if(!confirm('¿Eliminar registro?')) return;
+  await dbDelete('measurements', id);
+  render();
+}
+
+const PLANAR_SUBTYPES = ['Estratificación (S0)','Foliación (S1)','Foliación (S2)','Diaclasa / Fractura','Clivaje','Lineación mineral','Eje de pliegue'];
+const LINEAR_SUBTYPES = ['Lineación mineral','Eje de pliegue'];
+const FAULT_SENSES = ['Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso'];
+const CONTACT_TYPES = ['Concordante','Discordante angular','Discordante erosiva','Falla','Intrusivo','Transicional'];
+
+async function renderMeasForm(){
+  const isNew = !state.measId;
+  const m = isNew ? { id:uid(), stationId:state.stationId, type:state.measType, timestamp: nowIso() }
+                  : await dbGet('measurements', state.measId);
+  let fields='';
+  if(m.type==='planar') fields=renderPlanarFields(m);
+  else if(m.type==='fault') fields=renderFaultFields(m);
+  else if(m.type==='contact') fields=renderContactFields(m);
+  else if(m.type==='vein') fields=renderVeinFields(m);
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>${isNew?'Nuevo registro':'Editar registro'}</h2><div class="sub">${m.type}</div></div>
+  </div>
+  <form id="measForm" onsubmit="event.preventDefault(); saveMeasurement('${m.id}', ${isNew});">
+    ${fields}
+    <label>${t('notes')}</label>
+    <textarea id="f_notes">${esc(m.notes||'')}</textarea>
+    <div class="btn-row" style="margin-top:22px;">
+      <button type="button" class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
+      <button type="submit" class="btn primary">${t('save')}</button>
+    </div>
+  </form>
+  `;
+}
+
+function renderPlanarFields(m){
+  const isLinear = LINEAR_SUBTYPES.includes(m.subtype);
+  return `
+  <label>Tipo de estructura</label>
+  <select id="f_subtype" onchange="onPlanarSubtypeChange()">
+    ${PLANAR_SUBTYPES.map(s=>`<option ${m.subtype===s?'selected':''}>${s}</option>`).join('')}
+  </select>
+
+  <div id="planarBlock" style="display:${isLinear?'none':''}">
+    ${renderSensorPanel('planar','p1')}
+    <div class="numfield-row">
+      <div><label>Dip Direction (0–360°)</label><input type="number" step="1" id="dipDir_p1" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('p1')"></div>
+      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip_p1" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('p1')"></div>
+    </div>
+    <div class="derived" id="derived_p1">Strike RHR: — · Cuadrante: —</div>
+  </div>
+  <div id="linearBlock" style="display:${isLinear?'':'none'}">
+    ${renderSensorPanel('linear','l1')}
+    <div class="numfield-row">
+      <div><label>Trend (0–360°)</label><input type="number" step="1" id="trend_l1" min="0" max="360" value="${m.trend??''}"></div>
+      <div><label>Plunge (0–90°)</label><input type="number" step="1" id="plunge_l1" min="0" max="90" value="${m.plunge??''}"></div>
+    </div>
+  </div>
+  `;
+}
+function onPlanarSubtypeChange(){
+  const sel=document.getElementById('f_subtype').value;
+  const isLinear = LINEAR_SUBTYPES.includes(sel);
+  document.getElementById('planarBlock').style.display = isLinear?'none':'';
+  document.getElementById('linearBlock').style.display = isLinear?'':'none';
+}
+
+function renderFaultFields(m){
+  return `
+  <label>Plano de falla</label>
+  ${renderSensorPanel('planar','fp')}
+  <div class="numfield-row">
+    <div><label>Dip Direction (0–360°)</label><input type="number" step="1" id="dipDir_fp" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('fp')"></div>
+    <div><label>Manteo (0–90°)</label><input type="number" step="1" id="dip_fp" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('fp')"></div>
+  </div>
+  <div class="derived" id="derived_fp">Strike RHR: — · Cuadrante: —</div>
+
+  <div class="numfield-row">
+    <div><label>Rake (0–90°)</label><input type="number" step="1" id="f_rake" min="0" max="90" value="${m.rake??''}"></div>
+    <div><label>Sentido</label>
+      <select id="f_sense">${FAULT_SENSES.map(s=>`<option ${m.sense===s?'selected':''}>${s}</option>`).join('')}</select>
+    </div>
+  </div>
+  `;
+}
+
+function renderContactFields(m){
+  return `
+  <label>Tipo de contacto</label>
+  <select id="f_contactType">${CONTACT_TYPES.map(s=>`<option ${m.contactType===s?'selected':''}>${s}</option>`).join('')}</select>
+  ${renderSensorPanel('planar','c1')}
+  <div class="numfield-row">
+    <div><label>Dip Direction</label><input type="number" step="1" id="dipDir_c1" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('c1')"></div>
+    <div><label>Manteo</label><input type="number" step="1" id="dip_c1" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('c1')"></div>
+  </div>
+  <div class="derived" id="derived_c1">Strike RHR: —</div>
+
+  <div class="grid2">
+    <div><label>Espesor aparente (m)</label><input type="number" step="1" id="f_appThickness" value="${m.appThickness??''}" oninput="calcThickness()"></div>
+    <div><label>Manteo capa (°)</label><input type="number" step="1" id="f_bedDip" value="${m.bedDip ?? m.dip ?? ''}" oninput="calcThickness()"></div>
+  </div>
+  <div class="grid2">
+    <div><label>Pendiente suelo (°)</label><input type="number" step="1" id="f_slope" value="${m.slope??0}" oninput="calcThickness()"></div>
+    <div><label>Sentido</label>
+      <select id="f_slopeSense" onchange="calcThickness()">
+        <option value="opp" ${m.slopeSense==='opp'?'selected':''}>Opuesto</option>
+        <option value="same" ${m.slopeSense==='same'?'selected':''}>Mismo sentido</option>
+        <option value="flat" ${m.slopeSense==='flat'?'selected':''}>Plano</option>
+      </select>
+    </div>
+  </div>
+  <div class="derived" id="thicknessOut">${t('trueThick')}: — m</div>
+  `;
+}
+function calcThickness(){
+  const ta=parseFloat(document.getElementById('f_appThickness').value);
+  const dip=parseFloat(document.getElementById('f_bedDip').value);
+  const slope=parseFloat(document.getElementById('f_slope').value)||0;
+  const sense=document.getElementById('f_slopeSense').value;
+  const out=document.getElementById('thicknessOut');
+  if(isNaN(ta)||isNaN(dip)){ out.textContent=t('trueThick')+': — m'; return null; }
+  let angle = sense==='flat'? dip : sense==='same'? (dip-slope) : (dip+slope);
+  const val = roundInt(Math.abs(ta*Math.sin(toRad(angle))));
+  out.textContent = t('trueThick')+' ≈ '+val+' m';
+  return val;
+}
+
+function renderVeinFields(m){
+  return `
+  ${renderSensorPanel('planar','v1')}
+  <div class="numfield-row">
+    <div><label>Dip Direction</label><input type="number" step="1" id="dipDir_v1" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('v1')"></div>
+    <div><label>Manteo</label><input type="number" step="1" id="dip_v1" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('v1')"></div>
+  </div>
+  <div class="derived" id="derived_v1">Strike RHR: —</div>
+
+  <div class="grid2">
+    <div><label>Espesor</label><input type="number" step="1" id="f_veinThick" value="${m.veinThickness??''}"></div>
+    <div><label>Unidad</label><select id="f_veinUnit"><option ${m.veinUnit==='cm'?'selected':''}>cm</option><option ${m.veinUnit==='mm'?'selected':''}>mm</option></select></div>
+  </div>
+  `;
+}
+
+async function saveMeasurement(id, isNew){
+  const type=state.measType;
+  const obj={ id, stationId:state.stationId, type, timestamp: nowIso(), notes: document.getElementById('f_notes').value };
+
+  if(type==='planar'){
+    obj.subtype=document.getElementById('f_subtype').value;
+    if(LINEAR_SUBTYPES.includes(obj.subtype)){
+      obj.trend=intOrNull('trend_l1'); obj.plunge=intOrNull('plunge_l1');
+    } else {
+      obj.dipDir=intOrNull('dipDir_p1'); obj.dip=intOrNull('dip_p1');
+      obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    }
+  } else if(type==='fault'){
+    obj.dipDir=intOrNull('dipDir_fp'); obj.dip=intOrNull('dip_fp');
+    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    obj.rake=intOrNull('f_rake');
+    obj.sense=document.getElementById('f_sense').value;
+  } else if(type==='contact'){
+    obj.contactType=document.getElementById('f_contactType').value;
+    obj.dipDir=intOrNull('dipDir_c1'); obj.dip=intOrNull('dip_c1');
+    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    obj.appThickness=intOrNull('f_appThickness');
+    obj.bedDip=intOrNull('f_bedDip');
+    obj.slope=intOrNull('f_slope');
+    obj.slopeSense=document.getElementById('f_slopeSense').value;
+    obj.trueThickness=calcThickness();
+  } else if(type==='vein'){
+    obj.dipDir=intOrNull('dipDir_v1'); obj.dip=intOrNull('dip_v1');
+    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    obj.veinThickness=intOrNull('f_veinThick');
+    obj.veinUnit=document.getElementById('f_veinUnit').value;
+  }
+  await dbPut('measurements', obj);
+  toast(currentLang==='es'?'Guardado':'Saved');
+  Nav.station(state.stationId, state.campId);
+}
+function intOrNull(id){ const v=parseInt(document.getElementById(id)?.value, 10); return isNaN(v)?null:v; }
+
+/* =========================================================
+   EXPORTAR Y AJUSTES
+   ========================================================= */
+async function renderExport(){
+  const camps = await dbGetAll('campaigns');
+  return `
+  <div class="topline"><div><h2>${t('export')}</h2></div></div>
+  <div class="card" style="cursor:default;">
+    <label style="margin-top:0;">${t('exportScope')}</label>
+    <select id="exportCampSelect">
+      <option value="ALL">📁 ${t('exportAll')}</option>
+      ${camps.map(c=>`<option value="${c.id}">📂 ${esc(c.name)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="card" style="cursor:default;">
+    <div class="card-title">CSV (Excel)</div>
+    <div class="card-sub">${currentLang==='es'?'Valores numéricos redondeados a enteros':'Integer values ready for GIS/Excel'}</div>
+    <button class="btn primary" style="margin-top:12px;" onclick="exportCSV()">${t('exportCsv')}</button>
+  </div>
+  <div class="card" style="cursor:default;">
+    <div class="card-title">GeoJSON (QGIS / ArcGIS)</div>
+    <button class="btn primary" style="margin-top:12px;" onclick="exportGeoJSON()">${t('exportGeoJson')}</button>
+  </div>
+  `;
+}
+function csvEsc(v){ v=String(v??''); if(/[",\n]/.test(v)){ v='"'+v.replace(/"/g,'""')+'"'; } return v; }
+
+async function getFilteredData(){
+  const scope = document.getElementById('exportCampSelect')?.value || 'ALL';
+  let stations = await dbGetAll('stations');
+  let camps = await dbGetAll('campaigns');
+  const campMap={}; camps.forEach(c=>campMap[c.id]=c);
+
+  if(scope !== 'ALL'){
+    stations = stations.filter(s=>s.campaignId === scope);
+  }
+  const stMap={}; stations.forEach(s=>stMap[s.id]=s);
+  const allMeas = await dbGetAll('measurements');
+  const measurements = allMeas.filter(m=>stMap[m.stationId]);
+  return { stations, measurements, stMap, campMap };
+}
+
+async function exportCSV(){
+  const { measurements, stMap, campMap } = await getFilteredData();
+  const headers=['Campaign','Station_ID','Timestamp','Lat','Lon','Alt','UTM_Zone','UTM_Hemisphere','UTM_Easting','UTM_Northing','Struct_Type','Strike','Dip','DipDir','Trend','Plunge','Rake','Sense','True_Thickness','Vein_Thick','Notes'];
+  const rows=[headers.join(',')];
+  measurements.forEach(m=>{
+    const st=stMap[m.stationId]||{};
+    const camp=campMap[st.campaignId]||{};
+    const u = utmLabel(st.lat, st.lon);
+    rows.push([
+      csvEsc(camp.name||''), csvEsc(st.name||st.id||''), csvEsc(m.timestamp||st.timestamp||''),
+      st.lat??'', st.lon??'', st.alt??'',
+      u? u.zoneNumber:'', u? u.hemisphere:'', u? u.easting:'', u? u.northing:'',
+      csvEsc(m.subtype||m.type),
+      m.strike!=null?roundInt(m.strike):'', m.dip!=null?roundInt(m.dip):'', m.dipDir!=null?roundInt(m.dipDir):'',
+      m.trend!=null?roundInt(m.trend):'', m.plunge!=null?roundInt(m.plunge):'', m.rake!=null?roundInt(m.rake):'',
+      csvEsc(m.sense||''), m.trueThickness!=null?roundInt(m.trueThickness):'', m.veinThickness!=null?roundInt(m.veinThickness):'',
+      csvEsc(m.notes||'')
+    ].join(','));
+  });
+  downloadFile('\uFEFF'+rows.join('\r\n'), 'GeoFieldCore_'+dateStamp()+'.csv', 'text/csv;charset=utf-8');
+  toast('CSV exportado');
+}
+
+async function exportGeoJSON(){
+  const { measurements, stMap, campMap } = await getFilteredData();
+  const features=measurements.filter(m=>{ const s=stMap[m.stationId]; return s && s.lat!=null && s.lon!=null; }).map(m=>{
+    const st=stMap[m.stationId];
+    const camp=campMap[st.campaignId]||{};
+    const u = utmLabel(st.lat, st.lon);
+    return {
+      type:'Feature',
+      geometry:{ type:'Point', coordinates:[Number(st.lon), Number(st.lat), st.alt!=null?Number(st.alt):0] },
+      properties:{
+        Campaign: camp.name||null, Station_ID: st.name||st.id, Timestamp: m.timestamp||st.timestamp,
+        UTM_Zone: u? u.zoneNumber:null, UTM_Hemisphere: u? u.hemisphere:null,
+        UTM_Easting: u? u.easting:null, UTM_Northing: u? u.northing:null,
+        Struct_Type: m.subtype||m.type,
+        Strike: m.strike!=null?roundInt(m.strike):null, Dip: m.dip!=null?roundInt(m.dip):null, DipDir: m.dipDir!=null?roundInt(m.dipDir):null,
+        Trend: m.trend!=null?roundInt(m.trend):null, Plunge: m.plunge!=null?roundInt(m.plunge):null, Rake: m.rake!=null?roundInt(m.rake):null,
+        Sense: m.sense||null, True_Thickness: m.trueThickness!=null?roundInt(m.trueThickness):null,
+        Vein_Thick: m.veinThickness!=null?roundInt(m.veinThickness):null, Notes: m.notes||null
+      }
+    };
+  });
+  downloadFile(JSON.stringify({ type:'FeatureCollection', features },null,2), 'GeoFieldCore_'+dateStamp()+'.geojson', 'application/geo+json');
+  toast('GeoJSON exportado');
+}
+
+function renderSettings(){
+  return `
+  <div class="topline"><div><h2>${t('settings')}</h2></div></div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('lang')} / Language</div>
+    <select onchange="changeLanguage(this.value)" style="margin-top:8px;">
+      <option value="es" ${currentLang==='es'?'selected':''}>Español</option>
+      <option value="en" ${currentLang==='en'?'selected':''}>English</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('compassSize')}</div>
+    <select onchange="changeCompassScale(this.value)" style="margin-top:8px;">
+      <option value="sm" ${compassScale==='sm'?'selected':''}>Pequeño / Small</option>
+      <option value="md" ${compassScale==='md'?'selected':''}>Medio / Medium</option>
+      <option value="lg" ${compassScale==='lg'?'selected':''}>Grande / Large</option>
+      <option value="xl" ${compassScale==='xl'?'selected':''}>Extra Grande / Extra Large</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('sensorBoxSize')}</div>
+    <select onchange="changeBoxScale(this.value)" style="margin-top:8px;">
+      <option value="md" ${boxScale==='md'?'selected':''}>Normal</option>
+      <option value="lg" ${boxScale==='lg'?'selected':''}>Grande (Recomendado)</option>
+      <option value="xl" ${boxScale==='xl'?'selected':''}>Extra grande</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">Sensores / Permisos</div>
+    <button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar Sensores</button>
+  </div>
+  `;
+}
+function changeLanguage(lang){
+  currentLang=lang;
+  localStorage.setItem('geo_lang', lang);
+  render();
+}
+function changeCompassScale(scale){
+  compassScale=scale;
+  localStorage.setItem('geo_compass_scale', scale);
+  render();
+}
+function changeBoxScale(scale){
+  boxScale=scale;
+  localStorage.setItem('geo_box_scale', scale);
+  render();
+}
+
+(async function init(){
+  await openDB();
+  initGPS();
+  initSensors();
+  updateTopbarStatus();
+  setInterval(updateTopbarStatus, 3000);
+  render();
+})();
+</script>
+</body>
+</html>
