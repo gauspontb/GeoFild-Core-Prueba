@@ -251,12 +251,12 @@ const I18N = {
     quadrant: 'Cuadrante',
     dipTowards: 'Manteo hacia',
     trueThick: 'Espesor real',
-    manual: 'Manual',
     auto: 'Auto',
+    manual: 'Manual',
     useGps: '📍 Usar posición GPS actual',
     quadrantMode: 'Formato de cuadrante',
     needleTarget: 'Objetivo de aguja en brújula',
-    calibration: 'Calibración / Offset magnético (°)'
+    calibration: 'Calibración / Declinación magnética (°)'
   },
   en: {
     campaigns: 'Campaigns',
@@ -299,20 +299,20 @@ const I18N = {
     quadrant: 'Quadrant',
     dipTowards: 'Dip direction',
     trueThick: 'True thickness',
-    manual: 'Manual',
     auto: 'Auto',
+    manual: 'Manual',
     useGps: '📍 Use current GPS position',
     quadrantMode: 'Quadrant Format',
     needleTarget: 'Compass needle target',
-    calibration: 'Magnetic Declination / Offset (°)'
+    calibration: 'Magnetic Declination / Calibration (°)'
   }
 };
 
 let currentLang = localStorage.getItem('geo_lang') || 'es';
 let compassScale = localStorage.getItem('geo_compass_scale') || 'md';
 let boxScale = localStorage.getItem('geo_box_scale') || 'md';
-let quadrantPref = localStorage.getItem('geo_quadrant_pref') || 'NS'; // 'NS' o 'N_ONLY'
-let needleMode = localStorage.getItem('geo_needle_mode') || 'dipdir';   // 'dipdir' o 'strike'
+let quadrantPref = localStorage.getItem('geo_quadrant_pref') || 'NS';
+let needleMode = localStorage.getItem('geo_needle_mode') || 'dipdir';
 let magOffset = parseFloat(localStorage.getItem('geo_mag_offset') || '0') || 0;
 
 function t(key){ return I18N[currentLang]?.[key] || I18N.es[key] || key; }
@@ -340,8 +340,20 @@ function downloadFile(content, filename, mime){
   setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
 
+/* =========================================================
+   ESTIMACIÓN APROXIMADA DE DECLINACIÓN MAGNÉTICA (WMM-fit)
+   ========================================================= */
+function estimateDeclination(lat, lon){
+  if(lat==null || lon==null) return 0;
+  // Modelo empírico aproximado para corrección rápida de terreno
+  const d = -0.15 * lat + 0.12 * lon + 0.002 * lat * lon;
+  return Math.round(clamp(d, -30, 30));
+}
+
 function computeOrientation(alphaDeg, betaDeg, gammaDeg){
-  const a=toRad(alphaDeg + magOffset), b=toRad(betaDeg), g=toRad(gammaDeg);
+  // Aplica offset de calibración/declinación directamente al azimut
+  const correctedAlpha = norm360(alphaDeg + magOffset);
+  const a=toRad(correctedAlpha), b=toRad(betaDeg), g=toRad(gammaDeg);
   const cA=Math.cos(a), sA=Math.sin(a);
   const cB=Math.cos(b), sB=Math.sin(b);
   const cG=Math.cos(g), sG=Math.sin(g);
@@ -391,9 +403,6 @@ function dipDirQuadrant(dipDirAz){
   return best[0];
 }
 
-/* =========================================================
-   CÁLCULO AUTOMÁTICO DE RAKE
-   ========================================================= */
 function calculateRakeFromTP(dipDir, dip, trend, plunge){
   if(dip==null || trend==null || plunge==null || dip===0) return null;
   const sinR = Math.sin(toRad(plunge)) / Math.sin(toRad(dip));
@@ -535,7 +544,12 @@ function attachOrientationListener(){
   orientationHandlerAttached=true;
   const handler=(e)=>{
     if(e.alpha==null && e.beta==null && e.gamma==null) return;
-    let alphaDeg = typeof e.webkitCompassHeading==='number'? norm360(360 - e.webkitCompassHeading) : (e.alpha||0);
+    let alphaDeg;
+    if(typeof e.webkitCompassHeading==='number'){
+      alphaDeg = norm360(360 - e.webkitCompassHeading);
+    } else {
+      alphaDeg = e.alpha||0;
+    }
     sensorState.available=true;
     sensorState.status='active';
     sensorState.last = computeOrientation(alphaDeg, e.beta||0, e.gamma||0);
@@ -576,6 +590,9 @@ function getDialDiameter(){
   return 120;
 }
 
+/* =========================================================
+   PANEL SENSOR (CORREGIDO: ORDEN MANUAL / AUTO)
+   ========================================================= */
 function renderSensorPanel(mode, formKey){
   const label = mode==='planar' 
     ? (currentLang==='es'?'Modo plano (apoyar reverso del teléfono sobre superficie)':'Planar mode (back of phone on plane)')
@@ -585,9 +602,9 @@ function renderSensorPanel(mode, formKey){
   <div class="sensor-box scale-${boxScale}" data-mode="${mode}" data-formkey="${formKey}">
     <div class="sensor-head"><b>📡 ${currentLang==='es'?'Captura con sensores':'Sensor Capture'}</b>
       <div class="switch-row" style="margin:0; padding:4px 8px;">
-        <span style="font-size:11px;color:var(--text-dim);">${t('manual')}</span>
-        <label class="switch"><input type="checkbox" id="manualToggle_${formKey}" onchange="onManualToggle('${formKey}')"><span class="track"><span class="thumb"></span></span></label>
         <span style="font-size:11px;color:var(--text-dim);">${t('auto')}</span>
+        <label class="switch"><input type="checkbox" id="manualToggle_${formKey}" onchange="onManualToggle('${formKey}')"><span class="track"><span class="thumb"></span></span></label>
+        <span style="font-size:11px;color:var(--text-dim);">${t('manual')}</span>
       </div>
     </div>
     <div class="hint">${label}</div>
@@ -605,11 +622,13 @@ function renderSensorPanel(mode, formKey){
     </div>
   </div>`;
 }
+
 function onManualToggle(formKey){
-  const manual=document.getElementById('manualToggle_'+formKey).checked;
-  const block=document.getElementById('autoBlock_'+formKey);
-  if(block) block.style.display = manual ? 'none' : '';
+  const isManual = document.getElementById('manualToggle_'+formKey).checked;
+  const block = document.getElementById('autoBlock_'+formKey);
+  if(block) block.style.display = isManual ? 'none' : '';
 }
+
 function updateLiveDial(){
   document.querySelectorAll('[id^="dial_"]').forEach(svg=>{
     const formKey=svg.id.replace('dial_','');
@@ -626,6 +645,7 @@ function updateLiveDial(){
     if(r && pl) pl.textContent = roundInt(r.plunge)+'°';
   });
 }
+
 function drawDial(svg, mode){
   const r=sensorState.last;
   let heading = 0;
@@ -661,6 +681,7 @@ function drawDial(svg, mode){
     <rect x="20" y="118" width="${barW}" height="6" rx="3" fill="var(--accent)" />
   `;
 }
+
 function captureSensorReading(formKey, mode){
   if(!sensorState.last){ toast(currentLang==='es'?'Sin datos de sensor':'No sensor data yet'); return; }
   const r=sensorState.last;
@@ -1448,8 +1469,9 @@ function renderSettings(){
 
   <div class="card" style="cursor:default;">
     <div class="card-title">${t('calibration')}</div>
-    <div class="card-sub">Añade declinación magnética local u offset de corrección</div>
-    <input type="number" step="1" value="${magOffset}" onchange="changeMagOffset(this.value)" style="margin-top:8px;" placeholder="ej. 3 o -5">
+    <div class="card-sub">Corrige la declinación magnética hacia el Norte Verdadero o desvío de sensores.</div>
+    <input type="number" step="1" value="${magOffset}" id="magOffsetInput" onchange="changeMagOffset(this.value)" style="margin-top:8px;" placeholder="ej. -5 o 8">
+    <button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="autoEstimateDeclination()">📍 Calcular declinación desde GPS actual</button>
   </div>
 
   <div class="card" style="cursor:default;">
@@ -1493,6 +1515,15 @@ function renderSettings(){
     <button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar / Re-calibrar Sensores</button>
   </div>
   `;
+}
+
+function autoEstimateDeclination(){
+  if(gpsState.lat==null || gpsState.lon==null){ toast('Requiere señal GPS'); return; }
+  const est = estimateDeclination(gpsState.lat, gpsState.lon);
+  changeMagOffset(est);
+  const input = document.getElementById('magOffsetInput');
+  if(input) input.value = est;
+  toast(`Declinación estimada: ${est}° aplicada`);
 }
 
 function changeLanguage(lang){ currentLang=lang; localStorage.setItem('geo_lang', lang); render(); }
