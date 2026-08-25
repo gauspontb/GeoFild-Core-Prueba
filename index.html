@@ -128,6 +128,14 @@
   input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--accent); }
   .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .check-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px; }
+  .check-item{ display:flex; align-items:center; gap:8px; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:9px 10px; font-size:13px; cursor:pointer; }
+  .check-item input{ width:16px; height:16px; min-height:unset; }
+  .radio-row{ display:flex; gap:8px; margin-top:6px; }
+  .radio-row label.opt{ flex:1; display:flex; align-items:center; justify-content:center; gap:6px; margin:0; padding:10px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border-soft); font-size:12.5px; font-weight:600; color:var(--text-dim); cursor:pointer; }
+  .radio-row input{ display:none; }
+  .radio-row label.opt.on{ border-color:var(--accent); color:var(--accent); background:rgba(232,163,61,0.08); }
+
   .switch-row{ display:flex; align-items:center; justify-content:space-between; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:10px 12px; margin-top:10px; }
   .switch{ position:relative; width:46px; height:26px; }
   .switch input{ opacity:0; width:100%; height:100%; position:absolute; margin:0; cursor:pointer; }
@@ -177,6 +185,8 @@
   .derived{ margin-top:10px; font-size:11.5px; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:8px 10px; font-family:var(--mono); }
 
   .toast{ position:fixed; left:50%; bottom:calc(var(--navbar-h) + var(--safe-b) + 16px); transform:translateX(-50%); background:var(--surface-2); border:1px solid var(--accent-dim); color:var(--text); padding:10px 16px; border-radius:20px; font-size:13px; z-index:50; box-shadow:0 4px 16px rgba(0,0,0,.4); }
+  .guide-box{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:12px; font-size:13px; line-height:1.5; color:var(--text); margin-top:8px; }
+  .guide-box ul{ padding-left:18px; margin:6px 0; }
 </style>
 </head>
 <body>
@@ -236,14 +246,17 @@ const I18N = {
     structural: 'Estructural',
     fault: 'Falla',
     contact: 'Contacto',
-    vein: 'Veta',
+    vein: 'Vetas y Alteración',
     strikeRHR: 'Strike (RHR)',
     quadrant: 'Cuadrante',
     dipTowards: 'Manteo hacia',
     trueThick: 'Espesor real',
     manual: 'Manual',
     auto: 'Auto',
-    useGps: '📍 Usar posición GPS actual'
+    useGps: '📍 Usar posición GPS actual',
+    quadrantMode: 'Formato de cuadrante',
+    needleTarget: 'Objetivo de aguja en brújula',
+    calibration: 'Calibración / Offset magnético (°)'
   },
   en: {
     campaigns: 'Campaigns',
@@ -281,20 +294,26 @@ const I18N = {
     structural: 'Structural',
     fault: 'Fault',
     contact: 'Contact',
-    vein: 'Vein',
+    vein: 'Veins & Alteration',
     strikeRHR: 'Strike (RHR)',
     quadrant: 'Quadrant',
     dipTowards: 'Dip direction',
     trueThick: 'True thickness',
     manual: 'Manual',
     auto: 'Auto',
-    useGps: '📍 Use current GPS position'
+    useGps: '📍 Use current GPS position',
+    quadrantMode: 'Quadrant Format',
+    needleTarget: 'Compass needle target',
+    calibration: 'Magnetic Declination / Offset (°)'
   }
 };
 
 let currentLang = localStorage.getItem('geo_lang') || 'es';
 let compassScale = localStorage.getItem('geo_compass_scale') || 'md';
 let boxScale = localStorage.getItem('geo_box_scale') || 'md';
+let quadrantPref = localStorage.getItem('geo_quadrant_pref') || 'NS'; // 'NS' o 'N_ONLY'
+let needleMode = localStorage.getItem('geo_needle_mode') || 'dipdir';   // 'dipdir' o 'strike'
+let magOffset = parseFloat(localStorage.getItem('geo_mag_offset') || '0') || 0;
 
 function t(key){ return I18N[currentLang]?.[key] || I18N.es[key] || key; }
 
@@ -322,7 +341,7 @@ function downloadFile(content, filename, mime){
 }
 
 function computeOrientation(alphaDeg, betaDeg, gammaDeg){
-  const a=toRad(alphaDeg), b=toRad(betaDeg), g=toRad(gammaDeg);
+  const a=toRad(alphaDeg + magOffset), b=toRad(betaDeg), g=toRad(gammaDeg);
   const cA=Math.cos(a), sA=Math.sin(a);
   const cB=Math.cos(b), sB=Math.sin(b);
   const cG=Math.cos(g), sG=Math.sin(g);
@@ -338,16 +357,27 @@ function computeOrientation(alphaDeg, betaDeg, gammaDeg){
   if(plunge<0){ trend=norm360(trend+180); plunge=-plunge; }
   return { dip: roundInt(dip), dipDir: roundInt(dipDir), strike: roundInt(strike), trend: roundInt(trend), plunge: roundInt(plunge) };
 }
+
 function toQuadrant(strikeAz){
   if(strikeAz==null||isNaN(strikeAz)) return '—';
-  let s = norm360(strikeAz) % 180;
-  let ns, ew, angle;
-  if(s<=90){ ns='N'; ew='E'; angle=s; } else { ns='S'; ew='W'; angle=180-s; }
-  angle=Math.round(angle);
-  if(angle===0) return 'N-S';
-  if(angle===90) return 'E-W';
-  return ns+angle+'°'+(ew==='W'?(currentLang==='es'?'O':'W'):'E');
+  let s = norm360(strikeAz);
+  const wChar = currentLang==='es'?'O':'W';
+  
+  if(quadrantPref==='N_ONLY'){
+    let half = s % 180;
+    if(half<=90) return `N${Math.round(half)}°E`;
+    return `N${Math.round(180-half)}°${wChar}`;
+  } else {
+    let sNorm = s % 180;
+    let ns, ew, angle;
+    if(sNorm<=90){ ns='N'; ew='E'; angle=sNorm; } else { ns='S'; ew=wChar; angle=180-sNorm; }
+    angle=Math.round(angle);
+    if(angle===0) return 'N-S';
+    if(angle===90) return `E-${wChar}`;
+    return ns+angle+'°'+ew;
+  }
 }
+
 function dipDirQuadrant(dipDirAz){
   if(dipDirAz==null||isNaN(dipDirAz)) return '—';
   const az=norm360(dipDirAz);
@@ -361,6 +391,25 @@ function dipDirQuadrant(dipDirAz){
   return best[0];
 }
 
+/* =========================================================
+   CÁLCULO AUTOMÁTICO DE RAKE
+   ========================================================= */
+function calculateRakeFromTP(dipDir, dip, trend, plunge){
+  if(dip==null || trend==null || plunge==null || dip===0) return null;
+  const sinR = Math.sin(toRad(plunge)) / Math.sin(toRad(dip));
+  const rakeDeg = roundInt(toDeg(Math.asin(clamp(sinR, -1, 1))));
+  const strike = norm360((dipDir||0) - 90);
+  const strikeOpp = norm360(strike + 180);
+  let diff1 = Math.abs(trend - strike); if(diff1>180) diff1 = 360-diff1;
+  let diff2 = Math.abs(trend - strikeOpp); if(diff2>180) diff2 = 360-diff2;
+  const refAz = diff1 <= diff2 ? strike : strikeOpp;
+  const quad = dipDirQuadrant(refAz);
+  return { rake: rakeDeg, quadrant: quad };
+}
+
+/* =========================================================
+   UTM (WGS84)
+   ========================================================= */
 const UTM_A=6378137.0, UTM_ECC2=0.00669438, UTM_K0=0.9996;
 function llToUTM(lat, lon){
   const latRad=toRad(lat), lonRad=toRad(lon);
@@ -425,15 +474,9 @@ function openDB(){
     const req=indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded=(e)=>{
       const d=e.target.result;
-      if(!d.objectStoreNames.contains('campaigns')){
-        d.createObjectStore('campaigns',{keyPath:'id'});
-      }
-      if(!d.objectStoreNames.contains('stations')){
-        d.createObjectStore('stations',{keyPath:'id'});
-      }
-      if(!d.objectStoreNames.contains('measurements')){
-        d.createObjectStore('measurements',{keyPath:'id'});
-      }
+      if(!d.objectStoreNames.contains('campaigns')) d.createObjectStore('campaigns',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('stations')) d.createObjectStore('stations',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('measurements')) d.createObjectStore('measurements',{keyPath:'id'});
     };
     req.onsuccess=(e)=>{ DB=e.target.result; resolve(DB); };
     req.onerror=(e)=>reject(e.target.error);
@@ -585,7 +628,14 @@ function updateLiveDial(){
 }
 function drawDial(svg, mode){
   const r=sensorState.last;
-  const heading = r ? (mode==='planar'? r.dipDir : r.trend) : 0;
+  let heading = 0;
+  if(r){
+    if(mode==='planar'){
+      heading = (needleMode==='strike') ? r.strike : r.dipDir;
+    } else {
+      heading = r.trend;
+    }
+  }
   const mag = r ? (mode==='planar'? r.dip : r.plunge) : 0;
   let ticks='';
   for(let i=0;i<36;i++){
@@ -622,6 +672,7 @@ function captureSensorReading(formKey, mode){
     setVal('trend_'+formKey, roundInt(r.trend));
     setVal('plunge_'+formKey, roundInt(r.plunge));
   }
+  if(formKey==='fl' || formKey==='fp') autoCalcRakeIfReady();
   toast(currentLang==='es'?'Lectura capturada':'Reading captured');
 }
 function setVal(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
@@ -691,7 +742,7 @@ function attachSensorInit(){
 function postRenderMeasForm(){
   const type=state.measType;
   if(type==='planar') onOrientationInputChange('p1');
-  else if(type==='fault') onOrientationInputChange('fp');
+  else if(type==='fault'){ onOrientationInputChange('fp'); autoCalcRakeIfReady(); }
   else if(type==='contact'){ onOrientationInputChange('c1'); calcThickness(); }
   else if(type==='vein') onOrientationInputChange('v1');
 }
@@ -928,9 +979,9 @@ function measSub(m){
     if(m.trend!=null) return `Trend/Plunge ${pad3(m.trend)}/${pad2(m.plunge)}`;
     return '';
   }
-  if(m.type==='fault') return `Plano ${pad3(m.strike)}/${pad2(m.dip)} · ${m.sense||''}`;
+  if(m.type==='fault') return `Plano ${pad3(m.strike)}/${pad2(m.dip)} · Rake: ${m.rake??'—'}° (${m.rakeQuadrant||'—'}) · ${m.sense||''}`;
   if(m.type==='contact') return `${esc(m.lithoTop||'?')} / ${esc(m.lithoBottom||'?')} · e=${m.trueThickness??'?'} m`;
-  if(m.type==='vein') return `${m.veinThickness??'?'} ${m.veinUnit||'cm'}`;
+  if(m.type==='vein') return `${esc(m.structKind||'Veta')}: ${m.veinThickness??'?'} ${m.veinUnit||'cm'} · ${(m.alteration||[]).join(', ')||'Sin alteración'}`;
   return '';
 }
 function pad3(v){ return v==null?'—':String(roundInt(v)).padStart(3,'0'); }
@@ -947,7 +998,7 @@ async function renderStationDetail(){
     const items = meas.filter(m=>m.type===c.key).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
     const rows = items.map(m=>`
       <div class="mini-row">
-        <div class="ml"><b>${esc(m.subtype||c.title)}</b><span>${esc(measSub(m))}</span></div>
+        <div class="ml"><b>${esc(m.structKind ? (m.structKind+' - '+(m.texture||'')) : (m.subtype||c.title))}</b><span>${esc(measSub(m))}</span></div>
         <div class="mini-actions">
           <button class="icon-sm" onclick="event.stopPropagation();Nav.editMeasurement('${m.id}','${st.id}','${m.type}')">✎</button>
           <button class="icon-sm" onclick="event.stopPropagation();deleteMeasurement('${m.id}')">🗑</button>
@@ -966,7 +1017,7 @@ async function renderStationDetail(){
 
   return `
   <div class="topline">
-    <button class="back-btn" onclick="Nav.back()">←</button>
+    <button class="back-btn" onclick="Nav.campaign('${st.campaignId}')">←</button>
     <div><h2>📍 ${esc(st.name)}</h2><div class="sub">${fmtDate(st.timestamp)}</div></div>
   </div>
   <div class="card" style="cursor:default;">
@@ -988,7 +1039,13 @@ async function deleteMeasurement(id){
 const PLANAR_SUBTYPES = ['Estratificación (S0)','Foliación (S1)','Foliación (S2)','Diaclasa / Fractura','Clivaje','Lineación mineral','Eje de pliegue'];
 const LINEAR_SUBTYPES = ['Lineación mineral','Eje de pliegue'];
 const FAULT_SENSES = ['Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso'];
+const KIN_QUALITY = ['Definida','Probable','Posible'];
+const KIN_CRITERIA = ['Fibras minerales','Escalones de crecimiento','Estructuras S-C','Estilolitos','Brechas','Estrías simples','Otro'];
 const CONTACT_TYPES = ['Concordante','Discordante angular','Discordante erosiva','Falla','Intrusivo','Transicional'];
+const VEIN_TEXTURES = ['Masiva','Bandeada','Brechosa','Peine (comb)','Coloforme','Otro'];
+const VEIN_MINERALS = ['Cuarzo','Calcita','Pirita','Calcopirita','Turmalina','Especularita','Yeso','Clorita','Epidota'];
+const ALTERATION_TYPES = ['Propilítica','Fílica (sericítica)','Potásica','Argílica intermedia','Argílica avanzada','Silicificación','Skarn','Sin alteración visible'];
+const ALTERATION_INTENSITY = ['Débil','Moderada','Fuerte','Pervasiva'];
 
 async function renderMeasForm(){
   const isNew = !state.measId;
@@ -1050,22 +1107,74 @@ function onPlanarSubtypeChange(){
 }
 
 function renderFaultFields(m){
+  const rakeMode = m.striaeMode!=='trendplunge';
   return `
   <label>Plano de falla</label>
   ${renderSensorPanel('planar','fp')}
   <div class="numfield-row">
-    <div><label>Dip Direction (0–360°)</label><input type="number" step="1" id="dipDir_fp" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('fp')"></div>
-    <div><label>Manteo (0–90°)</label><input type="number" step="1" id="dip_fp" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('fp')"></div>
+    <div><label>Dip Direction (0–360°)</label><input type="number" step="1" id="dipDir_fp" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('fp'); autoCalcRakeIfReady();"></div>
+    <div><label>Manteo (0–90°)</label><input type="number" step="1" id="dip_fp" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('fp'); autoCalcRakeIfReady();"></div>
   </div>
   <div class="derived" id="derived_fp">Strike RHR: — · Cuadrante: —</div>
 
-  <div class="numfield-row">
-    <div><label>Rake (0–90°)</label><input type="number" step="1" id="f_rake" min="0" max="90" value="${m.rake??''}"></div>
-    <div><label>Sentido</label>
-      <select id="f_sense">${FAULT_SENSES.map(s=>`<option ${m.sense===s?'selected':''}>${s}</option>`).join('')}</select>
+  <label>Lineación de estría — Modo de captura</label>
+  <div class="radio-row">
+    <label class="opt ${rakeMode?'on':''}"><input type="radio" name="striaeMode" value="rake" ${rakeMode?'checked':''} onchange="onStriaeModeChange(this)">Rake / Pitch directo</label>
+    <label class="opt ${!rakeMode?'on':''}"><input type="radio" name="striaeMode" value="trendplunge" ${!rakeMode?'checked':''} onchange="onStriaeModeChange(this)">Trend / Plunge (Sensor)</label>
+  </div>
+  
+  <div id="rakeBlock" style="display:${rakeMode?'':'none'}">
+    <div class="numfield-row">
+      <div><label>Rake (0–90°)</label><input type="number" step="1" id="f_rake" min="0" max="90" value="${m.rake??''}"></div>
+      <div><label>Cuadrante de referencia</label>
+        <select id="f_rakeQuad">${['N','NE','E','SE','S','SO','O','NO'].map(q=>`<option ${m.rakeQuadrant===q?'selected':''}>${q}</option>`).join('')}</select>
+      </div>
     </div>
   </div>
+
+  <div id="tpBlock" style="display:${!rakeMode?'':'none'}">
+    ${renderSensorPanel('linear','fl')}
+    <div class="numfield-row">
+      <div><label>Trend estría (0–360°)</label><input type="number" step="1" id="trend_fl" min="0" max="360" value="${m.trend??''}" oninput="autoCalcRakeIfReady()"></div>
+      <div><label>Plunge estría (0–90°)</label><input type="number" step="1" id="plunge_fl" min="0" max="90" value="${m.plunge??''}" oninput="autoCalcRakeIfReady()"></div>
+    </div>
+    <div class="derived" id="rakeCalculatedOut">Rake calculado: —</div>
+  </div>
+
+  <label>Sentido de movimiento</label>
+  <select id="f_sense">${FAULT_SENSES.map(s=>`<option ${m.sense===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Calidad cinemática</label>
+  <select id="f_senseQuality">${KIN_QUALITY.map(s=>`<option ${m.senseQuality===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Criterio cinemático observado</label>
+  <div class="check-grid">
+    ${KIN_CRITERIA.map(c=>`<label class="check-item"><input type="checkbox" value="${c}" ${((m.criteria||[]).includes(c))?'checked':''} class="crit-chk">${c}</label>`).join('')}
+  </div>
   `;
+}
+function onStriaeModeChange(inputEl){
+  const mode=inputEl.value;
+  const row=inputEl.closest('.radio-row');
+  row.querySelectorAll('label.opt').forEach(l=>l.classList.remove('on'));
+  inputEl.closest('label').classList.add('on');
+  document.getElementById('rakeBlock').style.display = mode==='rake'?'':'none';
+  document.getElementById('tpBlock').style.display = mode==='trendplunge'?'':'none';
+  if(mode==='trendplunge') autoCalcRakeIfReady();
+}
+function autoCalcRakeIfReady(){
+  const dipDir = parseInt(document.getElementById('dipDir_fp')?.value, 10);
+  const dip = parseInt(document.getElementById('dip_fp')?.value, 10);
+  const trend = parseInt(document.getElementById('trend_fl')?.value, 10);
+  const plunge = parseInt(document.getElementById('plunge_fl')?.value, 10);
+  const out = document.getElementById('rakeCalculatedOut');
+  if(isNaN(dip)||isNaN(trend)||isNaN(plunge)){ if(out) out.textContent='Rake calculado: —'; return; }
+  const res = calculateRakeFromTP(dipDir||0, dip, trend, plunge);
+  if(res && out){
+    out.innerHTML = `Rake geométrico: <b style="color:var(--accent)">${res.rake}°</b> (desde el extremo <b style="color:var(--accent)">${res.quadrant}</b>)`;
+    setVal('f_rake', res.rake);
+    const qEl=document.getElementById('f_rakeQuad'); if(qEl) qEl.value=res.quadrant;
+  }
 }
 
 function renderContactFields(m){
@@ -1078,6 +1187,11 @@ function renderContactFields(m){
     <div><label>Manteo</label><input type="number" step="1" id="dip_c1" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('c1')"></div>
   </div>
   <div class="derived" id="derived_c1">Strike RHR: —</div>
+
+  <div class="grid2">
+    <div><label>Litología techo</label><input type="text" id="f_lithoTop" value="${esc(m.lithoTop||'')}"></div>
+    <div><label>Litología piso</label><input type="text" id="f_lithoBottom" value="${esc(m.lithoBottom||'')}"></div>
+  </div>
 
   <div class="grid2">
     <div><label>Espesor aparente (m)</label><input type="number" step="1" id="f_appThickness" value="${m.appThickness??''}" oninput="calcThickness()"></div>
@@ -1110,7 +1224,15 @@ function calcThickness(){
 }
 
 function renderVeinFields(m){
+  const kind = m.structKind || 'Veta';
   return `
+  <label>Tipo de estructura</label>
+  <div class="radio-row">
+    <label class="opt ${kind==='Veta'?'on':''}"><input type="radio" name="structKind" value="Veta" ${kind==='Veta'?'checked':''} onchange="onKindChange(this)">Veta</label>
+    <label class="opt ${kind==='Vetilla'?'on':''}"><input type="radio" name="structKind" value="Vetilla" ${kind==='Vetilla'?'checked':''} onchange="onKindChange(this)">Vetilla</label>
+  </div>
+
+  <label>Actitud del plano</label>
   ${renderSensorPanel('planar','v1')}
   <div class="numfield-row">
     <div><label>Dip Direction</label><input type="number" step="1" id="dipDir_v1" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('v1')"></div>
@@ -1120,9 +1242,33 @@ function renderVeinFields(m){
 
   <div class="grid2">
     <div><label>Espesor</label><input type="number" step="1" id="f_veinThick" value="${m.veinThickness??''}"></div>
-    <div><label>Unidad</label><select id="f_veinUnit"><option ${m.veinUnit==='cm'?'selected':''}>cm</option><option ${m.veinUnit==='mm'?'selected':''}>mm</option></select></div>
+    <div><label>Unidad</label><select id="f_veinUnit"><option ${(!m.veinUnit||m.veinUnit==='cm')?'selected':''}>cm</option><option ${m.veinUnit==='mm'?'selected':''}>mm</option></select></div>
   </div>
+  <label>Densidad de vetillas (vetillas/metro)</label>
+  <input type="number" step="1" id="f_veinDensity" value="${m.veinDensity??''}">
+
+  <label>Mineralogía de relleno</label>
+  <div class="check-grid">
+    ${VEIN_MINERALS.map(mn=>`<label class="check-item"><input type="checkbox" value="${mn}" ${((m.mineralogy||[]).includes(mn))?'checked':''} class="min-chk">${mn}</label>`).join('')}
+  </div>
+  <input type="text" id="f_mineralOther" placeholder="Otro mineral (opcional)" value="${esc(m.mineralOther||'')}" style="margin-top:8px;">
+
+  <label>Textura</label>
+  <select id="f_texture">${VEIN_TEXTURES.map(s=>`<option ${m.texture===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Ensamble de alteración hidrotermal</label>
+  <div class="check-grid">
+    ${ALTERATION_TYPES.map(a=>`<label class="check-item"><input type="checkbox" value="${a}" ${((m.alteration||[]).includes(a))?'checked':''} class="alt-chk">${a}</label>`).join('')}
+  </div>
+
+  <label>Intensidad de alteración</label>
+  <select id="f_intensity">${ALTERATION_INTENSITY.map(s=>`<option ${m.intensity===s?'selected':''}>${s}</option>`).join('')}</select>
   `;
+}
+function onKindChange(el){
+  const row=el.closest('.radio-row');
+  row.querySelectorAll('label.opt').forEach(l=>l.classList.remove('on'));
+  el.closest('label').classList.add('on');
 }
 
 async function saveMeasurement(id, isNew){
@@ -1140,22 +1286,38 @@ async function saveMeasurement(id, isNew){
   } else if(type==='fault'){
     obj.dipDir=intOrNull('dipDir_fp'); obj.dip=intOrNull('dip_fp');
     obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    obj.striaeMode=document.querySelector('input[name=striaeMode]:checked')?.value || 'rake';
+    if(obj.striaeMode==='trendplunge'){
+      obj.trend=intOrNull('trend_fl'); obj.plunge=intOrNull('plunge_fl');
+    }
     obj.rake=intOrNull('f_rake');
+    obj.rakeQuadrant=document.getElementById('f_rakeQuad')?.value || null;
     obj.sense=document.getElementById('f_sense').value;
+    obj.senseQuality=document.getElementById('f_senseQuality').value;
+    obj.criteria=[...document.querySelectorAll('.crit-chk:checked')].map(c=>c.value);
   } else if(type==='contact'){
     obj.contactType=document.getElementById('f_contactType').value;
     obj.dipDir=intOrNull('dipDir_c1'); obj.dip=intOrNull('dip_c1');
     obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    obj.lithoTop=document.getElementById('f_lithoTop').value;
+    obj.lithoBottom=document.getElementById('f_lithoBottom').value;
     obj.appThickness=intOrNull('f_appThickness');
     obj.bedDip=intOrNull('f_bedDip');
     obj.slope=intOrNull('f_slope');
     obj.slopeSense=document.getElementById('f_slopeSense').value;
     obj.trueThickness=calcThickness();
   } else if(type==='vein'){
+    obj.structKind=document.querySelector('input[name=structKind]:checked')?.value || 'Veta';
     obj.dipDir=intOrNull('dipDir_v1'); obj.dip=intOrNull('dip_v1');
     obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
     obj.veinThickness=intOrNull('f_veinThick');
     obj.veinUnit=document.getElementById('f_veinUnit').value;
+    obj.veinDensity=intOrNull('f_veinDensity');
+    obj.mineralogy=[...document.querySelectorAll('.min-chk:checked')].map(c=>c.value);
+    obj.mineralOther=document.getElementById('f_mineralOther').value;
+    obj.texture=document.getElementById('f_texture').value;
+    obj.alteration=[...document.querySelectorAll('.alt-chk:checked')].map(c=>c.value);
+    obj.intensity=document.getElementById('f_intensity').value;
   }
   await dbPut('measurements', obj);
   toast(currentLang==='es'?'Guardado':'Saved');
@@ -1207,7 +1369,7 @@ async function getFilteredData(){
 
 async function exportCSV(){
   const { measurements, stMap, campMap } = await getFilteredData();
-  const headers=['Campaign','Station_ID','Timestamp','Lat','Lon','Alt','UTM_Zone','UTM_Hemisphere','UTM_Easting','UTM_Northing','Struct_Type','Strike','Dip','DipDir','Trend','Plunge','Rake','Sense','True_Thickness','Vein_Thick','Notes'];
+  const headers=['Campaign','Station_ID','Timestamp','Lat','Lon','Alt','UTM_Zone','UTM_Hemisphere','UTM_Easting','UTM_Northing','Struct_Type','Kind','Strike','Dip','DipDir','Trend','Plunge','Rake','Rake_Quad','Sense','True_Thickness','Vein_Thick','Vein_Unit','Alteration','Notes'];
   const rows=[headers.join(',')];
   measurements.forEach(m=>{
     const st=stMap[m.stationId]||{};
@@ -1217,11 +1379,11 @@ async function exportCSV(){
       csvEsc(camp.name||''), csvEsc(st.name||st.id||''), csvEsc(m.timestamp||st.timestamp||''),
       st.lat??'', st.lon??'', st.alt??'',
       u? u.zoneNumber:'', u? u.hemisphere:'', u? u.easting:'', u? u.northing:'',
-      csvEsc(m.subtype||m.type),
+      csvEsc(m.subtype||m.type), csvEsc(m.structKind||''),
       m.strike!=null?roundInt(m.strike):'', m.dip!=null?roundInt(m.dip):'', m.dipDir!=null?roundInt(m.dipDir):'',
-      m.trend!=null?roundInt(m.trend):'', m.plunge!=null?roundInt(m.plunge):'', m.rake!=null?roundInt(m.rake):'',
-      csvEsc(m.sense||''), m.trueThickness!=null?roundInt(m.trueThickness):'', m.veinThickness!=null?roundInt(m.veinThickness):'',
-      csvEsc(m.notes||'')
+      m.trend!=null?roundInt(m.trend):'', m.plunge!=null?roundInt(m.plunge):'', m.rake!=null?roundInt(m.rake):'', csvEsc(m.rakeQuadrant||''),
+      csvEsc(m.sense||''), m.trueThickness!=null?roundInt(m.trueThickness):'', m.veinThickness!=null?roundInt(m.veinThickness):'', csvEsc(m.veinUnit||''),
+      csvEsc((m.alteration||[]).join('; ')), csvEsc(m.notes||'')
     ].join(','));
   });
   downloadFile('\uFEFF'+rows.join('\r\n'), 'GeoFieldCore_'+dateStamp()+'.csv', 'text/csv;charset=utf-8');
@@ -1241,11 +1403,12 @@ async function exportGeoJSON(){
         Campaign: camp.name||null, Station_ID: st.name||st.id, Timestamp: m.timestamp||st.timestamp,
         UTM_Zone: u? u.zoneNumber:null, UTM_Hemisphere: u? u.hemisphere:null,
         UTM_Easting: u? u.easting:null, UTM_Northing: u? u.northing:null,
-        Struct_Type: m.subtype||m.type,
+        Struct_Type: m.subtype||m.type, Kind: m.structKind||null,
         Strike: m.strike!=null?roundInt(m.strike):null, Dip: m.dip!=null?roundInt(m.dip):null, DipDir: m.dipDir!=null?roundInt(m.dipDir):null,
-        Trend: m.trend!=null?roundInt(m.trend):null, Plunge: m.plunge!=null?roundInt(m.plunge):null, Rake: m.rake!=null?roundInt(m.rake):null,
+        Trend: m.trend!=null?roundInt(m.trend):null, Plunge: m.plunge!=null?roundInt(m.plunge):null, Rake: m.rake!=null?roundInt(m.rake):null, Rake_Quad: m.rakeQuadrant||null,
         Sense: m.sense||null, True_Thickness: m.trueThickness!=null?roundInt(m.trueThickness):null,
-        Vein_Thick: m.veinThickness!=null?roundInt(m.veinThickness):null, Notes: m.notes||null
+        Vein_Thick: m.veinThickness!=null?roundInt(m.veinThickness):null, Vein_Unit: m.veinUnit||null,
+        Alteration: (m.alteration||[]).join('; ')||null, Notes: m.notes||null
       }
     };
   });
@@ -1263,6 +1426,30 @@ function renderSettings(){
       <option value="es" ${currentLang==='es'?'selected':''}>Español</option>
       <option value="en" ${currentLang==='en'?'selected':''}>English</option>
     </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('quadrantMode')}</div>
+    <div class="card-sub">Define cómo se formatea el rumbo en notación de cuadrante</div>
+    <select onchange="changeQuadrantPref(this.value)" style="margin-top:8px;">
+      <option value="NS" ${quadrantPref==='NS'?'selected':''}>Norte y Sur (ej. N30°E y S45°O)</option>
+      <option value="N_ONLY" ${quadrantPref==='N_ONLY'?'selected':''}>Solo Norte (ej. N30°E y N135°O)</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('needleTarget')}</div>
+    <div class="card-sub">Indica a qué ángulo apunta la aguja naranja en el visor</div>
+    <select onchange="changeNeedleMode(this.value)" style="margin-top:8px;">
+      <option value="dipdir" ${needleMode==='dipdir'?'selected':''}>Dirección de Manteo (Dip Direction)</option>
+      <option value="strike" ${needleMode==='strike'?'selected':''}>Rumbo / Strike (Regla mano derecha)</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('calibration')}</div>
+    <div class="card-sub">Añade declinación magnética local u offset de corrección</div>
+    <input type="number" step="1" value="${magOffset}" onchange="changeMagOffset(this.value)" style="margin-top:8px;" placeholder="ej. 3 o -5">
   </div>
 
   <div class="card" style="cursor:default;">
@@ -1285,26 +1472,35 @@ function renderSettings(){
   </div>
 
   <div class="card" style="cursor:default;">
+    <div class="card-title">📖 Guía de Terreno: Cinemática y Rake</div>
+    <div class="guide-box">
+      <b>1. Determinación de Cinemática (Fallas):</b>
+      <ul>
+        <li><b>Escalones y fibras minerales:</b> Al pasar los dedos suavemente a lo largo del plano, la dirección suave indica el movimiento del bloque opuesto (criterio de rugosidad/paso de escalón).</li>
+        <li><b>Estructuras S-C:</b> Los planos S (foliación sigmoidal) se curvan hacia los planos C (cizalle principal), indicando la dirección del desplazamiento relativo.</li>
+      </ul>
+      <b>2. Sentido del Rake (Pitch):</b>
+      <ul>
+        <li>El <b>Rake</b> es el ángulo (0° a 90°) que forma la estría medido sobre el plano de falla.</li>
+        <li>Se referencia indicando desde qué extremo del rumbo se mide el ángulo (ej. <i>35° desde el N</i> o <i>40° desde el SO</i>).</li>
+        <li>Si capturas el plano de falla y luego mides la estría con el sensor en <i>Trend/Plunge</i>, la app calcula automáticamente el Rake y su cuadrante.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="cursor:default;">
     <div class="card-title">Sensores / Permisos</div>
-    <button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar Sensores</button>
+    <button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar / Re-calibrar Sensores</button>
   </div>
   `;
 }
-function changeLanguage(lang){
-  currentLang=lang;
-  localStorage.setItem('geo_lang', lang);
-  render();
-}
-function changeCompassScale(scale){
-  compassScale=scale;
-  localStorage.setItem('geo_compass_scale', scale);
-  render();
-}
-function changeBoxScale(scale){
-  boxScale=scale;
-  localStorage.setItem('geo_box_scale', scale);
-  render();
-}
+
+function changeLanguage(lang){ currentLang=lang; localStorage.setItem('geo_lang', lang); render(); }
+function changeCompassScale(scale){ compassScale=scale; localStorage.setItem('geo_compass_scale', scale); render(); }
+function changeBoxScale(scale){ boxScale=scale; localStorage.setItem('geo_box_scale', scale); render(); }
+function changeQuadrantPref(val){ quadrantPref=val; localStorage.setItem('geo_quadrant_pref', val); render(); }
+function changeNeedleMode(val){ needleMode=val; localStorage.setItem('geo_needle_mode', val); render(); }
+function changeMagOffset(val){ magOffset=parseFloat(val)||0; localStorage.setItem('geo_mag_offset', magOffset); render(); }
 
 (async function init(){
   await openDB();
