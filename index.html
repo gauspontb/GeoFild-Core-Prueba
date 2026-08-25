@@ -66,10 +66,9 @@
   .status-dot.err{ background:var(--danger); }
   @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
   .status-chip{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); padding:6px 8px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border-soft); }
-  .icon-btn{ width:36px; height:36px; border-radius:8px; border:1px solid var(--border-soft); background:var(--surface-2); color:var(--text); display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .icon-btn{ width:36px; height:36px; border-radius:8px; border:1px solid var(--border-soft); background:var(--surface-2); color:var(--text); display:flex; align-items:center; justify-content:center; font-size:16px; cursor:pointer; }
 
   #app{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px 14px calc(24px + var(--safe-b)) 14px; }
-  #app.no-pad{ padding:0; }
 
   #navbar{
     flex:0 0 auto;
@@ -81,7 +80,7 @@
   }
   .nav-btn{
     flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
-    background:transparent; border:none; color:var(--text-faint); font-size:10px; letter-spacing:.3px;
+    background:transparent; border:none; color:var(--text-faint); font-size:10px; letter-spacing:.3px; cursor:pointer;
   }
   .nav-btn .ic{ font-size:19px; }
   .nav-btn.active{ color:var(--accent); }
@@ -107,14 +106,14 @@
     box-shadow:0 4px 14px rgba(0,0,0,.4); z-index:20; cursor:pointer;
   }
 
-  .card{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); padding:14px; margin-bottom:12px; }
+  .card{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); padding:14px; margin-bottom:12px; cursor:pointer; }
   .card-title{ font-size:16px; font-weight:700; }
   .card-sub{ font-size:12px; color:var(--text-dim); margin-top:2px; }
   .badge-row{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
   .badge{ font-size:10.5px; background:var(--surface-2); color:var(--text-dim); border:1px solid var(--border-soft); padding:3px 8px; border-radius:20px; }
   .badge.accent{ color:var(--accent); border-color:var(--accent-dim); }
 
-  .empty{ text-align:center; padding:60px 20px; color:var(--text-faint); }
+  .empty{ text-align:center; padding:40px 20px; color:var(--text-faint); }
   .empty .big{ font-size:38px; margin-bottom:10px; }
 
   label{ display:block; font-size:12px; color:var(--text-dim); margin:14px 0 6px; font-weight:600; letter-spacing:.2px; }
@@ -127,17 +126,8 @@
   select{ -webkit-appearance:none; appearance:none; background-image:linear-gradient(45deg,transparent 50%,var(--text-dim) 50%),linear-gradient(135deg,var(--text-dim) 50%,transparent 50%); background-position:calc(100% - 18px) center, calc(100% - 13px) center; background-size:5px 5px,5px 5px; background-repeat:no-repeat; }
   textarea{ min-height:70px; resize:vertical; }
   input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--accent); }
-  input[readonly]{ color:var(--text-dim); }
   .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
-  .check-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px; }
-  .check-item{ display:flex; align-items:center; gap:8px; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:9px 10px; font-size:13px; cursor:pointer; }
-  .check-item input{ width:16px; height:16px; min-height:unset; }
-  .radio-row{ display:flex; gap:8px; margin-top:6px; }
-  .radio-row label.opt{ flex:1; display:flex; align-items:center; justify-content:center; gap:6px; margin:0; padding:10px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border-soft); font-size:12.5px; font-weight:600; color:var(--text-dim); cursor:pointer; }
-  .radio-row input{ display:none; }
-  .radio-row label.opt.on{ border-color:var(--accent); color:var(--accent); background:rgba(232,163,61,0.08); }
-
   .switch-row{ display:flex; align-items:center; justify-content:space-between; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:10px 12px; margin-top:10px; }
   .switch{ position:relative; width:46px; height:26px; }
   .switch input{ opacity:0; width:100%; height:100%; position:absolute; margin:0; cursor:pointer; }
@@ -146,9 +136,8 @@
   .switch input:checked + .track{ background:var(--accent); }
   .switch input:checked + .track .thumb{ transform:translateX(20px); }
 
-  .section-hdr{ display:flex; align-items:center; justify-content:space-between; margin:22px 0 10px; }
+  .section-hdr{ display:flex; align-items:center; justify-content:space-between; margin:20px 0 10px; }
   .section-hdr h3{ font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-dim); }
-  .section-hdr:first-child{ margin-top:0; }
 
   details.accordion{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); margin-bottom:10px; overflow:hidden; }
   details.accordion > summary{ list-style:none; padding:14px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
@@ -169,11 +158,9 @@
   .topline h2{ font-size:18px; }
   .topline .sub{ font-size:11px; color:var(--text-dim); }
 
-  /* Contenedores dinámicos según ajustes de escala */
   .sensor-box{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); padding:14px; margin:14px 0; }
   .sensor-box.scale-lg{ padding:20px; border-width:2px; }
   .sensor-box.scale-xl{ padding:26px; border-width:2px; }
-
   .sensor-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
   .sensor-head b{ font-size:13px; }
   .dial-wrap{ display:flex; gap:14px; align-items:center; margin-top:10px; }
@@ -197,7 +184,7 @@
   <div id="topbar">
     <div class="brand"><b>GeoField Core</b><span id="stationCountLabel">...</span></div>
     <div class="status-chip"><span id="gpsDot" class="status-dot"></span>GPS</div>
-    <div class="status-chip"><span id="sensorDot" class="status-dot"></span><span id="sensorDotLabel">Sensor</span></div>
+    <div class="status-chip"><span id="sensorDot" class="status-dot"></span>Sensor</div>
     <button class="icon-btn" onclick="Nav.settings()" title="Ajustes">⚙</button>
   </div>
 
@@ -212,16 +199,13 @@
 <script>
 "use strict";
 
-/* =========================================================
-   DICCIONARIO I18N (ES / EN)
-   ========================================================= */
 const I18N = {
   es: {
     campaigns: 'Campañas',
-    campaign: 'Campaña / Expedición',
+    campaign: 'Campaña',
     newCampaign: 'Nueva campaña',
     editCampaign: 'Editar campaña',
-    noCampaigns: 'No hay campañas registradas. Crea una para comenzar a agrupar estaciones.',
+    noCampaigns: 'No hay campañas registradas todavía.',
     campName: 'Nombre de la campaña / expedición',
     stationsInCamp: 'Estaciones en esta campaña',
     stations: 'estación(es)',
@@ -229,6 +213,8 @@ const I18N = {
     newStation: 'Nueva estación',
     editStation: 'Editar estación',
     noStations: 'No hay estaciones en esta campaña.',
+    addStationBtn: '+ Añadir estación a esta campaña',
+    addCampBtn: '+ Crear primera campaña',
     export: 'Exportar datos',
     settings: 'Ajustes',
     save: 'Guardar',
@@ -244,7 +230,6 @@ const I18N = {
     lang: 'Idioma',
     exportScope: 'Alcance de exportación',
     exportAll: 'Todo el proyecto (Todas las campañas)',
-    exportFilter: 'Filtrar por campaña específica',
     selectCamp: 'Selecciona una campaña',
     exportCsv: '⇩ Exportar CSV',
     exportGeoJson: '⇩ Exportar GeoJSON',
@@ -262,17 +247,19 @@ const I18N = {
   },
   en: {
     campaigns: 'Campaigns',
-    campaign: 'Campaign / Expedition',
+    campaign: 'Campaign',
     newCampaign: 'New Campaign',
     editCampaign: 'Edit Campaign',
-    noCampaigns: 'No campaigns recorded yet. Create one to start grouping stations.',
+    noCampaigns: 'No campaigns recorded yet.',
     campName: 'Campaign / Expedition Name',
     stationsInCamp: 'Stations in this campaign',
     stations: 'station(s)',
     station: 'Station',
     newStation: 'New Station',
     editStation: 'Edit Station',
-    noStations: 'No stations in this campaign yet.',
+    noStations: 'No stations in this campaign.',
+    addStationBtn: '+ Add station to this campaign',
+    addCampBtn: '+ Create first campaign',
     export: 'Export Data',
     settings: 'Settings',
     save: 'Save',
@@ -284,11 +271,10 @@ const I18N = {
     notes: 'Notes',
     captureSensor: '📍 Capture Reading',
     compassSize: 'Compass / Dial Size',
-    sensorBoxSize: 'Measurement Box Size',
+    sensorBoxSize: 'Measurement Container Size',
     lang: 'Language',
     exportScope: 'Export Scope',
     exportAll: 'Entire project (All campaigns)',
-    exportFilter: 'Filter by specific campaign',
     selectCamp: 'Select a campaign',
     exportCsv: '⇩ Export CSV',
     exportGeoJson: '⇩ Export GeoJSON',
@@ -307,14 +293,11 @@ const I18N = {
 };
 
 let currentLang = localStorage.getItem('geo_lang') || 'es';
-let compassScale = localStorage.getItem('geo_compass_scale') || 'md'; // sm, md, lg, xl
-let boxScale = localStorage.getItem('geo_box_scale') || 'md';         // md, lg, xl
+let compassScale = localStorage.getItem('geo_compass_scale') || 'md';
+let boxScale = localStorage.getItem('geo_box_scale') || 'md';
 
 function t(key){ return I18N[currentLang]?.[key] || I18N.es[key] || key; }
 
-/* =========================================================
-   UTILIDADES
-   ========================================================= */
 function uid(){ return 'id_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
 function nowIso(){ return new Date().toISOString(); }
 function fmtDate(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleDateString(currentLang==='es'?'es-CL':'en-US',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString(currentLang==='es'?'es-CL':'en-US',{hour:'2-digit',minute:'2-digit'}); }
@@ -323,7 +306,6 @@ function toRad(d){ return d*Math.PI/180; }
 function toDeg(r){ return r*180/Math.PI; }
 function norm360(x){ return ((x%360)+360)%360; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-// REGLA 1: ENTEROS SIN DECIMALES
 function roundInt(v){ return v==null||isNaN(v)?null:Math.round(v); }
 
 function toast(msg){
@@ -339,9 +321,6 @@ function downloadFile(content, filename, mime){
   setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
 
-/* =========================================================
-   MATEMÁTICA GEOLÓGICA
-   ========================================================= */
 function computeOrientation(alphaDeg, betaDeg, gammaDeg){
   const a=toRad(alphaDeg), b=toRad(betaDeg), g=toRad(gammaDeg);
   const cA=Math.cos(a), sA=Math.sin(a);
@@ -382,9 +361,6 @@ function dipDirQuadrant(dipDirAz){
   return best[0];
 }
 
-/* =========================================================
-   UTM (WGS84)
-   ========================================================= */
 const UTM_A=6378137.0, UTM_ECC2=0.00669438, UTM_K0=0.9996;
 function llToUTM(lat, lon){
   const latRad=toRad(lat), lonRad=toRad(lon);
@@ -440,9 +416,9 @@ function utmLabel(lat, lon){
 }
 
 /* =========================================================
-   BASE DE DATOS: IndexedDB (Campañas + Estaciones + Mediciones)
+   BASE DE DATOS
    ========================================================= */
-const DB_NAME='geofieldcore_db', DB_VERSION=2;
+const DB_NAME='geofieldcore_db', DB_VERSION=3;
 let DB=null;
 function openDB(){
   return new Promise((resolve,reject)=>{
@@ -453,12 +429,10 @@ function openDB(){
         d.createObjectStore('campaigns',{keyPath:'id'});
       }
       if(!d.objectStoreNames.contains('stations')){
-        const s=d.createObjectStore('stations',{keyPath:'id'});
-        s.createIndex('campaignId','campaignId',{unique:false});
+        d.createObjectStore('stations',{keyPath:'id'});
       }
       if(!d.objectStoreNames.contains('measurements')){
-        const m=d.createObjectStore('measurements',{keyPath:'id'});
-        m.createIndex('stationId','stationId',{unique:false});
+        d.createObjectStore('measurements',{keyPath:'id'});
       }
     };
     req.onsuccess=(e)=>{ DB=e.target.result; resolve(DB); };
@@ -470,21 +444,14 @@ function dbPut(store,obj){ return new Promise((res,rej)=>{ const r=tx(store,'rea
 function dbGet(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').get(id); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 function dbGetAll(store){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); }); }
 function dbDelete(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
-function dbGetByStation(stationId){
-  return new Promise((res,rej)=>{
-    const idx=tx('measurements','readonly').index('stationId');
-    const r=idx.getAll(stationId);
-    r.onsuccess=()=>res(r.result||[]);
-    r.onerror=()=>rej(r.error);
-  });
+
+async function dbGetByStation(stationId){
+  const all = await dbGetAll('measurements');
+  return all.filter(m => m.stationId === stationId);
 }
-function dbGetByCampaign(campId){
-  return new Promise((res,rej)=>{
-    const idx=tx('stations','readonly').index('campaignId');
-    const r=idx.getAll(campId);
-    r.onsuccess=()=>res(r.result||[]);
-    r.onerror=()=>rej(r.error);
-  });
+async function dbGetByCampaign(campId){
+  const all = await dbGetAll('stations');
+  return all.filter(s => s.campaignId === campId);
 }
 async function dbDeleteStationCascade(stationId){
   const meas = await dbGetByStation(stationId);
@@ -498,7 +465,7 @@ async function dbDeleteCampaignCascade(campId){
 }
 
 /* =========================================================
-   ESTADO GLOBAL
+   ESTADO GLOBAL Y SENSORES
    ========================================================= */
 const state={ view:'campaigns', campId:null, stationId:null, measId:null, measType:null };
 const gpsState={ status:'idle', lat:null, lon:null, alt:null, accuracy:null, errorMsg:'' };
@@ -506,33 +473,13 @@ const sensorState={ available:false, granted:null, status:'idle', errorMsg:'', l
 let dialRAF=false;
 const IS_SECURE = window.isSecureContext === true;
 
-/* =========================================================
-   SENSORES
-   ========================================================= */
-function sensorNeedsPermission(){
-  return typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function';
-}
 function requestSensorPermission(){
-  if(!IS_SECURE){
-    sensorState.status='insecure';
-    sensorState.errorMsg='HTTPS o localhost requerido.';
-    updateTopbarStatus(); render();
-    toast('Requiere HTTPS o localhost');
-    return;
-  }
-  if(typeof DeviceOrientationEvent==='undefined'){
-    sensorState.status='unsupported';
-    updateTopbarStatus(); render();
-    toast('Sensores no soportados');
-    return;
-  }
-  if(sensorNeedsPermission()){
+  if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
     DeviceOrientationEvent.requestPermission().then(resp=>{
       sensorState.granted = (resp==='granted');
       if(sensorState.granted){ sensorState.status='pending'; attachOrientationListener(); }
-      else { sensorState.status='denied'; }
-      updateTopbarStatus(); render();
-    }).catch(()=>{ sensorState.granted=false; sensorState.status='denied'; updateTopbarStatus(); render(); });
+      render();
+    }).catch(()=>{ sensorState.granted=false; render(); });
   } else {
     sensorState.status='pending';
     attachOrientationListener();
@@ -554,22 +501,17 @@ function attachOrientationListener(){
       requestAnimationFrame(()=>{ dialRAF=false; updateLiveDial(); updateTopbarStatus(); });
     }
   };
-  if('ondeviceorientationabsolute' in window){
-    window.addEventListener('deviceorientationabsolute', handler);
-  } else {
-    window.addEventListener('deviceorientation', handler);
-  }
+  window.addEventListener('deviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation', handler);
 }
 function initSensors(){
   if(!IS_SECURE || typeof DeviceOrientationEvent==='undefined') return;
-  if(!sensorNeedsPermission()){ sensorState.status='pending'; attachOrientationListener(); }
-  else { sensorState.status='needs_permission'; }
+  if(typeof DeviceOrientationEvent.requestPermission!=='function'){ sensorState.status='pending'; attachOrientationListener(); }
 }
 function updateTopbarStatus(){
   const gDot=document.getElementById('gpsDot');
   if(gDot) gDot.className='status-dot'+(gpsState.status==='fix'?' ok':gpsState.status==='searching'?' warn':' err');
   const sDot=document.getElementById('sensorDot');
-  if(sDot) sDot.className='status-dot'+(sensorState.status==='active'?' ok':(sensorState.status==='pending'||sensorState.status==='needs_permission')?' warn':' err');
+  if(sDot) sDot.className='status-dot'+(sensorState.status==='active'?' ok':(sensorState.status==='pending')?' warn':' err');
 }
 function initGPS(){
   if(!IS_SECURE || !navigator.geolocation) return;
@@ -584,20 +526,17 @@ function initGPS(){
   }, ()=>{ gpsState.status='unavailable'; updateTopbarStatus(); }, { enableHighAccuracy:true, maximumAge:4000, timeout:20000 });
 }
 
-/* =========================================================
-   PANEL SENSOR CON TAMAÑOS DINÁMICOS
-   ========================================================= */
 function getDialDiameter(){
   if(compassScale==='sm') return 90;
   if(compassScale==='lg') return 160;
-  if(compassScale==='xl') return 220;
-  return 120; // md default
+  if(compassScale==='xl') return 210;
+  return 120;
 }
 
 function renderSensorPanel(mode, formKey){
   const label = mode==='planar' 
     ? (currentLang==='es'?'Modo plano (apoyar reverso del teléfono sobre superficie)':'Planar mode (back of phone on plane)')
-    : (currentLang==='es'?'Modo lineación (alinear borde con la línea)':'Linear mode (align top edge with line)');
+    : (currentLang==='es'?'Modo lineación (alinear borde con la línea)':'Linear mode (align edge with line)');
   const dSize = getDialDiameter();
   return `
   <div class="sensor-box scale-${boxScale}" data-mode="${mode}" data-formkey="${formKey}">
@@ -697,7 +636,7 @@ function onOrientationInputChange(formKey){
 }
 
 /* =========================================================
-   ENRUTADOR
+   NAVEGACIÓN / ROUTER
    ========================================================= */
 const Nav={
   home(){ state.view='campaigns'; state.campId=null; state.stationId=null; render(); },
@@ -713,8 +652,8 @@ const Nav={
   settings(){ state.view='settings'; render(); },
   back(){
     if(state.view==='measForm') Nav.station(state.stationId, state.campId);
-    else if(state.view==='stationForm'||state.view==='stationDetail') Nav.campaign(state.campId);
-    else if(state.view==='campForm') Nav.home();
+    else if(state.view==='stationForm') { if(state.stationId) Nav.station(state.stationId, state.campId); else Nav.campaign(state.campId); }
+    else if(state.view==='stationDetail') { if(state.campId) Nav.campaign(state.campId); else Nav.home(); }
     else Nav.home();
   }
 };
@@ -725,7 +664,6 @@ function setActiveNav(){
   if(state.view==='export') document.getElementById('navExport')?.classList.add('active');
   if(state.view==='settings') document.getElementById('navSettings')?.classList.add('active');
 
-  // Textos fijos navbar
   document.getElementById('navHomeTxt').textContent = t('campaigns');
   document.getElementById('navExportTxt').textContent = t('export');
   document.getElementById('navSettingsTxt').textContent = t('settings');
@@ -759,7 +697,7 @@ function postRenderMeasForm(){
 }
 
 /* =========================================================
-   VISTA: LISTA DE CAMPAÑAS (NIVEL SUPERIOR)
+   VISTAS
    ========================================================= */
 async function renderCampaigns(){
   const camps = (await dbGetAll('campaigns')).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
@@ -771,6 +709,7 @@ async function renderCampaigns(){
     <div class="empty">
       <div class="big">📁</div>
       <p>${t('noCampaigns')}</p>
+      <button class="btn primary" style="margin-top:16px;" onclick="Nav.newCampaign()">${t('addCampBtn')}</button>
     </div>
     <button class="fab" onclick="Nav.newCampaign()">+</button>`;
   }
@@ -788,9 +727,6 @@ async function renderCampaigns(){
   return `<div>${cards}</div><button class="fab" onclick="Nav.newCampaign()">+</button>`;
 }
 
-/* =========================================================
-   VISTA: FORMULARIO DE CAMPAÑA
-   ========================================================= */
 async function renderCampaignForm(){
   let c = state.campId ? await dbGet('campaigns', state.campId) : null;
   const isNew = !c;
@@ -802,10 +738,10 @@ async function renderCampaignForm(){
     <div><h2>${isNew? t('newCampaign') : t('editCampaign')}</h2></div>
   </div>
   <label>${t('campName')}</label>
-  <input type="text" id="f_campName" value="${esc(c.name)}" placeholder="ej. Expedición Cordillera 2026">
+  <input type="text" id="f_campName" value="${esc(c.name)}" placeholder="ej. Expedición Atacama 2026">
 
   <label>${t('notes')}</label>
-  <textarea id="f_campNotes" placeholder="Objetivo, geólogo a cargo, cuadrángulo...">${esc(c.notes||'')}</textarea>
+  <textarea id="f_campNotes" placeholder="Objetivo, cuadrángulo, geólogo...">${esc(c.notes||'')}</textarea>
 
   <div class="btn-row" style="margin-top:22px;">
     <button class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
@@ -822,15 +758,11 @@ async function saveCampaign(id, isNew){
   Nav.campaign(id);
 }
 async function confirmDeleteCampaign(id){
-  if(!confirm(currentLang==='es'?'¿Eliminar esta campaña y todas sus estaciones asociadas?':'Delete this campaign and all its stations?')) return;
+  if(!confirm(currentLang==='es'?'¿Eliminar esta campaña y todas sus estaciones?':'Delete campaign and stations?')) return;
   await dbDeleteCampaignCascade(id);
-  toast(currentLang==='es'?'Campaña eliminada':'Campaign deleted');
   Nav.home();
 }
 
-/* =========================================================
-   VISTA: DETALLE DE CAMPAÑA (LISTA DE ESTACIONES DENTRO)
-   ========================================================= */
 async function renderCampaignDetail(){
   const camp = await dbGet('campaigns', state.campId);
   if(!camp){ Nav.home(); return ''; }
@@ -852,7 +784,7 @@ async function renderCampaignDetail(){
     const utmInfo = utmLabel(s.lat, s.lon);
     return `
       <div class="card" onclick="Nav.station('${s.id}','${camp.id}')">
-        <div class="card-title">${esc(s.name||s.id)}</div>
+        <div class="card-title">📍 ${esc(s.name||s.id)}</div>
         <div class="card-sub">${fmtDate(s.timestamp)} · <span style="font-family:var(--mono)">${coords}</span></div>
         ${utmInfo? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>`:''}
         <div class="badge-row">${badges}</div>
@@ -862,22 +794,22 @@ async function renderCampaignDetail(){
   return `
   <div class="topline">
     <button class="back-btn" onclick="Nav.home()">←</button>
-    <div><h2>${esc(camp.name)}</h2><div class="sub">${stations.length} ${t('stations')}</div></div>
+    <div><h2>📁 ${esc(camp.name)}</h2><div class="sub">${stations.length} ${t('stations')}</div></div>
   </div>
-  <div class="card">
+  <div class="card" style="cursor:default;">
     <div class="card-sub">${fmtDate(camp.timestamp)}</div>
     ${camp.notes? `<p style="margin-top:6px;font-size:13px;">${esc(camp.notes)}</p>`:''}
-    <button class="btn ghost small" style="margin-top:8px;" onclick="Nav.editCampaign('${camp.id}')">✎ ${t('editCampaign')}</button>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn ghost small" onclick="Nav.editCampaign('${camp.id}')">✎ ${t('editCampaign')}</button>
+      <button class="btn primary small" onclick="Nav.newStation('${camp.id}')">${t('addStationBtn')}</button>
+    </div>
   </div>
   <div class="section-hdr"><h3>${t('stationsInCamp')}</h3></div>
-  ${stations.length===0 ? `<div class="empty"><p>${t('noStations')}</p></div>` : cards}
+  ${stations.length===0 ? `<div class="empty"><p>${t('noStations')}</p><button class="btn primary" style="margin-top:10px;" onclick="Nav.newStation('${camp.id}')">${t('addStationBtn')}</button></div>` : cards}
   <button class="fab" onclick="Nav.newStation('${camp.id}')">+</button>
   `;
 }
 
-/* =========================================================
-   VISTA: FORMULARIO DE ESTACIÓN
-   ========================================================= */
 async function nextStationName(campId){
   const stations=await dbGetByCampaign(campId);
   let max=0;
@@ -959,7 +891,7 @@ function latLonFromUtm(){
   setVal('f_lon', r.lon);
 }
 function captureGpsIntoStation(){
-  if(gpsState.lat==null){ toast('Sin GPS'); return; }
+  if(gpsState.lat==null){ toast('Sin señal GPS'); return; }
   setVal('f_lat', gpsState.lat.toFixed(6));
   setVal('f_lon', gpsState.lon.toFixed(6));
   if(gpsState.alt!=null) setVal('f_alt', Math.round(gpsState.alt));
@@ -984,9 +916,6 @@ async function confirmDeleteStation(id){
   Nav.campaign(state.campId);
 }
 
-/* =========================================================
-   VISTA: DETALLE DE ESTACIÓN
-   ========================================================= */
 const CATS = [
   { key:'planar', title:'Estructuras planares / lineares', titleEn:'Planar / Linear Structures', icon:'📐' },
   { key:'fault',  title:'Fallas y cinemática', titleEn:'Faults & Kinematics', icon:'⚡' },
@@ -999,9 +928,9 @@ function measSub(m){
     if(m.trend!=null) return `Trend/Plunge ${pad3(m.trend)}/${pad2(m.plunge)}`;
     return '';
   }
-  if(m.type==='fault') return `Plano ${pad3(m.strike)}/${pad2(m.dip)} · ${m.senseQuality||''}`;
+  if(m.type==='fault') return `Plano ${pad3(m.strike)}/${pad2(m.dip)} · ${m.sense||''}`;
   if(m.type==='contact') return `${esc(m.lithoTop||'?')} / ${esc(m.lithoBottom||'?')} · e=${m.trueThickness??'?'} m`;
-  if(m.type==='vein') return `${m.veinThickness??'?'} ${m.veinUnit||'cm'} · ${(m.alteration||[]).join(', ')||''}`;
+  if(m.type==='vein') return `${m.veinThickness??'?'} ${m.veinUnit||'cm'}`;
   return '';
 }
 function pad3(v){ return v==null?'—':String(roundInt(v)).padStart(3,'0'); }
@@ -1023,41 +952,39 @@ async function renderStationDetail(){
           <button class="icon-sm" onclick="event.stopPropagation();Nav.editMeasurement('${m.id}','${st.id}','${m.type}')">✎</button>
           <button class="icon-sm" onclick="event.stopPropagation();deleteMeasurement('${m.id}')">🗑</button>
         </div>
-      </div>`).join('') || `<div class="hint" style="margin-top:8px;">${currentLang==='es'?'Sin registros':'No records'}</div>`;
+      </div>`).join('') || `<div class="hint" style="margin-top:8px;">${currentLang==='es'?'Sin registros aún':'No records yet'}</div>`;
     const title = currentLang==='en'? c.titleEn : c.title;
     return `
-    <details class="accordion">
+    <details class="accordion" open>
       <summary><span class="sum-l">${c.icon} ${title} <span class="badge">${items.length}</span></span><span class="chev">›</span></summary>
       <div class="accordion-body">
         ${rows}
-        <button class="btn primary small" style="width:100%;margin-top:10px;" onclick="Nav.newMeasurement('${st.id}','${c.key}')">+ ${title}</button>
+        <button class="btn primary small" style="width:100%;margin-top:10px;" onclick="Nav.newMeasurement('${st.id}','${c.key}')">+ Añadir ${title.toLowerCase()}</button>
       </div>
     </details>`;
   }).join('');
 
   return `
   <div class="topline">
-    <button class="back-btn" onclick="Nav.campaign('${st.campaignId}')">←</button>
-    <div><h2>${esc(st.name)}</h2><div class="sub">${fmtDate(st.timestamp)}</div></div>
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>📍 ${esc(st.name)}</h2><div class="sub">${fmtDate(st.timestamp)}</div></div>
   </div>
-  <div class="card">
+  <div class="card" style="cursor:default;">
     <div class="card-sub" style="font-family:var(--mono);font-size:12px;">${coords}</div>
     ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>` : ''}
     ${st.notes? `<p style="margin-top:6px;font-size:13px;">${esc(st.notes)}</p>`:''}
     <button class="btn ghost small" style="margin-top:8px;" onclick="Nav.editStation('${st.id}','${st.campaignId}')">✎ ${t('editStation')}</button>
   </div>
+  <div class="section-hdr"><h3>Toma de datos geológicos</h3></div>
   ${cats}
   `;
 }
 async function deleteMeasurement(id){
-  if(!confirm('¿Eliminar?')) return;
+  if(!confirm('¿Eliminar registro?')) return;
   await dbDelete('measurements', id);
   render();
 }
 
-/* =========================================================
-   VISTA: FORMULARIO DE MEDICIÓN
-   ========================================================= */
 const PLANAR_SUBTYPES = ['Estratificación (S0)','Foliación (S1)','Foliación (S2)','Diaclasa / Fractura','Clivaje','Lineación mineral','Eje de pliegue'];
 const LINEAR_SUBTYPES = ['Lineación mineral','Eje de pliegue'];
 const FAULT_SENSES = ['Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso'];
@@ -1075,15 +1002,15 @@ async function renderMeasForm(){
 
   return `
   <div class="topline">
-    <button class="back-btn" onclick="Nav.station('${state.stationId}')">←</button>
-    <div><h2>${isNew?'Nuevo':'Editar'}</h2><div class="sub">${m.type}</div></div>
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>${isNew?'Nuevo registro':'Editar registro'}</h2><div class="sub">${m.type}</div></div>
   </div>
   <form id="measForm" onsubmit="event.preventDefault(); saveMeasurement('${m.id}', ${isNew});">
     ${fields}
     <label>${t('notes')}</label>
     <textarea id="f_notes">${esc(m.notes||'')}</textarea>
     <div class="btn-row" style="margin-top:22px;">
-      <button type="button" class="btn ghost" onclick="Nav.station('${state.stationId}')">${t('cancel')}</button>
+      <button type="button" class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
       <button type="submit" class="btn primary">${t('save')}</button>
     </div>
   </form>
@@ -1093,7 +1020,7 @@ async function renderMeasForm(){
 function renderPlanarFields(m){
   const isLinear = LINEAR_SUBTYPES.includes(m.subtype);
   return `
-  <label>Tipo</label>
+  <label>Tipo de estructura</label>
   <select id="f_subtype" onchange="onPlanarSubtypeChange()">
     ${PLANAR_SUBTYPES.map(s=>`<option ${m.subtype===s?'selected':''}>${s}</option>`).join('')}
   </select>
@@ -1232,30 +1159,30 @@ async function saveMeasurement(id, isNew){
   }
   await dbPut('measurements', obj);
   toast(currentLang==='es'?'Guardado':'Saved');
-  Nav.station(state.stationId);
+  Nav.station(state.stationId, state.campId);
 }
 function intOrNull(id){ const v=parseInt(document.getElementById(id)?.value, 10); return isNaN(v)?null:v; }
 
 /* =========================================================
-   VISTA: EXPORTAR (CON SELECTOR DE ARCHIVOS / CAMPAÑA)
+   EXPORTAR Y AJUSTES
    ========================================================= */
 async function renderExport(){
   const camps = await dbGetAll('campaigns');
   return `
   <div class="topline"><div><h2>${t('export')}</h2></div></div>
-  <div class="card">
+  <div class="card" style="cursor:default;">
     <label style="margin-top:0;">${t('exportScope')}</label>
     <select id="exportCampSelect">
       <option value="ALL">📁 ${t('exportAll')}</option>
       ${camps.map(c=>`<option value="${c.id}">📂 ${esc(c.name)}</option>`).join('')}
     </select>
   </div>
-  <div class="card">
+  <div class="card" style="cursor:default;">
     <div class="card-title">CSV (Excel)</div>
-    <div class="card-sub">${currentLang==='es'?'Tabla con valores redondeados a enteros':'Table with rounded integer values'}</div>
+    <div class="card-sub">${currentLang==='es'?'Valores numéricos redondeados a enteros':'Integer values ready for GIS/Excel'}</div>
     <button class="btn primary" style="margin-top:12px;" onclick="exportCSV()">${t('exportCsv')}</button>
   </div>
-  <div class="card">
+  <div class="card" style="cursor:default;">
     <div class="card-title">GeoJSON (QGIS / ArcGIS)</div>
     <button class="btn primary" style="margin-top:12px;" onclick="exportGeoJSON()">${t('exportGeoJson')}</button>
   </div>
@@ -1298,7 +1225,7 @@ async function exportCSV(){
     ].join(','));
   });
   downloadFile('\uFEFF'+rows.join('\r\n'), 'GeoFieldCore_'+dateStamp()+'.csv', 'text/csv;charset=utf-8');
-  toast('CSV OK');
+  toast('CSV exportado');
 }
 
 async function exportGeoJSON(){
@@ -1323,17 +1250,14 @@ async function exportGeoJSON(){
     };
   });
   downloadFile(JSON.stringify({ type:'FeatureCollection', features },null,2), 'GeoFieldCore_'+dateStamp()+'.geojson', 'application/geo+json');
-  toast('GeoJSON OK');
+  toast('GeoJSON exportado');
 }
 
-/* =========================================================
-   VISTA: AJUSTES (IDIOMA + TAMAÑOS DE INTERFAZ + SENSORES)
-   ========================================================= */
 function renderSettings(){
   return `
   <div class="topline"><div><h2>${t('settings')}</h2></div></div>
 
-  <div class="card">
+  <div class="card" style="cursor:default;">
     <div class="card-title">${t('lang')} / Language</div>
     <select onchange="changeLanguage(this.value)" style="margin-top:8px;">
       <option value="es" ${currentLang==='es'?'selected':''}>Español</option>
@@ -1341,9 +1265,8 @@ function renderSettings(){
     </select>
   </div>
 
-  <div class="card">
+  <div class="card" style="cursor:default;">
     <div class="card-title">${t('compassSize')}</div>
-    <div class="card-sub">${currentLang==='es'?'Ajusta la escala del dial circular':'Adjust dial size'}</div>
     <select onchange="changeCompassScale(this.value)" style="margin-top:8px;">
       <option value="sm" ${compassScale==='sm'?'selected':''}>Pequeño / Small</option>
       <option value="md" ${compassScale==='md'?'selected':''}>Medio / Medium</option>
@@ -1352,19 +1275,18 @@ function renderSettings(){
     </select>
   </div>
 
-  <div class="card">
+  <div class="card" style="cursor:default;">
     <div class="card-title">${t('sensorBoxSize')}</div>
-    <div class="card-sub">${currentLang==='es'?'Ajusta el tamaño del recuadro y textos de toma de datos':'Adjust measurement container and text size'}</div>
     <select onchange="changeBoxScale(this.value)" style="margin-top:8px;">
       <option value="md" ${boxScale==='md'?'selected':''}>Normal</option>
-      <option value="lg" ${boxScale==='lg'?'selected':''}>Grande (Cómodo para terreno)</option>
+      <option value="lg" ${boxScale==='lg'?'selected':''}>Grande (Recomendado)</option>
       <option value="xl" ${boxScale==='xl'?'selected':''}>Extra grande</option>
     </select>
   </div>
 
-  <div class="card">
-    <div class="card-title">Sensores / Permissions</div>
-    <button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar / Calibrar Sensores</button>
+  <div class="card" style="cursor:default;">
+    <div class="card-title">Sensores / Permisos</div>
+    <button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar Sensores</button>
   </div>
   `;
 }
@@ -1384,9 +1306,6 @@ function changeBoxScale(scale){
   render();
 }
 
-/* =========================================================
-   INICIALIZACIÓN
-   ========================================================= */
 (async function init(){
   await openDB();
   initGPS();
