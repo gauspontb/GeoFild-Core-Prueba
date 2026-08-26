@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<title>GeoField Core - Estereogramas & FaultKin</title>
+<title>GeoField Core</title>
 <link rel="manifest" href='data:application/manifest+json,{"name":"GeoField Core","short_name":"GeoField","start_url":".","display":"standalone","background_color":"%2314181c","theme_color":"%2314181c"}'>
 <style>
   :root{
@@ -34,6 +34,60 @@
     --safe-t: env(safe-area-inset-top, 0px);
     --safe-b: env(safe-area-inset-bottom, 0px);
   }
+
+  /* PALETAS DE TERRENO */
+  body.theme-sun{
+    --bg:#f4f6f8;
+    --surface:#ffffff;
+    --surface-2:#e5e9ec;
+    --border:#b0bec5;
+    --border-soft:#cfd8dc;
+    --text:#0a0c0e;
+    --text-dim:#37474f;
+    --text-faint:#78909c;
+    --accent:#d87a00;
+    --accent-dim:#ffe0b2;
+    --accent-text:#ffffff;
+    --danger:#c62828;
+    --danger-dim:#ffcdd2;
+    --ok:#2e7d32;
+    --warn:#ef6c00;
+  }
+  body.theme-earth{
+    --bg:#1a1815;
+    --surface:#25221e;
+    --surface-2:#322d27;
+    --border:#4a4239;
+    --border-soft:#3d362e;
+    --text:#f5f0eb;
+    --text-dim:#b8ab9e;
+    --text-faint:#7d7265;
+    --accent:#d49244;
+    --accent-dim:#66441b;
+    --accent-text:#1f1406;
+    --danger:#d9534f;
+    --danger-dim:#4d1e1c;
+    --ok:#689f38;
+    --warn:#f57c00;
+  }
+  body.theme-forest{
+    --bg:#121815;
+    --surface:#19221e;
+    --surface-2:#222e28;
+    --border:#33423a;
+    --border-soft:#29362f;
+    --text:#edf5f0;
+    --text-dim:#94ab9e;
+    --text-faint:#5e7367;
+    --accent:#52b788;
+    --accent-dim:#214d38;
+    --accent-text:#081c12;
+    --danger:#e65c5c;
+    --danger-dim:#4d1f1f;
+    --ok:#40916c;
+    --warn:#d4a373;
+  }
+
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{
     margin:0; padding:0; height:100%;
@@ -83,7 +137,7 @@
     background:transparent; border:none; color:var(--text-faint); font-size:10px; letter-spacing:.3px; cursor:pointer;
   }
   .nav-btn .ic{ font-size:19px; }
-  .nav-btn.active{ color:var(--accent); }
+  .nav-btn.active{ color:var(--accent); font-weight:700; }
 
   .btn{
     display:inline-flex; align-items:center; justify-content:center; gap:8px;
@@ -188,11 +242,10 @@
   .guide-box{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:12px; font-size:13px; line-height:1.5; color:var(--text); margin-top:8px; }
   .guide-box ul{ padding-left:18px; margin:6px 0; }
 
-  /* Estilos para Estereograma */
   .canvas-wrapper{ position:relative; width:100%; display:flex; justify-content:center; align-items:center; margin-top:10px; }
-  #stereoCanvas{ background:#101316; border-radius:50%; box-shadow:0 6px 20px rgba(0,0,0,0.5); touch-action:none; }
+  #stereoCanvas{ background:var(--surface-2); border-radius:50%; box-shadow:0 6px 20px rgba(0,0,0,0.4); touch-action:none; }
   .stereo-tooltip{
-    position:absolute; background:rgba(28,34,39,0.95); border:1px solid var(--accent);
+    position:absolute; background:var(--surface); border:1px solid var(--accent);
     color:var(--text); padding:8px 12px; border-radius:8px; font-size:12px;
     font-family:var(--mono); pointer-events:none; z-index:30; max-width:240px;
     box-shadow:0 4px 14px rgba(0,0,0,0.6); display:none;
@@ -213,7 +266,7 @@
   <nav id="navbar">
     <button class="nav-btn" id="navHome" onclick="Nav.home()"><span class="ic">📁</span><span id="navHomeTxt">Campañas</span></button>
     <button class="nav-btn" id="navStereo" onclick="Nav.stereonet()"><span class="ic">🌐</span><span id="navStereoTxt">Estereograma</span></button>
-    <button class="nav-btn" id="navExport" onclick="Nav.exportView()"><span class="ic">⇩</span><span id="navExportTxt">Exportar</span></button>
+    <button class="nav-btn" id="navExport" onclick="Nav.exportView()"><span class="ic">⇩</span><span id="navExportTxt">Exportar/Importar</span></button>
     <button class="nav-btn" id="navSettings" onclick="Nav.settings()"><span class="ic">⚙</span><span id="navSettingsTxt">Ajustes</span></button>
   </nav>
 
@@ -236,7 +289,7 @@ const I18N = {
     noStations: 'No hay estaciones en esta campaña.',
     addStationBtn: '+ Añadir estación a esta campaña',
     addCampBtn: '+ Crear primera campaña',
-    export: 'Exportar datos',
+    export: 'Exportar / Importar',
     settings: 'Ajustes',
     save: 'Guardar',
     cancel: 'Cancelar',
@@ -265,13 +318,15 @@ const I18N = {
     auto: 'Auto',
     manual: 'Manual',
     useGps: '📍 Usar posición GPS actual',
-    quadrantMode: 'Formato de cuadrante',
+    quadrantMode: 'Formato de cuadrante de salida',
     needleTarget: 'Objetivo de aguja en brújula',
     calibration: 'Calibración / Declinación magnética (°)',
     stereonet: 'Estereograma',
     projSchmidt: 'Equiárea (Schmidt)',
     projWulff: 'Equiangular (Wulff)',
-    exportPng: '📷 Exportar Imagen PNG'
+    exportPng: '📷 Exportar Imagen PNG',
+    colorTheme: 'Paleta de colores de terreno',
+    inputNotation: 'Notación de entrada manual predeterminada'
   },
   en: {
     campaigns: 'Campaigns',
@@ -288,7 +343,7 @@ const I18N = {
     noStations: 'No stations in this campaign.',
     addStationBtn: '+ Add station to this campaign',
     addCampBtn: '+ Create first campaign',
-    export: 'Export Data',
+    export: 'Export / Import',
     settings: 'Settings',
     save: 'Save',
     cancel: 'Cancel',
@@ -317,13 +372,15 @@ const I18N = {
     auto: 'Auto',
     manual: 'Manual',
     useGps: '📍 Use current GPS position',
-    quadrantMode: 'Quadrant Format',
+    quadrantMode: 'Output Quadrant Format',
     needleTarget: 'Compass needle target',
     calibration: 'Magnetic Declination / Calibration (°)',
     stereonet: 'Stereonet',
     projSchmidt: 'Equal-Area (Schmidt)',
     projWulff: 'Equal-Angle (Wulff)',
-    exportPng: '📷 Export PNG Image'
+    exportPng: '📷 Export PNG Image',
+    colorTheme: 'Field Color Palette',
+    inputNotation: 'Default Manual Input Notation'
   }
 };
 
@@ -333,6 +390,12 @@ let boxScale = localStorage.getItem('geo_box_scale') || 'md';
 let quadrantPref = localStorage.getItem('geo_quadrant_pref') || 'NS';
 let needleMode = localStorage.getItem('geo_needle_mode') || 'dipdir';
 let magOffset = parseFloat(localStorage.getItem('geo_mag_offset') || '0') || 0;
+let colorTheme = localStorage.getItem('geo_theme') || 'dark'; // 'dark', 'sun', 'earth', 'forest'
+let inputNotation = localStorage.getItem('geo_input_notation') || 'dipdir'; // 'dipdir', 'strike', 'quadrant'
+
+function applyTheme(){
+  document.body.className = colorTheme === 'dark' ? '' : 'theme-' + colorTheme;
+}
 
 function t(key){ return I18N[currentLang]?.[key] || I18N.es[key] || key; }
 
@@ -360,203 +423,26 @@ function downloadFile(content, filename, mime){
 }
 
 /* =========================================================
-   MATEMÁTICAS VECTORIALES 3D Y GEOLOGÍA ESTRUCTURAL (FAULTKIN)
+   PARSERS Y CONVERSORES DE NOTACIÓN GEOLÓGICA
    ========================================================= */
-const V3 = {
-  cross: (a, b) => [
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0]
-  ],
-  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
-  norm: (v) => {
-    const l = Math.hypot(v[0], v[1], v[2]);
-    return l > 1e-12 ? [v[0] / l, v[1] / l, v[2] / l] : [0, 0, 0];
-  },
-  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
-  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
-  scale: (v, s) => [v[0] * s, v[1] * s, v[2] * s],
-  toLowerHemi: (v) => (v[2] < 0 ? [-v[0], -v[1], -v[2]] : [v[0], v[1], v[2]])
-};
+function parseQuadrantToStrike(qStr){
+  if(!qStr) return null;
+  const str = qStr.trim().toUpperCase().replace(/\s+/g,'');
+  const m = /^([NS])(\d+)(?:°)?([EOW])$/.exec(str);
+  if(!m) return null;
+  const ns = m[1];
+  const ang = parseFloat(m[2]);
+  const ew = m[3] === 'O' ? 'W' : m[3];
+  if(isNaN(ang)) return null;
 
-// Convierte Trend y Plunge (en grados) a vector unitario (X: Este, Y: Norte, Z: Abajo)
-function trendPlungeToVector(tr, pl) {
-  const trR = toRad(tr);
-  const plR = toRad(pl);
-  return [
-    Math.sin(trR) * Math.cos(plR),
-    Math.cos(trR) * Math.cos(plR),
-    Math.sin(plR)
-  ];
+  let strike = 0;
+  if(ns==='N' && ew==='E') strike = ang;
+  else if(ns==='N' && ew==='W') strike = 360 - ang;
+  else if(ns==='S' && ew==='E') strike = 180 - ang;
+  else if(ns==='S' && ew==='W') strike = 180 + ang;
+  return roundInt(norm360(strike));
 }
 
-// Convierte vector unitario (X, Y, Z) a Trend y Plunge
-function vectorToTrendPlunge(v) {
-  const vn = V3.toLowerHemi(v);
-  let tr = norm360(toDeg(Math.atan2(vn[0], vn[1])));
-  let pl = toDeg(Math.asin(clamp(vn[2], -1, 1)));
-  return { trend: roundInt(tr), plunge: roundInt(pl) };
-}
-
-// Polo normal inferior del plano (Strike RHR o DipDir)
-function planeToPoleVector(strike, dip) {
-  const poleTr = norm360(strike - 90);
-  const polePl = 90 - dip;
-  return trendPlungeToVector(poleTr, polePl);
-}
-
-// Vector de deslizamiento / estría a partir de Strike, Dip, Rake y Cuadrante de referencia
-function faultRakeToSlipVector(strike, dip, rake, rakeQuad) {
-  const sR = toRad(strike);
-  const dR = toRad(dip);
-  const rR = toRad(rake);
-  
-  // Vector rumbo unitario en sentido Strike RHR
-  const strikeVec = [Math.sin(sR), Math.cos(sR), 0];
-  // Vector máxima pendiente hacia abajo
-  const dipVec = [Math.cos(sR) * Math.sin(dR), -Math.sin(sR) * Math.sin(dR), Math.cos(dR)];
-  
-  // Determinar si el rake se mide desde el origen de strike o desde strike+180
-  const strikeQuad = dipDirQuadrant(strike);
-  let rakeFromStrikeStart = true;
-  if (rakeQuad && rakeQuad !== strikeQuad) {
-    rakeFromStrikeStart = false;
-  }
-  
-  const sign = rakeFromStrikeStart ? 1 : -1;
-  const slip = V3.add(
-    V3.scale(strikeVec, sign * Math.cos(rR)),
-    V3.scale(dipVec, Math.sin(rR))
-  );
-  return V3.norm(slip);
-}
-
-// Motor Cinemático FaultKin / Allmendinger
-function computeFaultKinematics(f) {
-  const strike = f.strike != null ? f.strike : norm360((f.dipDir || 0) - 90);
-  const dip = f.dip || 0;
-  
-  // Vector normal hacia el bloque techo (hanging wall)
-  const n = planeToPoleVector(strike, dip);
-  
-  let u;
-  if (f.striaeMode === 'trendplunge' && f.trend != null && f.plunge != null) {
-    u = trendPlungeToVector(f.trend, f.plunge);
-  } else if (f.rake != null) {
-    u = faultRakeToSlipVector(strike, dip, f.rake, f.rakeQuadrant);
-  } else {
-    // Estimación por defecto: dip-slip puro
-    u = [Math.cos(toRad(strike)) * Math.sin(toRad(dip)), -Math.sin(toRad(strike)) * Math.sin(toRad(dip)), Math.cos(toRad(dip))];
-  }
-  
-  // Eje B = n x u
-  let b = V3.norm(V3.cross(n, u));
-  
-  // Ajuste de sentido relativo del vector de movimiento del bloque techo
-  let uHang = [...u];
-  const sense = (f.sense || 'Normal').toLowerCase();
-  
-  // Si es movimiento inverso, el bloque techo sube (opuesto a la componente de buzamiento de u)
-  if (sense.includes('invers') || sense.includes('thrust') || sense.includes('reverse')) {
-    uHang = V3.scale(u, -1);
-  } else if (sense.includes('dextral') || sense.includes('sinistral')) {
-    // En rumbo puro / oblicuo verificar consistencia de cizalle
-    const bCrossN = V3.cross(b, n);
-    if (sense.includes('dextral') && V3.dot(uHang, bCrossN) < 0) {
-      uHang = V3.scale(uHang, -1);
-    }
-  }
-
-  // Ejes P y T cinemáticos a 45°
-  let P = V3.toLowerHemi(V3.norm(V3.sub(n, uHang)));
-  let T = V3.toLowerHemi(V3.norm(V3.add(n, uHang)));
-  
-  // Polo del plano nodal auxiliar = vector de estría u
-  const auxPole = V3.toLowerHemi(u);
-  const auxTP = vectorToTrendPlunge(auxPole);
-  const auxDipDir = norm360(auxTP.trend + 180);
-  const auxDip = 90 - auxTP.plunge;
-
-  return {
-    n: V3.toLowerHemi(n),
-    u: V3.toLowerHemi(u),
-    b: V3.toLowerHemi(b),
-    P,
-    T,
-    auxDipDir,
-    auxDip,
-    auxStrike: norm360(auxDipDir - 90),
-    P_tp: vectorToTrendPlunge(P),
-    T_tp: vectorToTrendPlunge(T)
-  };
-}
-
-// Cálculo del Polo Medio Vectorial (Fisher mean / Orientación media)
-function calculateMeanOrientation(poles) {
-  if (!poles || poles.length === 0) return null;
-  let sum = [0, 0, 0];
-  poles.forEach(p => {
-    sum = V3.add(sum, p);
-  });
-  const R = Math.hypot(sum[0], sum[1], sum[2]);
-  if (R < 1e-5) return null;
-  const meanVec = V3.toLowerHemi(V3.scale(sum, 1 / R));
-  const tp = vectorToTrendPlunge(meanVec);
-  const dipDir = norm360(tp.trend + 180);
-  const dip = 90 - tp.plunge;
-  const strike = norm360(dipDir - 90);
-  return { meanVec, dipDir, dip, strike, trend: tp.trend, plunge: tp.plunge, count: poles.length };
-}
-
-/* =========================================================
-   PROYECCIÓN ESTEREOGRÁFICA (SCHMIDT & WULFF)
-   ========================================================= */
-function project3D(v, type, R) {
-  const vn = V3.toLowerHemi(v);
-  const x = vn[0], y = vn[1], z = vn[2];
-  let rProj = 0;
-  
-  if (type === 'schmidt') {
-    // Equiárea: r = sqrt(2) * R * sin(theta/2) = R * sqrt(1 - z)
-    rProj = R * Math.sqrt(Math.max(0, 1 - z));
-  } else {
-    // Equiangular (Wulff): r = R * tan(theta/2) = R * sqrt(1 - z^2) / (1 + z)
-    const horiz = Math.hypot(x, y);
-    rProj = (1 + z) > 1e-12 ? R * (horiz / (1 + z)) : 0;
-  }
-  
-  const horizLen = Math.hypot(x, y);
-  if (horizLen < 1e-7) return { x: 0, y: 0 };
-  return {
-    x: (x / horizLen) * rProj,
-    y: -(y / horizLen) * rProj // -y porque en Canvas Y crece hacia abajo y Norte es hacia arriba
-  };
-}
-
-// Mapeo inverso de píxel Canvas a vector 3D
-function unproject2D(px, py, type, R) {
-  const dist = Math.hypot(px, py);
-  if (dist > R) return null;
-  const normDist = dist / R;
-  let z = 0;
-  if (type === 'schmidt') {
-    z = 1 - 2 * Math.pow(normDist / Math.SQRT2, 2);
-  } else {
-    z = (1 - normDist * normDist) / (1 + normDist * normDist);
-  }
-  z = clamp(z, 0, 1);
-  const horiz = Math.sqrt(Math.max(0, 1 - z * z));
-  if (dist < 1e-7) return [0, 0, 1];
-  return [
-    (px / dist) * horiz,
-    -(py / dist) * horiz,
-    z
-  ];
-}
-
-/* =========================================================
-   ESTIMACIÓN DECLINACIÓN MAGNÉTICA
-   ========================================================= */
 function estimateDeclination(lat, lon){
   if(lat==null || lon==null) return 0;
   const d = -0.15 * lat + 0.12 * lon + 0.002 * lat * lon;
@@ -626,6 +512,134 @@ function calculateRakeFromTP(dipDir, dip, trend, plunge){
   const refAz = diff1 <= diff2 ? strike : strikeOpp;
   const quad = dipDirQuadrant(refAz);
   return { rake: rakeDeg, quadrant: quad };
+}
+
+/* =========================================================
+   MATEMÁTICAS VECTORIALES 3D Y ESTEREOGRAMA
+   ========================================================= */
+const V3 = {
+  cross: (a, b) => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0]
+  ],
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  norm: (v) => {
+    const l = Math.hypot(v[0], v[1], v[2]);
+    return l > 1e-12 ? [v[0] / l, v[1] / l, v[2] / l] : [0, 0, 0];
+  },
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  scale: (v, s) => [v[0] * s, v[1] * s, v[2] * s],
+  toLowerHemi: (v) => (v[2] < 0 ? [-v[0], -v[1], -v[2]] : [v[0], v[1], v[2]])
+};
+
+function trendPlungeToVector(tr, pl) {
+  const trR = toRad(tr), plR = toRad(pl);
+  return [Math.sin(trR) * Math.cos(plR), Math.cos(trR) * Math.cos(plR), Math.sin(plR)];
+}
+
+function vectorToTrendPlunge(v) {
+  const vn = V3.toLowerHemi(v);
+  let tr = norm360(toDeg(Math.atan2(vn[0], vn[1])));
+  let pl = toDeg(Math.asin(clamp(vn[2], -1, 1)));
+  return { trend: roundInt(tr), plunge: roundInt(pl) };
+}
+
+function planeToPoleVector(strike, dip) {
+  const poleTr = norm360(strike - 90);
+  const polePl = 90 - dip;
+  return trendPlungeToVector(poleTr, polePl);
+}
+
+function faultRakeToSlipVector(strike, dip, rake, rakeQuad) {
+  const sR = toRad(strike), dR = toRad(dip), rR = toRad(rake);
+  const strikeVec = [Math.sin(sR), Math.cos(sR), 0];
+  const dipVec = [Math.cos(sR) * Math.sin(dR), -Math.sin(sR) * Math.sin(dR), Math.cos(dR)];
+  const strikeQuad = dipDirQuadrant(strike);
+  let rakeFromStrikeStart = true;
+  if (rakeQuad && rakeQuad !== strikeQuad) rakeFromStrikeStart = false;
+  const sign = rakeFromStrikeStart ? 1 : -1;
+  const slip = V3.add(V3.scale(strikeVec, sign * Math.cos(rR)), V3.scale(dipVec, Math.sin(rR)));
+  return V3.norm(slip);
+}
+
+function computeFaultKinematics(f) {
+  const strike = f.strike != null ? f.strike : norm360((f.dipDir || 0) - 90);
+  const dip = f.dip || 0;
+  const n = planeToPoleVector(strike, dip);
+  let u;
+  if (f.striaeMode === 'trendplunge' && f.trend != null && f.plunge != null) {
+    u = trendPlungeToVector(f.trend, f.plunge);
+  } else if (f.rake != null) {
+    u = faultRakeToSlipVector(strike, dip, f.rake, f.rakeQuadrant);
+  } else {
+    u = [Math.cos(toRad(strike)) * Math.sin(toRad(dip)), -Math.sin(toRad(strike)) * Math.sin(toRad(dip)), Math.cos(toRad(dip))];
+  }
+  let b = V3.norm(V3.cross(n, u));
+  let uHang = [...u];
+  const sense = (f.sense || 'Normal').toLowerCase();
+  if (sense.includes('invers') || sense.includes('thrust') || sense.includes('reverse') || sense.includes('tr')) {
+    uHang = V3.scale(u, -1);
+  } else if (sense.includes('dextral') || sense.includes('sinistral') || sense.includes('ll') || sense.includes('rl')) {
+    const bCrossN = V3.cross(b, n);
+    if ((sense.includes('dextral') || sense.includes('rl')) && V3.dot(uHang, bCrossN) < 0) {
+      uHang = V3.scale(uHang, -1);
+    }
+  }
+
+  let P = V3.toLowerHemi(V3.norm(V3.sub(n, uHang)));
+  let T = V3.toLowerHemi(V3.norm(V3.add(n, uHang)));
+  const auxPole = V3.toLowerHemi(u);
+  const auxTP = vectorToTrendPlunge(auxPole);
+  const auxDipDir = norm360(auxTP.trend + 180);
+  const auxDip = 90 - auxTP.plunge;
+
+  return {
+    n: V3.toLowerHemi(n), u: V3.toLowerHemi(u), b: V3.toLowerHemi(b), P, T,
+    auxDipDir, auxDip, auxStrike: norm360(auxDipDir - 90),
+    P_tp: vectorToTrendPlunge(P), T_tp: vectorToTrendPlunge(T)
+  };
+}
+
+function calculateMeanOrientation(poles) {
+  if (!poles || poles.length === 0) return null;
+  let sum = [0, 0, 0];
+  poles.forEach(p => { sum = V3.add(sum, p); });
+  const R = Math.hypot(sum[0], sum[1], sum[2]);
+  if (R < 1e-5) return null;
+  const meanVec = V3.toLowerHemi(V3.scale(sum, 1 / R));
+  const tp = vectorToTrendPlunge(meanVec);
+  const dipDir = norm360(tp.trend + 180);
+  const dip = 90 - tp.plunge;
+  const strike = norm360(dipDir - 90);
+  return { meanVec, dipDir, dip, strike, trend: tp.trend, plunge: tp.plunge, count: poles.length };
+}
+
+function project3D(v, type, R) {
+  const vn = V3.toLowerHemi(v);
+  const x = vn[0], y = vn[1], z = vn[2];
+  let rProj = 0;
+  if (type === 'schmidt') {
+    rProj = R * Math.sqrt(Math.max(0, 1 - z));
+  } else {
+    const horiz = Math.hypot(x, y);
+    rProj = (1 + z) > 1e-12 ? R * (horiz / (1 + z)) : 0;
+  }
+  const horizLen = Math.hypot(x, y);
+  if (horizLen < 1e-7) return { x: 0, y: 0 };
+  return { x: (x / horizLen) * rProj, y: -(y / horizLen) * rProj };
+}
+
+function unproject2D(px, py, type, R) {
+  const dist = Math.hypot(px, py);
+  if (dist > R) return null;
+  const normDist = dist / R;
+  let z = (type === 'schmidt') ? 1 - 2 * Math.pow(normDist / Math.SQRT2, 2) : (1 - normDist * normDist) / (1 + normDist * normDist);
+  z = clamp(z, 0, 1);
+  const horiz = Math.sqrt(Math.max(0, 1 - z * z));
+  if (dist < 1e-7) return [0, 0, 1];
+  return [(px / dist) * horiz, -(py / dist) * horiz, z];
 }
 
 /* =========================================================
@@ -768,12 +782,7 @@ function attachOrientationListener(){
   orientationHandlerAttached=true;
   const handler=(e)=>{
     if(e.alpha==null && e.beta==null && e.gamma==null) return;
-    let alphaDeg;
-    if(typeof e.webkitCompassHeading==='number'){
-      alphaDeg = norm360(360 - e.webkitCompassHeading);
-    } else {
-      alphaDeg = e.alpha||0;
-    }
+    let alphaDeg = (typeof e.webkitCompassHeading==='number') ? norm360(360 - e.webkitCompassHeading) : (e.alpha||0);
     sensorState.available=true;
     sensorState.status='active';
     sensorState.last = computeOrientation(alphaDeg, e.beta||0, e.gamma||0);
@@ -912,7 +921,9 @@ function captureSensorReading(formKey, mode){
   if(mode==='planar'){
     setVal('dipDir_'+formKey, roundInt(r.dipDir));
     setVal('dip_'+formKey, roundInt(r.dip));
-    onOrientationInputChange(formKey);
+    setVal('strike_'+formKey, roundInt(r.strike));
+    setVal('quad_'+formKey, toQuadrant(r.strike));
+    onOrientationInputChange(formKey, 'dipdir');
   } else {
     setVal('trend_'+formKey, roundInt(r.trend));
     setVal('plunge_'+formKey, roundInt(r.plunge));
@@ -920,14 +931,92 @@ function captureSensorReading(formKey, mode){
   if(formKey==='fl' || formKey==='fp') autoCalcRakeIfReady();
   toast(currentLang==='es'?'Lectura capturada':'Reading captured');
 }
+
 function setVal(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
-function onOrientationInputChange(formKey){
-  const dipDir=parseInt(document.getElementById('dipDir_'+formKey)?.value, 10);
-  const dip=parseInt(document.getElementById('dip_'+formKey)?.value, 10);
-  const out=document.getElementById('derived_'+formKey);
+
+/* Selector y sincronizador dinámico de formato de entrada manual */
+function renderPlanarInputBlocks(formKey, strikeVal, dipVal, dipDirVal){
+  const quadVal = strikeVal != null ? toQuadrant(strikeVal) : '';
+  return `
+  <div style="margin-top:10px;">
+    <label style="margin-top:0;">Formato de entrada manual</label>
+    <select id="notSel_${formKey}" onchange="switchInputNotation('${formKey}', this.value)">
+      <option value="dipdir" ${inputNotation==='dipdir'?'selected':''}>Dip Direction / Dip (ej. 135 / 45)</option>
+      <option value="strike" ${inputNotation==='strike'?'selected':''}>Strike RHR / Dip (ej. 045 / 45)</option>
+      <option value="quadrant" ${inputNotation==='quadrant'?'selected':''}>Cuadrante / Dip (ej. N45°E / 45)</option>
+    </select>
+  </div>
+
+  <div id="box_dipdir_${formKey}" style="display:${inputNotation==='dipdir'?'block':'none'};">
+    <div class="numfield-row">
+      <div><label>Dip Direction (0–360°)</label><input type="number" step="1" id="dipDir_${formKey}" min="0" max="360" value="${dipDirVal??''}" oninput="onOrientationInputChange('${formKey}','dipdir')"></div>
+      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="onOrientationInputChange('${formKey}','dipdir')"></div>
+    </div>
+  </div>
+
+  <div id="box_strike_${formKey}" style="display:${inputNotation==='strike'?'block':'none'};">
+    <div class="numfield-row">
+      <div><label>Strike RHR (0–360°)</label><input type="number" step="1" id="strike_${formKey}" min="0" max="360" value="${strikeVal??''}" oninput="onOrientationInputChange('${formKey}','strike')"></div>
+      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip2_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="syncDip('${formKey}', this.value)"></div>
+    </div>
+  </div>
+
+  <div id="box_quad_${formKey}" style="display:${inputNotation==='quadrant'?'block':'none'};">
+    <div class="numfield-row">
+      <div><label>Rumbo Cuadrante (ej. N30E)</label><input type="text" id="quad_${formKey}" value="${quadVal}" placeholder="N30E" oninput="onOrientationInputChange('${formKey}','quadrant')"></div>
+      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip3_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="syncDip('${formKey}', this.value)"></div>
+    </div>
+  </div>
+
+  <div class="derived" id="derived_${formKey}">Strike RHR: — · Cuadrante: —</div>
+  `;
+}
+
+function switchInputNotation(formKey, mode){
+  ['dipdir','strike','quadrant'].forEach(m=>{
+    const el = document.getElementById(`box_${m==='quadrant'?'quad':m}_${formKey}`);
+    if(el) el.style.display = (m === mode) ? 'block' : 'none';
+  });
+}
+
+function syncDip(formKey, val){
+  setVal('dip_'+formKey, val);
+  setVal('dip2_'+formKey, val);
+  setVal('dip3_'+formKey, val);
+  onOrientationInputChange(formKey, 'dipdir');
+}
+
+function onOrientationInputChange(formKey, fromSource){
+  let dipDir = parseInt(document.getElementById('dipDir_'+formKey)?.value, 10);
+  let dip = parseInt(document.getElementById('dip_'+formKey)?.value, 10);
+  let strike = parseInt(document.getElementById('strike_'+formKey)?.value, 10);
+  let quad = document.getElementById('quad_'+formKey)?.value;
+
+  if(fromSource === 'strike'){
+    if(!isNaN(strike)){
+      dipDir = roundInt(norm360(strike + 90));
+      setVal('dipDir_'+formKey, dipDir);
+      setVal('quad_'+formKey, toQuadrant(strike));
+    }
+  } else if(fromSource === 'quadrant'){
+    const parsedStrike = parseQuadrantToStrike(quad);
+    if(parsedStrike != null){
+      strike = parsedStrike;
+      dipDir = roundInt(norm360(strike + 90));
+      setVal('strike_'+formKey, strike);
+      setVal('dipDir_'+formKey, dipDir);
+    }
+  } else if(fromSource === 'dipdir'){
+    if(!isNaN(dipDir)){
+      strike = roundInt(norm360(dipDir - 90));
+      setVal('strike_'+formKey, strike);
+      setVal('quad_'+formKey, toQuadrant(strike));
+    }
+  }
+
+  const out = document.getElementById('derived_'+formKey);
   if(!out) return;
-  if(isNaN(dipDir)||isNaN(dip)){ out.textContent='Strike RHR: — · '+t('quadrant')+': —'; return; }
-  const strike=roundInt(norm360(dipDir-90));
+  if(isNaN(dipDir) || isNaN(dip)){ out.textContent='Strike RHR: — · '+t('quadrant')+': —'; return; }
   out.innerHTML = `${t('strikeRHR')}: <b style="color:var(--accent)">${strike}°</b> &nbsp;·&nbsp; ${t('quadrant')}: <b style="color:var(--accent)">${toQuadrant(strike)}</b> &nbsp;·&nbsp; ${t('dipTowards')}: <b style="color:var(--accent)">${dipDirQuadrant(dipDir)}</b>`;
 }
 
@@ -977,6 +1066,7 @@ function setActiveNav(){
 
 async function render(){
   const app=document.getElementById('app');
+  applyTheme();
   setActiveNav();
   if(state.view==='campaigns') app.innerHTML = await renderCampaigns();
   else if(state.view==='campForm') app.innerHTML = await renderCampaignForm();
@@ -997,14 +1087,14 @@ function attachSensorInit(){
 }
 function postRenderMeasForm(){
   const type=state.measType;
-  if(type==='planar') onOrientationInputChange('p1');
-  else if(type==='fault'){ onOrientationInputChange('fp'); autoCalcRakeIfReady(); }
-  else if(type==='contact'){ onOrientationInputChange('c1'); calcThickness(); }
-  else if(type==='vein') onOrientationInputChange('v1');
+  if(type==='planar') onOrientationInputChange('p1', 'dipdir');
+  else if(type==='fault'){ onOrientationInputChange('fp', 'dipdir'); autoCalcRakeIfReady(); }
+  else if(type==='contact'){ onOrientationInputChange('c1', 'dipdir'); calcThickness(); }
+  else if(type==='vein') onOrientationInputChange('v1', 'dipdir');
 }
 
 /* =========================================================
-   VISTAS Y MÓDULO ESTEREOGRÁFICO / FAULTKIN
+   VISTA: ESTEREOGRAMA
    ========================================================= */
 async function renderStereonetView(){
   const camps = await dbGetAll('campaigns');
@@ -1077,43 +1167,21 @@ async function renderStereonetView(){
   `;
 }
 
-function onStereoCampChange(campId){
-  stereoState.campId = campId;
-  stereoState.stationId = 'ALL';
-  render();
-}
-function onStereoStationChange(stId){
-  stereoState.stationId = stId;
-  drawStereonet();
-}
-function onStereoProjChange(p){
-  stereoState.proj = p;
-  drawStereonet();
-}
-function onStereoBeachballChange(v){
-  stereoState.showBeachball = (v === 'on');
-  drawStereonet();
-}
+function onStereoCampChange(campId){ stereoState.campId = campId; stereoState.stationId = 'ALL'; render(); }
+function onStereoStationChange(stId){ stereoState.stationId = stId; drawStereonet(); }
+function onStereoProjChange(p){ stereoState.proj = p; drawStereonet(); }
+function onStereoBeachballChange(v){ stereoState.showBeachball = (v === 'on'); drawStereonet(); }
 
-/* =========================================================
-   MOTOR GRÁFICO DEL ESTEREOGRAMA (CANVAS NATIVO RETINA)
-   ========================================================= */
-let canvasCachedData = [];
 async function initStereonetCanvas(){
   const canvas = document.getElementById('stereoCanvas');
   if(!canvas) return;
-  
-  // Adaptar dimensiones para pantallas táctiles y alta densidad de píxeles
   const size = Math.min(window.innerWidth - 32, 440);
   const dpr = window.devicePixelRatio || 1;
   canvas.width = size * dpr;
   canvas.height = size * dpr;
   canvas.style.width = size + 'px';
   canvas.style.height = size + 'px';
-  
-  // Eventos táctiles y ratón para inspección interactiva
   canvas.onpointerdown = handleCanvasTouch;
-  
   await drawStereonet();
 }
 
@@ -1124,30 +1192,23 @@ async function drawStereonet(){
   const dpr = window.devicePixelRatio || 1;
   const size = canvas.width / dpr;
   const R = (size / 2) - 22;
-  const cx = size / 2;
-  const cy = size / 2;
+  const cx = size / 2, cy = size / 2;
 
   ctx.save();
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, size, size);
 
-  // 1. Dibujar Fondo de la falsilla
   ctx.beginPath();
   ctx.arc(cx, cy, R, 0, Math.PI * 2);
-  ctx.fillStyle = '#171c21';
+  ctx.fillStyle = colorTheme === 'sun' ? '#ffffff' : '#171c21';
   ctx.fill();
 
-  // 2. Filtrar datos desde IndexedDB
   const allSts = await dbGetAll('stations');
   const allMeas = await dbGetAll('measurements');
   
   let validStations = allSts;
-  if(stereoState.campId !== 'ALL'){
-    validStations = validStations.filter(s => s.campaignId === stereoState.campId);
-  }
-  if(stereoState.stationId !== 'ALL'){
-    validStations = validStations.filter(s => s.id === stereoState.stationId);
-  }
+  if(stereoState.campId !== 'ALL') validStations = validStations.filter(s => s.campaignId === stereoState.campId);
+  if(stereoState.stationId !== 'ALL') validStations = validStations.filter(s => s.id === stereoState.stationId);
   const stIds = new Set(validStations.map(s => s.id));
   const meas = allMeas.filter(m => stIds.has(m.stationId));
 
@@ -1155,7 +1216,6 @@ async function drawStereonet(){
   const polesForMean = [];
   const faultRecords = [];
 
-  // 3. Renderizar Mecanismos Focales Beachball (si está activo)
   if(stereoState.showBeachball){
     meas.filter(m => m.type === 'fault' && (m.strike != null || m.dipDir != null)).forEach(f => {
       const kin = computeFaultKinematics(f);
@@ -1163,34 +1223,25 @@ async function drawStereonet(){
     });
   }
 
-  // 4. Dibujar Red Estereográfica (Primitiva, Ejes y Marcas cada 10° y 2°)
   drawStereoGrid(ctx, cx, cy, R);
 
-  // 5. Dibujar Planos, Polos y Lineaciones
   meas.forEach(m => {
     let strike = m.strike;
     if(strike == null && m.dipDir != null) strike = norm360(m.dipDir - 90);
     const dip = m.dip;
 
-    // A. Planos Geológicos
     if(m.type !== 'fault' && strike != null && dip != null){
       const poleVec = planeToPoleVector(strike, dip);
       polesForMean.push(poleVec);
       const polePt = project3D(poleVec, stereoState.proj, R);
-      const px = cx + polePt.x;
-      const py = cy + polePt.y;
+      const px = cx + polePt.x, py = cy + polePt.y;
 
-      let color = '#5fb583'; // Estratificación verde
+      let color = '#5fb583';
       if((m.subtype||'').includes('Foliación')) color = '#e8a33d';
       if(m.type === 'vein') color = '#5cb3ff';
       if(m.type === 'contact') color = '#d38aea';
 
-      // Dibujar Ciclográfica
-      if(stereoState.showPlanes){
-        drawGreatCircle(ctx, cx, cy, R, stereoState.proj, strike, dip, color, 1.4, false);
-      }
-
-      // Dibujar Polo
+      if(stereoState.showPlanes) drawGreatCircle(ctx, cx, cy, R, stereoState.proj, strike, dip, color, 1.4, false);
       if(stereoState.showPoles){
         ctx.beginPath();
         ctx.arc(px, py, 4.5, 0, Math.PI * 2);
@@ -1206,39 +1257,28 @@ async function drawStereonet(){
       }
     }
 
-    // B. Lineaciones puras
     if(m.trend != null && m.plunge != null && m.type !== 'fault'){
       const linVec = trendPlungeToVector(m.trend, m.plunge);
       const pt = project3D(linVec, stereoState.proj, R);
       const lx = cx + pt.x, ly = cy + pt.y;
-      
       ctx.fillStyle = '#ff6b6b';
       ctx.fillRect(lx - 4, ly - 4, 8, 8);
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 1;
       ctx.strokeRect(lx - 4, ly - 4, 8, 8);
-
-      stereoState.interactiveItems.push({
-        x: lx, y: ly, radius: 12, data: m, label: `Lineación: ${pad3(m.trend)}/${pad2(m.plunge)}`
-      });
+      stereoState.interactiveItems.push({ x: lx, y: ly, radius: 12, data: m, label: `Lineación: ${pad3(m.trend)}/${pad2(m.plunge)}` });
     }
 
-    // C. Fallas con Cinemática (FaultKin)
     if(m.type === 'fault' && (strike != null || m.dipDir != null)){
       faultRecords.push(m);
       const kin = computeFaultKinematics(m);
 
       if(stereoState.showFaults){
-        // Plano principal de falla
         drawGreatCircle(ctx, cx, cy, R, stereoState.proj, strike, dip, '#e0645c', 2, false);
-        
-        // Plano auxiliar nodal
         drawGreatCircle(ctx, cx, cy, R, stereoState.proj, kin.auxStrike, kin.auxDip, 'rgba(224,100,92,0.4)', 1, true);
 
-        // Vector estría / deslizamiento
         const stPt = project3D(kin.u, stereoState.proj, R);
         const sx = cx + stPt.x, sy = cy + stPt.y;
-        
         ctx.beginPath();
         ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
@@ -1247,9 +1287,7 @@ async function drawStereonet(){
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Flecha de movimiento sobre el plano
         drawKinematicArrow(ctx, cx, cy, R, stereoState.proj, strike, dip, kin);
-
         stereoState.interactiveItems.push({
           x: sx, y: sy, radius: 14, data: m,
           label: `Falla ${m.sense||''}: ${pad3(strike)}/${pad2(dip)} | Rake: ${m.rake??'—'}°`
@@ -1257,7 +1295,6 @@ async function drawStereonet(){
       }
 
       if(stereoState.showPT){
-        // Eje P (Compresión / Acortamiento) - Rojo/Negro
         const pPt = project3D(kin.P, stereoState.proj, R);
         const pX = cx + pPt.x, pY = cy + pPt.y;
         ctx.beginPath();
@@ -1268,7 +1305,6 @@ async function drawStereonet(){
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Eje T (Extensión / Tensión) - Azul/Blanco
         const tPt = project3D(kin.T, stereoState.proj, R);
         const tX = cx + tPt.x, tY = cy + tPt.y;
         ctx.beginPath();
@@ -1279,20 +1315,14 @@ async function drawStereonet(){
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        stereoState.interactiveItems.push({
-          x: pX, y: pY, radius: 10, data: m, label: `Eje P: ${pad3(kin.P_tp.trend)}/${pad2(kin.P_tp.plunge)}`
-        });
-        stereoState.interactiveItems.push({
-          x: tX, y: tY, radius: 10, data: m, label: `Eje T: ${pad3(kin.T_tp.trend)}/${pad2(kin.T_tp.plunge)}`
-        });
+        stereoState.interactiveItems.push({ x: pX, y: pY, radius: 10, data: m, label: `Eje P: ${pad3(kin.P_tp.trend)}/${pad2(kin.P_tp.plunge)}` });
+        stereoState.interactiveItems.push({ x: tX, y: tY, radius: 10, data: m, label: `Eje T: ${pad3(kin.T_tp.trend)}/${pad2(kin.T_tp.plunge)}` });
       }
     }
   });
 
-  // 6. Estadísticas y Polo Medio
   const mean = calculateMeanOrientation(polesForMean);
   if(mean && stereoState.showPlanes){
-    // Dibujar plano medio en blanco punteado
     drawGreatCircle(ctx, cx, cy, R, stereoState.proj, mean.strike, mean.dip, '#ffffff', 2.2, true);
     const mPt = project3D(mean.meanVec, stereoState.proj, R);
     ctx.fillStyle = '#ffffff';
@@ -1305,45 +1335,36 @@ async function drawStereonet(){
   ctx.restore();
 }
 
-// Dibujar Red Básica y Marcas
 function drawStereoGrid(ctx, cx, cy, R){
   ctx.save();
-  ctx.strokeStyle = '#333c44';
+  ctx.strokeStyle = colorTheme === 'sun' ? '#b0bec5' : '#333c44';
   ctx.lineWidth = 1;
 
-  // Círculo Primitivo
   ctx.beginPath();
   ctx.arc(cx, cy, R, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Ejes N-S y E-W
   ctx.beginPath();
   ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
   ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy);
   ctx.stroke();
 
-  // Marcas perimetrales (10° mayores, 2° menores)
   for(let deg = 0; deg < 360; deg += 2){
     const rad = toRad(deg);
     const isMajor = (deg % 10 === 0);
     const isCardinal = (deg % 90 === 0);
     const len = isCardinal ? 9 : (isMajor ? 6 : 3);
-
-    const x1 = cx + R * Math.sin(rad);
-    const y1 = cy - R * Math.cos(rad);
-    const x2 = cx + (R - len) * Math.sin(rad);
-    const y2 = cy - (R - len) * Math.cos(rad);
+    const x1 = cx + R * Math.sin(rad), y1 = cy - R * Math.cos(rad);
+    const x2 = cx + (R - len) * Math.sin(rad), y2 = cy - (R - len) * Math.cos(rad);
 
     ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.strokeStyle = isMajor ? '#8a97a3' : '#333c44';
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.strokeStyle = isMajor ? (colorTheme==='sun'?'#37474f':'#8a97a3') : (colorTheme==='sun'?'#cfd8dc':'#333c44');
     ctx.lineWidth = isMajor ? 1.2 : 0.8;
     ctx.stroke();
   }
 
-  // Letras cardinales
-  ctx.fillStyle = '#e8a33d';
+  ctx.fillStyle = colorTheme === 'sun' ? '#d87a00' : '#e8a33d';
   ctx.font = 'bold 12px monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -1351,17 +1372,9 @@ function drawStereoGrid(ctx, cx, cy, R){
   ctx.fillText('S', cx, cy + R - 14);
   ctx.fillText('E', cx + R - 14, cy);
   ctx.fillText(currentLang === 'es' ? 'O' : 'W', cx - R + 14, cy);
-
-  // Centro
-  ctx.beginPath();
-  ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
-  ctx.fillStyle = '#8a97a3';
-  ctx.fill();
-
   ctx.restore();
 }
 
-// Trazado continuo del Círculo Mayor (Ciclográfica)
 function drawGreatCircle(ctx, cx, cy, R, projType, strike, dip, color, lineWidth, dashed){
   ctx.save();
   ctx.beginPath();
@@ -1369,45 +1382,29 @@ function drawGreatCircle(ctx, cx, cy, R, projType, strike, dip, color, lineWidth
   ctx.strokeStyle = color;
   ctx.lineWidth = lineWidth;
 
-  const sR = toRad(strike);
-  const dR = toRad(dip);
+  const sR = toRad(strike), dR = toRad(dip);
   const strikeVec = [Math.sin(sR), Math.cos(sR), 0];
   const dipVec = [Math.cos(sR) * Math.sin(dR), -Math.sin(sR) * Math.sin(dR), Math.cos(dR)];
 
   let first = true;
   for(let alpha = 0; alpha <= 180; alpha += 2){
     const aR = toRad(alpha);
-    const v = V3.add(
-      V3.scale(strikeVec, Math.cos(aR)),
-      V3.scale(dipVec, Math.sin(aR))
-    );
+    const v = V3.add(V3.scale(strikeVec, Math.cos(aR)), V3.scale(dipVec, Math.sin(aR)));
     const pt = project3D(v, projType, R);
-    const x = cx + pt.x;
-    const y = cy + pt.y;
-
-    if(first){
-      ctx.moveTo(x, y);
-      first = false;
-    } else {
-      ctx.lineTo(x, y);
-    }
+    const x = cx + pt.x, y = cy + pt.y;
+    if(first){ ctx.moveTo(x, y); first = false; } else { ctx.lineTo(x, y); }
   }
   ctx.stroke();
   ctx.restore();
 }
 
-// Flecha cinemática de sentido de movimiento sobre el plano
 function drawKinematicArrow(ctx, cx, cy, R, projType, strike, dip, kin){
   const pt = project3D(kin.u, projType, R);
   const px = cx + pt.x, py = cy + pt.y;
-  
-  // Vector tangente sobre el plano en la estría
   const moveDir = V3.norm(V3.cross(kin.n, kin.b));
   const arrowHead = V3.add(kin.u, V3.scale(moveDir, 0.12));
   const ptH = project3D(arrowHead, projType, R);
-  
-  const dx = (cx + ptH.x) - px;
-  const dy = (cy + ptH.y) - py;
+  const dx = (cx + ptH.x) - px, dy = (cy + ptH.y) - py;
   const ang = Math.atan2(dy, dx);
 
   ctx.save();
@@ -1415,15 +1412,12 @@ function drawKinematicArrow(ctx, cx, cy, R, projType, strike, dip, kin){
   ctx.rotate(ang);
   ctx.fillStyle = '#e8a33d';
   ctx.beginPath();
-  ctx.moveTo(6, 0);
-  ctx.lineTo(-6, -4);
-  ctx.lineTo(-6, 4);
+  ctx.moveTo(6, 0); ctx.lineTo(-6, -4); ctx.lineTo(-6, 4);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
 }
 
-// Cuadrantes de compresión / tensión (Beachball)
 function drawBeachballQuadrants(ctx, cx, cy, R, projType, kin){
   ctx.save();
   const step = 6;
@@ -1432,11 +1426,8 @@ function drawBeachballQuadrants(ctx, cx, cy, R, projType, kin){
       if(Math.hypot(x, y) <= R){
         const v = unproject2D(x, y, projType, R);
         if(v){
-          // Criterio de mecanismo focal: signo del producto (n · v) * (u · v)
-          const f1 = V3.dot(kin.n, v);
-          const f2 = V3.dot(kin.u, v);
-          if(f1 * f2 > 0){
-            ctx.fillStyle = 'rgba(224, 100, 92, 0.18)'; // Cuadrante de compresión
+          if(V3.dot(kin.n, v) * V3.dot(kin.u, v) > 0){
+            ctx.fillStyle = 'rgba(224, 100, 92, 0.18)';
             ctx.fillRect(cx + x - step/2, cy + y - step/2, step, step);
           }
         }
@@ -1446,7 +1437,6 @@ function drawBeachballQuadrants(ctx, cx, cy, R, projType, kin){
   ctx.restore();
 }
 
-// Inspección Táctil / Clic sobre Canvas
 function handleCanvasTouch(e){
   const canvas = document.getElementById('stereoCanvas');
   const tooltip = document.getElementById('stereoTooltip');
@@ -1455,15 +1445,12 @@ function handleCanvasTouch(e){
   const rect = canvas.getBoundingClientRect();
   const clientX = e.clientX || (e.touches && e.touches[0].clientX);
   const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-  const touchX = clientX - rect.left;
-  const touchY = clientY - rect.top;
+  const touchX = clientX - rect.left, touchY = clientY - rect.top;
 
   let found = null;
   for(const item of stereoState.interactiveItems){
-    const dist = Math.hypot(touchX - item.x, touchY - item.y);
-    if(dist <= item.radius){
-      found = item;
-      break;
+    if(Math.hypot(touchX - item.x, touchY - item.y) <= item.radius){
+      found = item; break;
     }
   }
 
@@ -1484,8 +1471,6 @@ function updateStereoStats(mean, faults, totalMeas){
   if(mean){
     html += `Polo medio (N=${mean.count}): <b>Trend/Plunge ${pad3(mean.trend)}/${pad2(mean.plunge)}</b><br>`;
     html += `Plano medio equivalente: <b>${pad3(mean.strike)}/${pad2(mean.dip)} (RHR)</b> · DipDir <b>${pad3(mean.dipDir)}</b><br>`;
-  } else {
-    html += `Polo medio: <i>Insuficientes planos</i><br>`;
   }
   if(faults.length > 0){
     html += `Fallas cinemáticas activas: <b>${faults.length}</b> (FaultKin P/T calculado)`;
@@ -1493,22 +1478,18 @@ function updateStereoStats(mean, faults, totalMeas){
   el.innerHTML = html;
 }
 
-// Exportación de imagen PNG en alta resolución
 function exportStereoImage(){
   const canvas = document.getElementById('stereoCanvas');
   if(!canvas){ toast('Canvas no disponible'); return; }
-  const dataURL = canvas.toDataURL('image/png');
   const a = document.createElement('a');
-  a.href = dataURL;
+  a.href = canvas.toDataURL('image/png');
   a.download = `Estereograma_${stereoState.proj}_${dateStamp()}.png`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   toast('Estereograma exportado como PNG');
 }
 
 /* =========================================================
-   VISTAS GENERALES (CAMPANAS, ESTACIONES, FORMULARIOS)
+   VISTAS CAMPANAS Y FORMULARIOS
    ========================================================= */
 async function renderCampaigns(){
   const camps = (await dbGetAll('campaigns')).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
@@ -1802,7 +1783,7 @@ async function deleteMeasurement(id){
 
 const PLANAR_SUBTYPES = ['Estratificación (S0)','Foliación (S1)','Foliación (S2)','Diaclasa / Fractura','Clivaje','Lineación mineral','Eje de pliegue'];
 const LINEAR_SUBTYPES = ['Lineación mineral','Eje de pliegue'];
-const FAULT_SENSES = ['Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso'];
+const FAULT_SENSES = ['Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso','TR','LL','RL','N','T'];
 const KIN_QUALITY = ['Definida','Probable','Posible'];
 const KIN_CRITERIA = ['Fibras minerales','Escalones de crecimiento','Estructuras S-C','Estilolitos','Brechas','Estrías simples','Otro'];
 const CONTACT_TYPES = ['Concordante','Discordante angular','Discordante erosiva','Falla','Intrusivo','Transicional'];
@@ -1848,11 +1829,7 @@ function renderPlanarFields(m){
 
   <div id="planarBlock" style="display:${isLinear?'none':''}">
     ${renderSensorPanel('planar','p1')}
-    <div class="numfield-row">
-      <div><label>Dip Direction (0–360°)</label><input type="number" step="1" id="dipDir_p1" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('p1')"></div>
-      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip_p1" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('p1')"></div>
-    </div>
-    <div class="derived" id="derived_p1">Strike RHR: — · Cuadrante: —</div>
+    ${renderPlanarInputBlocks('p1', m.strike, m.dip, m.dipDir)}
   </div>
   <div id="linearBlock" style="display:${isLinear?'':'none'}">
     ${renderSensorPanel('linear','l1')}
@@ -1875,11 +1852,7 @@ function renderFaultFields(m){
   return `
   <label>Plano de falla</label>
   ${renderSensorPanel('planar','fp')}
-  <div class="numfield-row">
-    <div><label>Dip Direction (0–360°)</label><input type="number" step="1" id="dipDir_fp" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('fp'); autoCalcRakeIfReady();"></div>
-    <div><label>Manteo (0–90°)</label><input type="number" step="1" id="dip_fp" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('fp'); autoCalcRakeIfReady();"></div>
-  </div>
-  <div class="derived" id="derived_fp">Strike RHR: — · Cuadrante: —</div>
+  ${renderPlanarInputBlocks('fp', m.strike, m.dip, m.dipDir)}
 
   <label>Lineación de estría — Modo de captura</label>
   <div class="radio-row">
@@ -1946,11 +1919,7 @@ function renderContactFields(m){
   <label>Tipo de contacto</label>
   <select id="f_contactType">${CONTACT_TYPES.map(s=>`<option ${m.contactType===s?'selected':''}>${s}</option>`).join('')}</select>
   ${renderSensorPanel('planar','c1')}
-  <div class="numfield-row">
-    <div><label>Dip Direction</label><input type="number" step="1" id="dipDir_c1" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('c1')"></div>
-    <div><label>Manteo</label><input type="number" step="1" id="dip_c1" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('c1')"></div>
-  </div>
-  <div class="derived" id="derived_c1">Strike RHR: —</div>
+  ${renderPlanarInputBlocks('c1', m.strike, m.dip, m.dipDir)}
 
   <div class="grid2">
     <div><label>Litología techo</label><input type="text" id="f_lithoTop" value="${esc(m.lithoTop||'')}"></div>
@@ -1998,11 +1967,7 @@ function renderVeinFields(m){
 
   <label>Actitud del plano</label>
   ${renderSensorPanel('planar','v1')}
-  <div class="numfield-row">
-    <div><label>Dip Direction</label><input type="number" step="1" id="dipDir_v1" min="0" max="360" value="${m.dipDir??''}" oninput="onOrientationInputChange('v1')"></div>
-    <div><label>Manteo</label><input type="number" step="1" id="dip_v1" min="0" max="90" value="${m.dip??''}" oninput="onOrientationInputChange('v1')"></div>
-  </div>
-  <div class="derived" id="derived_v1">Strike RHR: —</div>
+  ${renderPlanarInputBlocks('v1', m.strike, m.dip, m.dipDir)}
 
   <div class="grid2">
     <div><label>Espesor</label><input type="number" step="1" id="f_veinThick" value="${m.veinThickness??''}"></div>
@@ -2090,12 +2055,20 @@ async function saveMeasurement(id, isNew){
 function intOrNull(id){ const v=parseInt(document.getElementById(id)?.value, 10); return isNaN(v)?null:v; }
 
 /* =========================================================
-   EXPORTAR Y AJUSTES
+   EXPORTAR E IMPORTAR (.TXT / FAULTKIN / CSV)
    ========================================================= */
 async function renderExport(){
   const camps = await dbGetAll('campaigns');
   return `
   <div class="topline"><div><h2>${t('export')}</h2></div></div>
+  
+  <div class="card" style="cursor:default;">
+    <div class="card-title">📥 Importar Archivos (.txt / .csv / FaultKin)</div>
+    <div class="card-sub">Carga archivos tabulados de FaultKin, Stereonet o CSV estructurados</div>
+    <input type="file" id="importFileInput" accept=".txt,.csv,.tsv" style="margin-top:10px; display:none;" onchange="handleFileImport(event)">
+    <button class="btn primary" style="margin-top:10px;" onclick="document.getElementById('importFileInput').click()">📂 Seleccionar y subir archivo</button>
+  </div>
+
   <div class="card" style="cursor:default;">
     <label style="margin-top:0;">${t('exportScope')}</label>
     <select id="exportCampSelect">
@@ -2114,6 +2087,7 @@ async function renderExport(){
   </div>
   `;
 }
+
 function csvEsc(v){ v=String(v??''); if(/[",\n]/.test(v)){ v='"'+v.replace(/"/g,'""')+'"'; } return v; }
 
 async function getFilteredData(){
@@ -2180,9 +2154,142 @@ async function exportGeoJSON(){
   toast('GeoJSON exportado');
 }
 
+/* =========================================================
+   PARSER E IMPORTADOR UNIVERSAL DE ARCHIVOS
+   ========================================================= */
+async function handleFileImport(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const text = await file.text();
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if(lines.length < 2){ toast('Archivo vacío o sin datos'); return; }
+
+  // Crear o identificar campaña de importación
+  const campName = 'Importación_' + file.name.replace(/\.[^/.]+$/, "");
+  const campId = uid();
+  await dbPut('campaigns', {
+    id: campId,
+    name: campName,
+    timestamp: nowIso(),
+    notes: `Importado desde archivo ${file.name}`
+  });
+
+  // Detectar delimitador (tabulador o coma)
+  const headerLine = lines[0];
+  const delim = headerLine.includes('\t') ? '\t' : (headerLine.includes(';') ? ';' : ',');
+  const rawHeaders = headerLine.split(delim).map(h => h.trim().toLowerCase());
+
+  // Mapear índices
+  const getIdx = (patterns) => rawHeaders.findIndex(h => patterns.some(p => h.includes(p)));
+  
+  const iStrike = getIdx(['fault strike','strike']);
+  const iDip = getIdx(['fault dip','dip']);
+  const iTrend = getIdx(['striae trend','trend']);
+  const iPlunge = getIdx(['striae plunge','plunge']);
+  const iSense = getIdx(['sense of slip','sense']);
+  const iFieldNo = getIdx(['field no.','station_id','station','estacion','name']);
+  const iLat = getIdx(['latitude','lat']);
+  const iLon = getIdx(['longitude','lon','long']);
+  const iAlt = getIdx(['elevation','alt']);
+  const iNotes = getIdx(['notes','nota']);
+
+  let count = 0;
+  const stationsCreated = {};
+
+  for(let i = 1; i < lines.length; i++){
+    const cols = lines[i].split(delim).map(c => c.trim());
+    if(cols.length < 2) continue;
+
+    const stName = (iFieldNo >= 0 && cols[iFieldNo]) ? cols[iFieldNo] : `EST-${String(count+1).padStart(2,'0')}`;
+    let stId = stationsCreated[stName];
+
+    const latVal = (iLat >= 0 && cols[iLat]) ? parseFloat(cols[iLat]) : null;
+    const lonVal = (iLon >= 0 && cols[iLon]) ? parseFloat(cols[iLon]) : null;
+    const altVal = (iAlt >= 0 && cols[iAlt]) ? roundInt(parseFloat(cols[iAlt])) : null;
+
+    if(!stId){
+      stId = uid();
+      stationsCreated[stName] = stId;
+      await dbPut('stations', {
+        id: stId,
+        campaignId: campId,
+        name: stName,
+        timestamp: nowIso(),
+        lat: isNaN(latVal) ? null : latVal,
+        lon: isNaN(lonVal) ? null : lonVal,
+        alt: isNaN(altVal) ? null : altVal,
+        notes: 'Importado de FaultKin/Texto'
+      });
+    }
+
+    const strikeVal = (iStrike >= 0 && cols[iStrike]) ? roundInt(parseFloat(cols[iStrike])) : null;
+    const dipVal = (iDip >= 0 && cols[iDip]) ? roundInt(parseFloat(cols[iDip])) : null;
+    const trendVal = (iTrend >= 0 && cols[iTrend]) ? roundInt(parseFloat(cols[iTrend])) : null;
+    const plungeVal = (iPlunge >= 0 && cols[iPlunge]) ? roundInt(parseFloat(cols[iPlunge])) : null;
+    const senseVal = (iSense >= 0 && cols[iSense]) ? cols[iSense] : '';
+    const noteVal = (iNotes >= 0 && cols[iNotes]) ? cols[iNotes] : '';
+
+    if(strikeVal != null && dipVal != null){
+      const dipDirVal = roundInt(norm360(strikeVal + 90));
+      const measObj = {
+        id: uid(),
+        stationId: stId,
+        type: (trendVal != null || senseVal) ? 'fault' : 'planar',
+        subtype: 'Importado',
+        timestamp: nowIso(),
+        strike: strikeVal,
+        dip: dipVal,
+        dipDir: dipDirVal,
+        trend: trendVal,
+        plunge: plungeVal,
+        striaeMode: 'trendplunge',
+        sense: senseVal || 'Normal',
+        notes: noteVal
+      };
+
+      if(trendVal != null && plungeVal != null){
+        const rk = calculateRakeFromTP(dipDirVal, dipVal, trendVal, plungeVal);
+        if(rk){
+          measObj.rake = rk.rake;
+          measObj.rakeQuadrant = rk.quadrant;
+        }
+      }
+      await dbPut('measurements', measObj);
+      count++;
+    }
+  }
+
+  toast(`Importados ${count} registros con éxito`);
+  Nav.campaign(campId);
+}
+
+/* =========================================================
+   VISTA: AJUSTES (PALETAS DE TERRENO + SENSORES)
+   ========================================================= */
 function renderSettings(){
   return `
   <div class="topline"><div><h2>${t('settings')}</h2></div></div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">🎨 ${t('colorTheme')}</div>
+    <div class="card-sub">Selecciona una paleta de alto contraste optimizada para terreno y luz solar</div>
+    <select onchange="changeColorTheme(this.value)" style="margin-top:8px;">
+      <option value="sun" ${colorTheme==='sun'?'selected':''}>☀️ Sol Directo (Blanco / Alto Contraste Solar)</option>
+      <option value="dark" ${colorTheme==='dark'?'selected':''}>🌙 Noche / Campamento (Dark Slate)</option>
+      <option value="earth" ${colorTheme==='earth'?'selected':''}>🏜️ Geológico Tierra / Ocre</option>
+      <option value="forest" ${colorTheme==='forest'?'selected':''}>🌲 Bosque / Oliva</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">⌨️ ${t('inputNotation')}</div>
+    <div class="card-sub">Define cómo ingresar datos manualmente en los formularios</div>
+    <select onchange="changeInputNotation(this.value)" style="margin-top:8px;">
+      <option value="dipdir" ${inputNotation==='dipdir'?'selected':''}>Dip Direction / Dip (ej. 135 / 45)</option>
+      <option value="strike" ${inputNotation==='strike'?'selected':''}>Strike RHR / Dip (ej. 045 / 45)</option>
+      <option value="quadrant" ${inputNotation==='quadrant'?'selected':''}>Cuadrante / Dip (ej. N45°E / 45)</option>
+    </select>
+  </div>
 
   <div class="card" style="cursor:default;">
     <div class="card-title">${t('lang')} / Language</div>
@@ -2194,7 +2301,6 @@ function renderSettings(){
 
   <div class="card" style="cursor:default;">
     <div class="card-title">${t('quadrantMode')}</div>
-    <div class="card-sub">Define cómo se formatea el rumbo en notación de cuadrante</div>
     <select onchange="changeQuadrantPref(this.value)" style="margin-top:8px;">
       <option value="NS" ${quadrantPref==='NS'?'selected':''}>Norte y Sur (ej. N30°E y S45°O)</option>
       <option value="N_ONLY" ${quadrantPref==='N_ONLY'?'selected':''}>Solo Norte (ej. N30°E y N135°O)</option>
@@ -2203,7 +2309,6 @@ function renderSettings(){
 
   <div class="card" style="cursor:default;">
     <div class="card-title">${t('needleTarget')}</div>
-    <div class="card-sub">Indica a qué ángulo apunta la aguja naranja en el visor</div>
     <select onchange="changeNeedleMode(this.value)" style="margin-top:8px;">
       <option value="dipdir" ${needleMode==='dipdir'?'selected':''}>Dirección de Manteo (Dip Direction)</option>
       <option value="strike" ${needleMode==='strike'?'selected':''}>Rumbo / Strike (Regla mano derecha)</option>
@@ -2212,7 +2317,7 @@ function renderSettings(){
 
   <div class="card" style="cursor:default;">
     <div class="card-title">${t('calibration')}</div>
-    <div class="card-sub">Corrige la declinación magnética hacia el Norte Verdadero o desvío de sensores.</div>
+    <div class="card-sub">Corrige la declinación magnética hacia el Norte Verdadero.</div>
     <input type="number" step="1" value="${magOffset}" id="magOffsetInput" onchange="changeMagOffset(this.value)" style="margin-top:8px;" placeholder="ej. -5 o 8">
     <button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="autoEstimateDeclination()">📍 Calcular declinación desde GPS actual</button>
   </div>
@@ -2241,14 +2346,12 @@ function renderSettings(){
     <div class="guide-box">
       <b>1. Determinación de Cinemática (Fallas):</b>
       <ul>
-        <li><b>Escalones y fibras minerales:</b> Al pasar los dedos suavemente a lo largo del plano, la dirección suave indica el movimiento del bloque opuesto (criterio de rugosidad/paso de escalón).</li>
-        <li><b>Estructuras S-C:</b> Los planos S (foliación sigmoidal) se curvan hacia los planos C (cizalle principal), indicando la dirección del desplazamiento relativo.</li>
+        <li><b>Escalones y fibras minerales:</b> Al pasar los dedos suavemente a lo largo del plano, la dirección suave indica el movimiento del bloque opuesto.</li>
+        <li><b>Estructuras S-C:</b> Los planos S (foliación sigmoidal) se curvan hacia los planos C (cizalle principal), indicando el desplazamiento relativo.</li>
       </ul>
       <b>2. Sentido del Rake (Pitch):</b>
       <ul>
-        <li>El <b>Rake</b> es el ángulo (0° a 90°) que forma la estría medido sobre el plano de falla.</li>
-        <li>Se referencia indicando desde qué extremo del rumbo se mide el ángulo (ej. <i>35° desde el N</i> o <i>40° desde el SO</i>).</li>
-        <li>Si capturas el plano de falla y luego mides la estría con el sensor en <i>Trend/Plunge</i>, la app calcula automáticamente el Rake y su cuadrante.</li>
+        <li>El <b>Rake</b> es el ángulo (0° a 90°) que forma la estría medido sobre el plano de falla desde el rumbo.</li>
       </ul>
     </div>
   </div>
@@ -2269,6 +2372,8 @@ function autoEstimateDeclination(){
   toast(`Declinación estimada: ${est}° aplicada`);
 }
 
+function changeColorTheme(theme){ colorTheme=theme; localStorage.setItem('geo_theme', theme); render(); }
+function changeInputNotation(not){ inputNotation=not; localStorage.setItem('geo_input_notation', not); render(); }
 function changeLanguage(lang){ currentLang=lang; localStorage.setItem('geo_lang', lang); render(); }
 function changeCompassScale(scale){ compassScale=scale; localStorage.setItem('geo_compass_scale', scale); render(); }
 function changeBoxScale(scale){ boxScale=scale; localStorage.setItem('geo_box_scale', scale); render(); }
