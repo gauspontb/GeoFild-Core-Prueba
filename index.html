@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<title>GeoField Core</title>
+<title>GeoField Core - Estereogramas & FaultKin</title>
 <link rel="manifest" href='data:application/manifest+json,{"name":"GeoField Core","short_name":"GeoField","start_url":".","display":"standalone","background_color":"%2314181c","theme_color":"%2314181c"}'>
 <style>
   :root{
@@ -187,6 +187,16 @@
   .toast{ position:fixed; left:50%; bottom:calc(var(--navbar-h) + var(--safe-b) + 16px); transform:translateX(-50%); background:var(--surface-2); border:1px solid var(--accent-dim); color:var(--text); padding:10px 16px; border-radius:20px; font-size:13px; z-index:50; box-shadow:0 4px 16px rgba(0,0,0,.4); }
   .guide-box{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:12px; font-size:13px; line-height:1.5; color:var(--text); margin-top:8px; }
   .guide-box ul{ padding-left:18px; margin:6px 0; }
+
+  /* Estilos para Estereograma */
+  .canvas-wrapper{ position:relative; width:100%; display:flex; justify-content:center; align-items:center; margin-top:10px; }
+  #stereoCanvas{ background:#101316; border-radius:50%; box-shadow:0 6px 20px rgba(0,0,0,0.5); touch-action:none; }
+  .stereo-tooltip{
+    position:absolute; background:rgba(28,34,39,0.95); border:1px solid var(--accent);
+    color:var(--text); padding:8px 12px; border-radius:8px; font-size:12px;
+    font-family:var(--mono); pointer-events:none; z-index:30; max-width:240px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.6); display:none;
+  }
 </style>
 </head>
 <body>
@@ -202,6 +212,7 @@
 
   <nav id="navbar">
     <button class="nav-btn" id="navHome" onclick="Nav.home()"><span class="ic">📁</span><span id="navHomeTxt">Campañas</span></button>
+    <button class="nav-btn" id="navStereo" onclick="Nav.stereonet()"><span class="ic">🌐</span><span id="navStereoTxt">Estereograma</span></button>
     <button class="nav-btn" id="navExport" onclick="Nav.exportView()"><span class="ic">⇩</span><span id="navExportTxt">Exportar</span></button>
     <button class="nav-btn" id="navSettings" onclick="Nav.settings()"><span class="ic">⚙</span><span id="navSettingsTxt">Ajustes</span></button>
   </nav>
@@ -256,7 +267,11 @@ const I18N = {
     useGps: '📍 Usar posición GPS actual',
     quadrantMode: 'Formato de cuadrante',
     needleTarget: 'Objetivo de aguja en brújula',
-    calibration: 'Calibración / Declinación magnética (°)'
+    calibration: 'Calibración / Declinación magnética (°)',
+    stereonet: 'Estereograma',
+    projSchmidt: 'Equiárea (Schmidt)',
+    projWulff: 'Equiangular (Wulff)',
+    exportPng: '📷 Exportar Imagen PNG'
   },
   en: {
     campaigns: 'Campaigns',
@@ -304,7 +319,11 @@ const I18N = {
     useGps: '📍 Use current GPS position',
     quadrantMode: 'Quadrant Format',
     needleTarget: 'Compass needle target',
-    calibration: 'Magnetic Declination / Calibration (°)'
+    calibration: 'Magnetic Declination / Calibration (°)',
+    stereonet: 'Stereonet',
+    projSchmidt: 'Equal-Area (Schmidt)',
+    projWulff: 'Equal-Angle (Wulff)',
+    exportPng: '📷 Export PNG Image'
   }
 };
 
@@ -341,17 +360,210 @@ function downloadFile(content, filename, mime){
 }
 
 /* =========================================================
-   ESTIMACIÓN APROXIMADA DE DECLINACIÓN MAGNÉTICA (WMM-fit)
+   MATEMÁTICAS VECTORIALES 3D Y GEOLOGÍA ESTRUCTURAL (FAULTKIN)
+   ========================================================= */
+const V3 = {
+  cross: (a, b) => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0]
+  ],
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  norm: (v) => {
+    const l = Math.hypot(v[0], v[1], v[2]);
+    return l > 1e-12 ? [v[0] / l, v[1] / l, v[2] / l] : [0, 0, 0];
+  },
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  scale: (v, s) => [v[0] * s, v[1] * s, v[2] * s],
+  toLowerHemi: (v) => (v[2] < 0 ? [-v[0], -v[1], -v[2]] : [v[0], v[1], v[2]])
+};
+
+// Convierte Trend y Plunge (en grados) a vector unitario (X: Este, Y: Norte, Z: Abajo)
+function trendPlungeToVector(tr, pl) {
+  const trR = toRad(tr);
+  const plR = toRad(pl);
+  return [
+    Math.sin(trR) * Math.cos(plR),
+    Math.cos(trR) * Math.cos(plR),
+    Math.sin(plR)
+  ];
+}
+
+// Convierte vector unitario (X, Y, Z) a Trend y Plunge
+function vectorToTrendPlunge(v) {
+  const vn = V3.toLowerHemi(v);
+  let tr = norm360(toDeg(Math.atan2(vn[0], vn[1])));
+  let pl = toDeg(Math.asin(clamp(vn[2], -1, 1)));
+  return { trend: roundInt(tr), plunge: roundInt(pl) };
+}
+
+// Polo normal inferior del plano (Strike RHR o DipDir)
+function planeToPoleVector(strike, dip) {
+  const poleTr = norm360(strike - 90);
+  const polePl = 90 - dip;
+  return trendPlungeToVector(poleTr, polePl);
+}
+
+// Vector de deslizamiento / estría a partir de Strike, Dip, Rake y Cuadrante de referencia
+function faultRakeToSlipVector(strike, dip, rake, rakeQuad) {
+  const sR = toRad(strike);
+  const dR = toRad(dip);
+  const rR = toRad(rake);
+  
+  // Vector rumbo unitario en sentido Strike RHR
+  const strikeVec = [Math.sin(sR), Math.cos(sR), 0];
+  // Vector máxima pendiente hacia abajo
+  const dipVec = [Math.cos(sR) * Math.sin(dR), -Math.sin(sR) * Math.sin(dR), Math.cos(dR)];
+  
+  // Determinar si el rake se mide desde el origen de strike o desde strike+180
+  const strikeQuad = dipDirQuadrant(strike);
+  let rakeFromStrikeStart = true;
+  if (rakeQuad && rakeQuad !== strikeQuad) {
+    rakeFromStrikeStart = false;
+  }
+  
+  const sign = rakeFromStrikeStart ? 1 : -1;
+  const slip = V3.add(
+    V3.scale(strikeVec, sign * Math.cos(rR)),
+    V3.scale(dipVec, Math.sin(rR))
+  );
+  return V3.norm(slip);
+}
+
+// Motor Cinemático FaultKin / Allmendinger
+function computeFaultKinematics(f) {
+  const strike = f.strike != null ? f.strike : norm360((f.dipDir || 0) - 90);
+  const dip = f.dip || 0;
+  
+  // Vector normal hacia el bloque techo (hanging wall)
+  const n = planeToPoleVector(strike, dip);
+  
+  let u;
+  if (f.striaeMode === 'trendplunge' && f.trend != null && f.plunge != null) {
+    u = trendPlungeToVector(f.trend, f.plunge);
+  } else if (f.rake != null) {
+    u = faultRakeToSlipVector(strike, dip, f.rake, f.rakeQuadrant);
+  } else {
+    // Estimación por defecto: dip-slip puro
+    u = [Math.cos(toRad(strike)) * Math.sin(toRad(dip)), -Math.sin(toRad(strike)) * Math.sin(toRad(dip)), Math.cos(toRad(dip))];
+  }
+  
+  // Eje B = n x u
+  let b = V3.norm(V3.cross(n, u));
+  
+  // Ajuste de sentido relativo del vector de movimiento del bloque techo
+  let uHang = [...u];
+  const sense = (f.sense || 'Normal').toLowerCase();
+  
+  // Si es movimiento inverso, el bloque techo sube (opuesto a la componente de buzamiento de u)
+  if (sense.includes('invers') || sense.includes('thrust') || sense.includes('reverse')) {
+    uHang = V3.scale(u, -1);
+  } else if (sense.includes('dextral') || sense.includes('sinistral')) {
+    // En rumbo puro / oblicuo verificar consistencia de cizalle
+    const bCrossN = V3.cross(b, n);
+    if (sense.includes('dextral') && V3.dot(uHang, bCrossN) < 0) {
+      uHang = V3.scale(uHang, -1);
+    }
+  }
+
+  // Ejes P y T cinemáticos a 45°
+  let P = V3.toLowerHemi(V3.norm(V3.sub(n, uHang)));
+  let T = V3.toLowerHemi(V3.norm(V3.add(n, uHang)));
+  
+  // Polo del plano nodal auxiliar = vector de estría u
+  const auxPole = V3.toLowerHemi(u);
+  const auxTP = vectorToTrendPlunge(auxPole);
+  const auxDipDir = norm360(auxTP.trend + 180);
+  const auxDip = 90 - auxTP.plunge;
+
+  return {
+    n: V3.toLowerHemi(n),
+    u: V3.toLowerHemi(u),
+    b: V3.toLowerHemi(b),
+    P,
+    T,
+    auxDipDir,
+    auxDip,
+    auxStrike: norm360(auxDipDir - 90),
+    P_tp: vectorToTrendPlunge(P),
+    T_tp: vectorToTrendPlunge(T)
+  };
+}
+
+// Cálculo del Polo Medio Vectorial (Fisher mean / Orientación media)
+function calculateMeanOrientation(poles) {
+  if (!poles || poles.length === 0) return null;
+  let sum = [0, 0, 0];
+  poles.forEach(p => {
+    sum = V3.add(sum, p);
+  });
+  const R = Math.hypot(sum[0], sum[1], sum[2]);
+  if (R < 1e-5) return null;
+  const meanVec = V3.toLowerHemi(V3.scale(sum, 1 / R));
+  const tp = vectorToTrendPlunge(meanVec);
+  const dipDir = norm360(tp.trend + 180);
+  const dip = 90 - tp.plunge;
+  const strike = norm360(dipDir - 90);
+  return { meanVec, dipDir, dip, strike, trend: tp.trend, plunge: tp.plunge, count: poles.length };
+}
+
+/* =========================================================
+   PROYECCIÓN ESTEREOGRÁFICA (SCHMIDT & WULFF)
+   ========================================================= */
+function project3D(v, type, R) {
+  const vn = V3.toLowerHemi(v);
+  const x = vn[0], y = vn[1], z = vn[2];
+  let rProj = 0;
+  
+  if (type === 'schmidt') {
+    // Equiárea: r = sqrt(2) * R * sin(theta/2) = R * sqrt(1 - z)
+    rProj = R * Math.sqrt(Math.max(0, 1 - z));
+  } else {
+    // Equiangular (Wulff): r = R * tan(theta/2) = R * sqrt(1 - z^2) / (1 + z)
+    const horiz = Math.hypot(x, y);
+    rProj = (1 + z) > 1e-12 ? R * (horiz / (1 + z)) : 0;
+  }
+  
+  const horizLen = Math.hypot(x, y);
+  if (horizLen < 1e-7) return { x: 0, y: 0 };
+  return {
+    x: (x / horizLen) * rProj,
+    y: -(y / horizLen) * rProj // -y porque en Canvas Y crece hacia abajo y Norte es hacia arriba
+  };
+}
+
+// Mapeo inverso de píxel Canvas a vector 3D
+function unproject2D(px, py, type, R) {
+  const dist = Math.hypot(px, py);
+  if (dist > R) return null;
+  const normDist = dist / R;
+  let z = 0;
+  if (type === 'schmidt') {
+    z = 1 - 2 * Math.pow(normDist / Math.SQRT2, 2);
+  } else {
+    z = (1 - normDist * normDist) / (1 + normDist * normDist);
+  }
+  z = clamp(z, 0, 1);
+  const horiz = Math.sqrt(Math.max(0, 1 - z * z));
+  if (dist < 1e-7) return [0, 0, 1];
+  return [
+    (px / dist) * horiz,
+    -(py / dist) * horiz,
+    z
+  ];
+}
+
+/* =========================================================
+   ESTIMACIÓN DECLINACIÓN MAGNÉTICA
    ========================================================= */
 function estimateDeclination(lat, lon){
   if(lat==null || lon==null) return 0;
-  // Modelo empírico aproximado para corrección rápida de terreno
   const d = -0.15 * lat + 0.12 * lon + 0.002 * lat * lon;
   return Math.round(clamp(d, -30, 30));
 }
 
 function computeOrientation(alphaDeg, betaDeg, gammaDeg){
-  // Aplica offset de calibración/declinación directamente al azimut
   const correctedAlpha = norm360(alphaDeg + magOffset);
   const a=toRad(correctedAlpha), b=toRad(betaDeg), g=toRad(gammaDeg);
   const cA=Math.cos(a), sA=Math.sin(a);
@@ -520,6 +732,18 @@ async function dbDeleteCampaignCascade(campId){
    ESTADO GLOBAL Y SENSORES
    ========================================================= */
 const state={ view:'campaigns', campId:null, stationId:null, measId:null, measType:null };
+const stereoState = {
+  proj: 'schmidt',
+  campId: 'ALL',
+  stationId: 'ALL',
+  showPlanes: true,
+  showPoles: true,
+  showFaults: true,
+  showPT: true,
+  showBeachball: false,
+  interactiveItems: []
+};
+
 const gpsState={ status:'idle', lat:null, lon:null, alt:null, accuracy:null, errorMsg:'' };
 const sensorState={ available:false, granted:null, status:'idle', errorMsg:'', last:null };
 let dialRAF=false;
@@ -591,7 +815,7 @@ function getDialDiameter(){
 }
 
 /* =========================================================
-   PANEL SENSOR (CORREGIDO: ORDEN MANUAL / AUTO)
+   PANEL SENSOR
    ========================================================= */
 function renderSensorPanel(mode, formKey){
   const label = mode==='planar' 
@@ -720,23 +944,33 @@ const Nav={
   station(id, campId){ state.view='stationDetail'; state.stationId=id; if(campId) state.campId=campId; render(); },
   newMeasurement(stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=null; render(); },
   editMeasurement(id, stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=id; render(); },
+  stereonet(campId, stationId){ 
+    state.view='stereonet'; 
+    if(campId) stereoState.campId = campId;
+    if(stationId) stereoState.stationId = stationId;
+    render(); 
+  },
   exportView(){ state.view='export'; render(); },
   settings(){ state.view='settings'; render(); },
   back(){
     if(state.view==='measForm') Nav.station(state.stationId, state.campId);
     else if(state.view==='stationForm') { if(state.stationId) Nav.station(state.stationId, state.campId); else Nav.campaign(state.campId); }
     else if(state.view==='stationDetail') { if(state.campId) Nav.campaign(state.campId); else Nav.home(); }
+    else if(state.view==='stereonet' && state.stationId) Nav.station(state.stationId, state.campId);
+    else if(state.view==='stereonet' && state.campId) Nav.campaign(state.campId);
     else Nav.home();
   }
 };
 
 function setActiveNav(){
-  ['navHome','navExport','navSettings'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
+  ['navHome','navStereo','navExport','navSettings'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
   if(['campaigns','campForm','campaignDetail','stationForm','stationDetail','measForm'].includes(state.view)) document.getElementById('navHome')?.classList.add('active');
+  if(state.view==='stereonet') document.getElementById('navStereo')?.classList.add('active');
   if(state.view==='export') document.getElementById('navExport')?.classList.add('active');
   if(state.view==='settings') document.getElementById('navSettings')?.classList.add('active');
 
   document.getElementById('navHomeTxt').textContent = t('campaigns');
+  document.getElementById('navStereoTxt').textContent = t('stereonet');
   document.getElementById('navExportTxt').textContent = t('export');
   document.getElementById('navSettingsTxt').textContent = t('settings');
 }
@@ -750,6 +984,7 @@ async function render(){
   else if(state.view==='stationForm'){ app.innerHTML = await renderStationForm(); utmFromLatLon(); }
   else if(state.view==='stationDetail') app.innerHTML = await renderStationDetail();
   else if(state.view==='measForm'){ app.innerHTML = await renderMeasForm(); attachSensorInit(); postRenderMeasForm(); }
+  else if(state.view==='stereonet'){ app.innerHTML = await renderStereonetView(); initStereonetCanvas(); }
   else if(state.view==='export') app.innerHTML = await renderExport();
   else if(state.view==='settings') app.innerHTML = renderSettings();
   window.scrollTo(0,0); app.scrollTop=0;
@@ -769,7 +1004,511 @@ function postRenderMeasForm(){
 }
 
 /* =========================================================
-   VISTAS
+   VISTAS Y MÓDULO ESTEREOGRÁFICO / FAULTKIN
+   ========================================================= */
+async function renderStereonetView(){
+  const camps = await dbGetAll('campaigns');
+  let stations = [];
+  if(stereoState.campId !== 'ALL'){
+    stations = await dbGetByCampaign(stereoState.campId);
+  } else {
+    stations = await dbGetAll('stations');
+  }
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>🌐 Estereograma & FaultKin</h2><div class="sub">Análisis Estructural & Mecanismos Focales</div></div>
+  </div>
+
+  <div class="card" style="cursor:default; padding:10px 14px;">
+    <div class="grid2">
+      <div>
+        <label style="margin-top:0;">Campaña</label>
+        <select id="stereoCampSel" onchange="onStereoCampChange(this.value)">
+          <option value="ALL">Todas las campañas</option>
+          ${camps.map(c=>`<option value="${c.id}" ${stereoState.campId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label style="margin-top:0;">Estación</label>
+        <select id="stereoStationSel" onchange="onStereoStationChange(this.value)">
+          <option value="ALL">Todas las estaciones</option>
+          ${stations.map(s=>`<option value="${s.id}" ${stereoState.stationId===s.id?'selected':''}>${esc(s.name||s.id)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:8px;">
+      <div>
+        <label style="margin-top:0;">Proyección</label>
+        <select id="stereoProjSel" onchange="onStereoProjChange(this.value)">
+          <option value="schmidt" ${stereoState.proj==='schmidt'?'selected':''}>${t('projSchmidt')}</option>
+          <option value="wulff" ${stereoState.proj==='wulff'?'selected':''}>${t('projWulff')}</option>
+        </select>
+      </div>
+      <div>
+        <label style="margin-top:0;">Beachball (Falla)</label>
+        <select id="stereoBeachballSel" onchange="onStereoBeachballChange(this.value)">
+          <option value="off" ${!stereoState.showBeachball?'selected':''}>Desactivado</option>
+          <option value="on" ${stereoState.showBeachball?'selected':''}>Activado (Cuadrantes)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="check-grid" style="margin-top:10px;">
+      <label class="check-item"><input type="checkbox" id="chkPlanes" ${stereoState.showPlanes?'checked':''} onchange="stereoState.showPlanes=this.checked; drawStereonet();">Ciclográficas</label>
+      <label class="check-item"><input type="checkbox" id="chkPoles" ${stereoState.showPoles?'checked':''} onchange="stereoState.showPoles=this.checked; drawStereonet();">Polos de planos</label>
+      <label class="check-item"><input type="checkbox" id="chkFaults" ${stereoState.showFaults?'checked':''} onchange="stereoState.showFaults=this.checked; drawStereonet();">Fallas y Estrías</label>
+      <label class="check-item"><input type="checkbox" id="chkPT" ${stereoState.showPT?'checked':''} onchange="stereoState.showPT=this.checked; drawStereonet();">Ejes P / T</label>
+    </div>
+  </div>
+
+  <div class="canvas-wrapper">
+    <canvas id="stereoCanvas"></canvas>
+    <div id="stereoTooltip" class="stereo-tooltip"></div>
+  </div>
+
+  <div class="card" style="margin-top:14px; cursor:default;">
+    <div class="card-title">📊 Estadísticas del Grupo</div>
+    <div id="stereoStats" style="font-family:var(--mono); font-size:12px; margin-top:6px; color:var(--text-dim); line-height:1.5;">Calculando...</div>
+    <button class="btn primary small" style="width:100%; margin-top:12px;" onclick="exportStereoImage()">${t('exportPng')}</button>
+  </div>
+  `;
+}
+
+function onStereoCampChange(campId){
+  stereoState.campId = campId;
+  stereoState.stationId = 'ALL';
+  render();
+}
+function onStereoStationChange(stId){
+  stereoState.stationId = stId;
+  drawStereonet();
+}
+function onStereoProjChange(p){
+  stereoState.proj = p;
+  drawStereonet();
+}
+function onStereoBeachballChange(v){
+  stereoState.showBeachball = (v === 'on');
+  drawStereonet();
+}
+
+/* =========================================================
+   MOTOR GRÁFICO DEL ESTEREOGRAMA (CANVAS NATIVO RETINA)
+   ========================================================= */
+let canvasCachedData = [];
+async function initStereonetCanvas(){
+  const canvas = document.getElementById('stereoCanvas');
+  if(!canvas) return;
+  
+  // Adaptar dimensiones para pantallas táctiles y alta densidad de píxeles
+  const size = Math.min(window.innerWidth - 32, 440);
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  
+  // Eventos táctiles y ratón para inspección interactiva
+  canvas.onpointerdown = handleCanvasTouch;
+  
+  await drawStereonet();
+}
+
+async function drawStereonet(){
+  const canvas = document.getElementById('stereoCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const size = canvas.width / dpr;
+  const R = (size / 2) - 22;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, size, size);
+
+  // 1. Dibujar Fondo de la falsilla
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = '#171c21';
+  ctx.fill();
+
+  // 2. Filtrar datos desde IndexedDB
+  const allSts = await dbGetAll('stations');
+  const allMeas = await dbGetAll('measurements');
+  
+  let validStations = allSts;
+  if(stereoState.campId !== 'ALL'){
+    validStations = validStations.filter(s => s.campaignId === stereoState.campId);
+  }
+  if(stereoState.stationId !== 'ALL'){
+    validStations = validStations.filter(s => s.id === stereoState.stationId);
+  }
+  const stIds = new Set(validStations.map(s => s.id));
+  const meas = allMeas.filter(m => stIds.has(m.stationId));
+
+  stereoState.interactiveItems = [];
+  const polesForMean = [];
+  const faultRecords = [];
+
+  // 3. Renderizar Mecanismos Focales Beachball (si está activo)
+  if(stereoState.showBeachball){
+    meas.filter(m => m.type === 'fault' && (m.strike != null || m.dipDir != null)).forEach(f => {
+      const kin = computeFaultKinematics(f);
+      drawBeachballQuadrants(ctx, cx, cy, R, stereoState.proj, kin);
+    });
+  }
+
+  // 4. Dibujar Red Estereográfica (Primitiva, Ejes y Marcas cada 10° y 2°)
+  drawStereoGrid(ctx, cx, cy, R);
+
+  // 5. Dibujar Planos, Polos y Lineaciones
+  meas.forEach(m => {
+    let strike = m.strike;
+    if(strike == null && m.dipDir != null) strike = norm360(m.dipDir - 90);
+    const dip = m.dip;
+
+    // A. Planos Geológicos
+    if(m.type !== 'fault' && strike != null && dip != null){
+      const poleVec = planeToPoleVector(strike, dip);
+      polesForMean.push(poleVec);
+      const polePt = project3D(poleVec, stereoState.proj, R);
+      const px = cx + polePt.x;
+      const py = cy + polePt.y;
+
+      let color = '#5fb583'; // Estratificación verde
+      if((m.subtype||'').includes('Foliación')) color = '#e8a33d';
+      if(m.type === 'vein') color = '#5cb3ff';
+      if(m.type === 'contact') color = '#d38aea';
+
+      // Dibujar Ciclográfica
+      if(stereoState.showPlanes){
+        drawGreatCircle(ctx, cx, cy, R, stereoState.proj, strike, dip, color, 1.4, false);
+      }
+
+      // Dibujar Polo
+      if(stereoState.showPoles){
+        ctx.beginPath();
+        ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = '#14181c';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        stereoState.interactiveItems.push({
+          x: px, y: py, radius: 12, data: m, label: `${m.subtype||m.type}: ${pad3(strike)}/${pad2(dip)}`
+        });
+      }
+    }
+
+    // B. Lineaciones puras
+    if(m.trend != null && m.plunge != null && m.type !== 'fault'){
+      const linVec = trendPlungeToVector(m.trend, m.plunge);
+      const pt = project3D(linVec, stereoState.proj, R);
+      const lx = cx + pt.x, ly = cy + pt.y;
+      
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillRect(lx - 4, ly - 4, 8, 8);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(lx - 4, ly - 4, 8, 8);
+
+      stereoState.interactiveItems.push({
+        x: lx, y: ly, radius: 12, data: m, label: `Lineación: ${pad3(m.trend)}/${pad2(m.plunge)}`
+      });
+    }
+
+    // C. Fallas con Cinemática (FaultKin)
+    if(m.type === 'fault' && (strike != null || m.dipDir != null)){
+      faultRecords.push(m);
+      const kin = computeFaultKinematics(m);
+
+      if(stereoState.showFaults){
+        // Plano principal de falla
+        drawGreatCircle(ctx, cx, cy, R, stereoState.proj, strike, dip, '#e0645c', 2, false);
+        
+        // Plano auxiliar nodal
+        drawGreatCircle(ctx, cx, cy, R, stereoState.proj, kin.auxStrike, kin.auxDip, 'rgba(224,100,92,0.4)', 1, true);
+
+        // Vector estría / deslizamiento
+        const stPt = project3D(kin.u, stereoState.proj, R);
+        const sx = cx + stPt.x, sy = cy + stPt.y;
+        
+        ctx.beginPath();
+        ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.strokeStyle = '#e0645c';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Flecha de movimiento sobre el plano
+        drawKinematicArrow(ctx, cx, cy, R, stereoState.proj, strike, dip, kin);
+
+        stereoState.interactiveItems.push({
+          x: sx, y: sy, radius: 14, data: m,
+          label: `Falla ${m.sense||''}: ${pad3(strike)}/${pad2(dip)} | Rake: ${m.rake??'—'}°`
+        });
+      }
+
+      if(stereoState.showPT){
+        // Eje P (Compresión / Acortamiento) - Rojo/Negro
+        const pPt = project3D(kin.P, stereoState.proj, R);
+        const pX = cx + pPt.x, pY = cy + pPt.y;
+        ctx.beginPath();
+        ctx.arc(pX, pY, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#e0645c';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Eje T (Extensión / Tensión) - Azul/Blanco
+        const tPt = project3D(kin.T, stereoState.proj, R);
+        const tX = cx + tPt.x, tY = cy + tPt.y;
+        ctx.beginPath();
+        ctx.rect(tX - 4.5, tY - 4.5, 9, 9);
+        ctx.fillStyle = '#5cb3ff';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        stereoState.interactiveItems.push({
+          x: pX, y: pY, radius: 10, data: m, label: `Eje P: ${pad3(kin.P_tp.trend)}/${pad2(kin.P_tp.plunge)}`
+        });
+        stereoState.interactiveItems.push({
+          x: tX, y: tY, radius: 10, data: m, label: `Eje T: ${pad3(kin.T_tp.trend)}/${pad2(kin.T_tp.plunge)}`
+        });
+      }
+    }
+  });
+
+  // 6. Estadísticas y Polo Medio
+  const mean = calculateMeanOrientation(polesForMean);
+  if(mean && stereoState.showPlanes){
+    // Dibujar plano medio en blanco punteado
+    drawGreatCircle(ctx, cx, cy, R, stereoState.proj, mean.strike, mean.dip, '#ffffff', 2.2, true);
+    const mPt = project3D(mean.meanVec, stereoState.proj, R);
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(cx + mPt.x, cy + mPt.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  updateStereoStats(mean, faultRecords, meas.length);
+  ctx.restore();
+}
+
+// Dibujar Red Básica y Marcas
+function drawStereoGrid(ctx, cx, cy, R){
+  ctx.save();
+  ctx.strokeStyle = '#333c44';
+  ctx.lineWidth = 1;
+
+  // Círculo Primitivo
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Ejes N-S y E-W
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
+  ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy);
+  ctx.stroke();
+
+  // Marcas perimetrales (10° mayores, 2° menores)
+  for(let deg = 0; deg < 360; deg += 2){
+    const rad = toRad(deg);
+    const isMajor = (deg % 10 === 0);
+    const isCardinal = (deg % 90 === 0);
+    const len = isCardinal ? 9 : (isMajor ? 6 : 3);
+
+    const x1 = cx + R * Math.sin(rad);
+    const y1 = cy - R * Math.cos(rad);
+    const x2 = cx + (R - len) * Math.sin(rad);
+    const y2 = cy - (R - len) * Math.cos(rad);
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = isMajor ? '#8a97a3' : '#333c44';
+    ctx.lineWidth = isMajor ? 1.2 : 0.8;
+    ctx.stroke();
+  }
+
+  // Letras cardinales
+  ctx.fillStyle = '#e8a33d';
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('N', cx, cy - R + 14);
+  ctx.fillText('S', cx, cy + R - 14);
+  ctx.fillText('E', cx + R - 14, cy);
+  ctx.fillText(currentLang === 'es' ? 'O' : 'W', cx - R + 14, cy);
+
+  // Centro
+  ctx.beginPath();
+  ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#8a97a3';
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// Trazado continuo del Círculo Mayor (Ciclográfica)
+function drawGreatCircle(ctx, cx, cy, R, projType, strike, dip, color, lineWidth, dashed){
+  ctx.save();
+  ctx.beginPath();
+  if(dashed) ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+
+  const sR = toRad(strike);
+  const dR = toRad(dip);
+  const strikeVec = [Math.sin(sR), Math.cos(sR), 0];
+  const dipVec = [Math.cos(sR) * Math.sin(dR), -Math.sin(sR) * Math.sin(dR), Math.cos(dR)];
+
+  let first = true;
+  for(let alpha = 0; alpha <= 180; alpha += 2){
+    const aR = toRad(alpha);
+    const v = V3.add(
+      V3.scale(strikeVec, Math.cos(aR)),
+      V3.scale(dipVec, Math.sin(aR))
+    );
+    const pt = project3D(v, projType, R);
+    const x = cx + pt.x;
+    const y = cy + pt.y;
+
+    if(first){
+      ctx.moveTo(x, y);
+      first = false;
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Flecha cinemática de sentido de movimiento sobre el plano
+function drawKinematicArrow(ctx, cx, cy, R, projType, strike, dip, kin){
+  const pt = project3D(kin.u, projType, R);
+  const px = cx + pt.x, py = cy + pt.y;
+  
+  // Vector tangente sobre el plano en la estría
+  const moveDir = V3.norm(V3.cross(kin.n, kin.b));
+  const arrowHead = V3.add(kin.u, V3.scale(moveDir, 0.12));
+  const ptH = project3D(arrowHead, projType, R);
+  
+  const dx = (cx + ptH.x) - px;
+  const dy = (cy + ptH.y) - py;
+  const ang = Math.atan2(dy, dx);
+
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.rotate(ang);
+  ctx.fillStyle = '#e8a33d';
+  ctx.beginPath();
+  ctx.moveTo(6, 0);
+  ctx.lineTo(-6, -4);
+  ctx.lineTo(-6, 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// Cuadrantes de compresión / tensión (Beachball)
+function drawBeachballQuadrants(ctx, cx, cy, R, projType, kin){
+  ctx.save();
+  const step = 6;
+  for(let y = -R; y <= R; y += step){
+    for(let x = -R; x <= R; x += step){
+      if(Math.hypot(x, y) <= R){
+        const v = unproject2D(x, y, projType, R);
+        if(v){
+          // Criterio de mecanismo focal: signo del producto (n · v) * (u · v)
+          const f1 = V3.dot(kin.n, v);
+          const f2 = V3.dot(kin.u, v);
+          if(f1 * f2 > 0){
+            ctx.fillStyle = 'rgba(224, 100, 92, 0.18)'; // Cuadrante de compresión
+            ctx.fillRect(cx + x - step/2, cy + y - step/2, step, step);
+          }
+        }
+      }
+    }
+  }
+  ctx.restore();
+}
+
+// Inspección Táctil / Clic sobre Canvas
+function handleCanvasTouch(e){
+  const canvas = document.getElementById('stereoCanvas');
+  const tooltip = document.getElementById('stereoTooltip');
+  if(!canvas || !tooltip) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+  const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+  const touchX = clientX - rect.left;
+  const touchY = clientY - rect.top;
+
+  let found = null;
+  for(const item of stereoState.interactiveItems){
+    const dist = Math.hypot(touchX - item.x, touchY - item.y);
+    if(dist <= item.radius){
+      found = item;
+      break;
+    }
+  }
+
+  if(found){
+    tooltip.style.display = 'block';
+    tooltip.style.left = Math.min(touchX + 12, rect.width - 200) + 'px';
+    tooltip.style.top = Math.max(touchY - 40, 10) + 'px';
+    tooltip.innerHTML = `<b>${esc(found.label)}</b><br><span style="color:var(--text-dim);font-size:10.5px;">ID: ${esc(found.data.id)}</span>`;
+  } else {
+    tooltip.style.display = 'none';
+  }
+}
+
+function updateStereoStats(mean, faults, totalMeas){
+  const el = document.getElementById('stereoStats');
+  if(!el) return;
+  let html = `Total de datos proyectados: <b>${totalMeas}</b><br>`;
+  if(mean){
+    html += `Polo medio (N=${mean.count}): <b>Trend/Plunge ${pad3(mean.trend)}/${pad2(mean.plunge)}</b><br>`;
+    html += `Plano medio equivalente: <b>${pad3(mean.strike)}/${pad2(mean.dip)} (RHR)</b> · DipDir <b>${pad3(mean.dipDir)}</b><br>`;
+  } else {
+    html += `Polo medio: <i>Insuficientes planos</i><br>`;
+  }
+  if(faults.length > 0){
+    html += `Fallas cinemáticas activas: <b>${faults.length}</b> (FaultKin P/T calculado)`;
+  }
+  el.innerHTML = html;
+}
+
+// Exportación de imagen PNG en alta resolución
+function exportStereoImage(){
+  const canvas = document.getElementById('stereoCanvas');
+  if(!canvas){ toast('Canvas no disponible'); return; }
+  const dataURL = canvas.toDataURL('image/png');
+  const a = document.createElement('a');
+  a.href = dataURL;
+  a.download = `Estereograma_${stereoState.proj}_${dateStamp()}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast('Estereograma exportado como PNG');
+}
+
+/* =========================================================
+   VISTAS GENERALES (CAMPANAS, ESTACIONES, FORMULARIOS)
    ========================================================= */
 async function renderCampaigns(){
   const camps = (await dbGetAll('campaigns')).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
@@ -873,6 +1612,7 @@ async function renderCampaignDetail(){
     ${camp.notes? `<p style="margin-top:6px;font-size:13px;">${esc(camp.notes)}</p>`:''}
     <div class="btn-row" style="margin-top:10px;">
       <button class="btn ghost small" onclick="Nav.editCampaign('${camp.id}')">✎ ${t('editCampaign')}</button>
+      <button class="btn primary small" onclick="Nav.stereonet('${camp.id}', 'ALL')">🌐 Estereograma</button>
       <button class="btn primary small" onclick="Nav.newStation('${camp.id}')">${t('addStationBtn')}</button>
     </div>
   </div>
@@ -1045,7 +1785,10 @@ async function renderStationDetail(){
     <div class="card-sub" style="font-family:var(--mono);font-size:12px;">${coords}</div>
     ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>` : ''}
     ${st.notes? `<p style="margin-top:6px;font-size:13px;">${esc(st.notes)}</p>`:''}
-    <button class="btn ghost small" style="margin-top:8px;" onclick="Nav.editStation('${st.id}','${st.campaignId}')">✎ ${t('editStation')}</button>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn ghost small" onclick="Nav.editStation('${st.id}','${st.campaignId}')">✎ ${t('editStation')}</button>
+      <button class="btn primary small" onclick="Nav.stereonet('${st.campaignId}','${st.id}')">🌐 Ver Estereograma</button>
+    </div>
   </div>
   <div class="section-hdr"><h3>Toma de datos geológicos</h3></div>
   ${cats}
@@ -1361,7 +2104,7 @@ async function renderExport(){
     </select>
   </div>
   <div class="card" style="cursor:default;">
-    <div class="card-title">CSV (Excel)</div>
+    <div class="card-title">CSV (Excel / FaultKin / Stereonet)</div>
     <div class="card-sub">${currentLang==='es'?'Valores numéricos redondeados a enteros':'Integer values ready for GIS/Excel'}</div>
     <button class="btn primary" style="margin-top:12px;" onclick="exportCSV()">${t('exportCsv')}</button>
   </div>
