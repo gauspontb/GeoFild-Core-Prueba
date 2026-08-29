@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<title>GeoField Core</title>
+<title>GeoField Core - GIS & Estereogramas</title>
 <link rel="manifest" href='data:application/manifest+json,{"name":"GeoField Core","short_name":"GeoField","start_url":".","display":"standalone","background_color":"%2314181c","theme_color":"%2314181c"}'>
 <style>
   :root{
@@ -35,7 +35,6 @@
     --safe-b: env(safe-area-inset-bottom, 0px);
   }
 
-  /* PALETAS DE TERRENO */
   body.theme-sun{
     --bg:#f4f6f8;
     --surface:#ffffff;
@@ -122,7 +121,8 @@
   .status-chip{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); padding:6px 8px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border-soft); }
   .icon-btn{ width:36px; height:36px; border-radius:8px; border:1px solid var(--border-soft); background:var(--surface-2); color:var(--text); display:flex; align-items:center; justify-content:center; font-size:16px; cursor:pointer; }
 
-  #app{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px 14px calc(24px + var(--safe-b)) 14px; }
+  #app{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px 14px calc(24px + var(--safe-b)) 14px; position:relative; }
+  #app.no-pad{ padding:0; overflow:hidden; }
 
   #navbar{
     flex:0 0 auto;
@@ -136,7 +136,7 @@
     flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
     background:transparent; border:none; color:var(--text-faint); font-size:10px; letter-spacing:.3px; cursor:pointer;
   }
-  .nav-btn .ic{ font-size:19px; }
+  .nav-btn .ic{ font-size:18px; }
   .nav-btn.active{ color:var(--accent); font-weight:700; }
 
   .btn{
@@ -250,6 +250,39 @@
     font-family:var(--mono); pointer-events:none; z-index:30; max-width:240px;
     box-shadow:0 4px 14px rgba(0,0,0,0.6); display:none;
   }
+
+  /* ESTILOS DEL MÓDULO DE MAPA GIS */
+  #mapContainer{ position:relative; width:100%; height:100%; background:var(--bg); overflow:hidden; }
+  #gisCanvas{ width:100%; height:100%; display:block; touch-action:none; }
+  
+  .map-toolbar{
+    position:absolute; top:12px; left:12px; right:12px; z-index:10;
+    display:flex; gap:8px; background:rgba(28,34,39,0.85); backdrop-filter:blur(8px);
+    border:1px solid var(--border); border-radius:var(--radius); padding:8px 10px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.4);
+  }
+  .map-toolbar select{ min-height:36px; padding:6px 8px; font-size:12px; }
+
+  .map-controls{
+    position:absolute; right:14px; top:75px; z-index:10;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .map-btn{
+    width:42px; height:42px; border-radius:10px; background:var(--surface);
+    border:1px solid var(--border); color:var(--text); font-size:18px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    box-shadow:0 3px 10px rgba(0,0,0,0.3); font-weight:bold;
+  }
+  .map-btn:active{ background:var(--surface-2); transform:scale(0.96); }
+  
+  .map-bottom-sheet{
+    position:absolute; left:0; right:0; bottom:0; z-index:25;
+    background:var(--surface); border-top:2px solid var(--accent);
+    border-radius:16px 16px 0 0; padding:16px; box-shadow:0 -6px 20px rgba(0,0,0,0.5);
+    max-height:65%; overflow-y:auto; transform:translateY(100%); transition:transform 0.25s ease-out;
+  }
+  .map-bottom-sheet.open{ transform:translateY(0); }
+  .sheet-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
 </style>
 </head>
 <body>
@@ -265,9 +298,9 @@
 
   <nav id="navbar">
     <button class="nav-btn" id="navHome" onclick="Nav.home()"><span class="ic">📁</span><span id="navHomeTxt">Campañas</span></button>
+    <button class="nav-btn" id="navMap" onclick="Nav.mapView()"><span class="ic">🗺️</span><span id="navMapTxt">Mapa GIS</span></button>
     <button class="nav-btn" id="navStereo" onclick="Nav.stereonet()"><span class="ic">🌐</span><span id="navStereoTxt">Estereograma</span></button>
-    <button class="nav-btn" id="navExport" onclick="Nav.exportView()"><span class="ic">⇩</span><span id="navExportTxt">Exportar/Importar</span></button>
-    <button class="nav-btn" id="navSettings" onclick="Nav.settings()"><span class="ic">⚙</span><span id="navSettingsTxt">Ajustes</span></button>
+    <button class="nav-btn" id="navExport" onclick="Nav.exportView()"><span class="ic">⇩</span><span id="navExportTxt">Exportar</span></button>
   </nav>
 
 <script>
@@ -322,6 +355,7 @@ const I18N = {
     needleTarget: 'Objetivo de aguja en brújula',
     calibration: 'Calibración / Declinación magnética (°)',
     stereonet: 'Estereograma',
+    mapView: 'Mapa / SIG',
     projSchmidt: 'Equiárea (Schmidt)',
     projWulff: 'Equiangular (Wulff)',
     exportPng: '📷 Exportar Imagen PNG',
@@ -376,6 +410,7 @@ const I18N = {
     needleTarget: 'Compass needle target',
     calibration: 'Magnetic Declination / Calibration (°)',
     stereonet: 'Stereonet',
+    mapView: 'Map / GIS',
     projSchmidt: 'Equal-Area (Schmidt)',
     projWulff: 'Equal-Angle (Wulff)',
     exportPng: '📷 Export PNG Image',
@@ -390,8 +425,8 @@ let boxScale = localStorage.getItem('geo_box_scale') || 'md';
 let quadrantPref = localStorage.getItem('geo_quadrant_pref') || 'NS';
 let needleMode = localStorage.getItem('geo_needle_mode') || 'dipdir';
 let magOffset = parseFloat(localStorage.getItem('geo_mag_offset') || '0') || 0;
-let colorTheme = localStorage.getItem('geo_theme') || 'dark'; // 'dark', 'sun', 'earth', 'forest'
-let inputNotation = localStorage.getItem('geo_input_notation') || 'dipdir'; // 'dipdir', 'strike', 'quadrant'
+let colorTheme = localStorage.getItem('geo_theme') || 'dark';
+let inputNotation = localStorage.getItem('geo_input_notation') || 'dipdir';
 
 function applyTheme(){
   document.body.className = colorTheme === 'dark' ? '' : 'theme-' + colorTheme;
@@ -423,95 +458,47 @@ function downloadFile(content, filename, mime){
 }
 
 /* =========================================================
-   PARSERS Y CONVERSORES DE NOTACIÓN GEOLÓGICA
+   BASE DE DATOS INDEXEDDB (INCLUYE RASTERS OFFLINE)
    ========================================================= */
-function parseQuadrantToStrike(qStr){
-  if(!qStr) return null;
-  const str = qStr.trim().toUpperCase().replace(/\s+/g,'');
-  const m = /^([NS])(\d+)(?:°)?([EOW])$/.exec(str);
-  if(!m) return null;
-  const ns = m[1];
-  const ang = parseFloat(m[2]);
-  const ew = m[3] === 'O' ? 'W' : m[3];
-  if(isNaN(ang)) return null;
-
-  let strike = 0;
-  if(ns==='N' && ew==='E') strike = ang;
-  else if(ns==='N' && ew==='W') strike = 360 - ang;
-  else if(ns==='S' && ew==='E') strike = 180 - ang;
-  else if(ns==='S' && ew==='W') strike = 180 + ang;
-  return roundInt(norm360(strike));
+const DB_NAME='geofieldcore_db', DB_VERSION=4;
+let DB=null;
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded=(e)=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains('campaigns')) d.createObjectStore('campaigns',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('stations')) d.createObjectStore('stations',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('measurements')) d.createObjectStore('measurements',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('map_overlays')) d.createObjectStore('map_overlays',{keyPath:'id'});
+    };
+    req.onsuccess=(e)=>{ DB=e.target.result; resolve(DB); };
+    req.onerror=(e)=>reject(e.target.error);
+  });
 }
+function tx(store,mode){ return DB.transaction(store,mode).objectStore(store); }
+function dbPut(store,obj){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').put(obj); r.onsuccess=()=>res(obj); r.onerror=()=>rej(r.error); }); }
+function dbGet(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').get(id); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function dbGetAll(store){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); }); }
+function dbDelete(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
 
-function estimateDeclination(lat, lon){
-  if(lat==null || lon==null) return 0;
-  const d = -0.15 * lat + 0.12 * lon + 0.002 * lat * lon;
-  return Math.round(clamp(d, -30, 30));
+async function dbGetByStation(stationId){
+  const all = await dbGetAll('measurements');
+  return all.filter(m => m.stationId === stationId);
 }
-
-function computeOrientation(alphaDeg, betaDeg, gammaDeg){
-  const correctedAlpha = norm360(alphaDeg + magOffset);
-  const a=toRad(correctedAlpha), b=toRad(betaDeg), g=toRad(gammaDeg);
-  const cA=Math.cos(a), sA=Math.sin(a);
-  const cB=Math.cos(b), sB=Math.sin(b);
-  const cG=Math.cos(g), sG=Math.sin(g);
-  const E = cA*sG + cG*sA*sB;
-  const N = sA*sG - cA*cG*sB;
-  const U = cB*cG;
-  const dip = toDeg(Math.acos(clamp(U,-1,1)));
-  const dipDir = norm360(toDeg(Math.atan2(E,N)) + 180);
-  const strike = norm360(dipDir - 90);
-  const Ey = -cB*sA, Ny = cA*cB, Uy = sB;
-  let trend = norm360(toDeg(Math.atan2(Ey,Ny)));
-  let plunge = toDeg(-Math.asin(clamp(Uy,-1,1)));
-  if(plunge<0){ trend=norm360(trend+180); plunge=-plunge; }
-  return { dip: roundInt(dip), dipDir: roundInt(dipDir), strike: roundInt(strike), trend: roundInt(trend), plunge: roundInt(plunge) };
+async function dbGetByCampaign(campId){
+  const all = await dbGetAll('stations');
+  return all.filter(s => s.campaignId === campId);
 }
-
-function toQuadrant(strikeAz){
-  if(strikeAz==null||isNaN(strikeAz)) return '—';
-  let s = norm360(strikeAz);
-  const wChar = currentLang==='es'?'O':'W';
-  
-  if(quadrantPref==='N_ONLY'){
-    let half = s % 180;
-    if(half<=90) return `N${Math.round(half)}°E`;
-    return `N${Math.round(180-half)}°${wChar}`;
-  } else {
-    let sNorm = s % 180;
-    let ns, ew, angle;
-    if(sNorm<=90){ ns='N'; ew='E'; angle=sNorm; } else { ns='S'; ew=wChar; angle=180-sNorm; }
-    angle=Math.round(angle);
-    if(angle===0) return 'N-S';
-    if(angle===90) return `E-${wChar}`;
-    return ns+angle+'°'+ew;
-  }
+async function dbDeleteStationCascade(stationId){
+  const meas = await dbGetByStation(stationId);
+  for(const m of meas) await dbDelete('measurements', m.id);
+  await dbDelete('stations', stationId);
 }
-
-function dipDirQuadrant(dipDirAz){
-  if(dipDirAz==null||isNaN(dipDirAz)) return '—';
-  const az=norm360(dipDirAz);
-  const dirsEs=[['N',0],['NNE',22.5],['NE',45],['ENE',67.5],['E',90],['ESE',112.5],['SE',135],['SSE',157.5],
-                ['S',180],['SSO',202.5],['SO',225],['OSO',247.5],['O',270],['ONO',292.5],['NO',315],['NNO',337.5]];
-  const dirsEn=[['N',0],['NNE',22.5],['NE',45],['ENE',67.5],['E',90],['ESE',112.5],['SE',135],['SSE',157.5],
-                ['S',180],['SSW',202.5],['SW',225],['WSW',247.5],['W',270],['WNW',292.5],['NW',315],['NNW',337.5]];
-  const dirs = currentLang==='en'? dirsEn : dirsEs;
-  let best=dirs[0], bd=999;
-  dirs.forEach(d=>{ let diff=Math.abs(az-d[1]); if(diff>180) diff=360-diff; if(diff<bd){bd=diff; best=d;} });
-  return best[0];
-}
-
-function calculateRakeFromTP(dipDir, dip, trend, plunge){
-  if(dip==null || trend==null || plunge==null || dip===0) return null;
-  const sinR = Math.sin(toRad(plunge)) / Math.sin(toRad(dip));
-  const rakeDeg = roundInt(toDeg(Math.asin(clamp(sinR, -1, 1))));
-  const strike = norm360((dipDir||0) - 90);
-  const strikeOpp = norm360(strike + 180);
-  let diff1 = Math.abs(trend - strike); if(diff1>180) diff1 = 360-diff1;
-  let diff2 = Math.abs(trend - strikeOpp); if(diff2>180) diff2 = 360-diff2;
-  const refAz = diff1 <= diff2 ? strike : strikeOpp;
-  const quad = dipDirQuadrant(refAz);
-  return { rake: rakeDeg, quadrant: quad };
+async function dbDeleteCampaignCascade(campId){
+  const sts = await dbGetByCampaign(campId);
+  for(const s of sts) await dbDeleteStationCascade(s.id);
+  await dbDelete('campaigns', campId);
 }
 
 /* =========================================================
@@ -643,7 +630,7 @@ function unproject2D(px, py, type, R) {
 }
 
 /* =========================================================
-   UTM (WGS84)
+   SISTEMA DE COORDENADAS / UTM (WGS84)
    ========================================================= */
 const UTM_A=6378137.0, UTM_ECC2=0.00669438, UTM_K0=0.9996;
 function llToUTM(lat, lon){
@@ -700,62 +687,32 @@ function utmLabel(lat, lon){
 }
 
 /* =========================================================
-   BASE DE DATOS
-   ========================================================= */
-const DB_NAME='geofieldcore_db', DB_VERSION=3;
-let DB=null;
-function openDB(){
-  return new Promise((resolve,reject)=>{
-    const req=indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded=(e)=>{
-      const d=e.target.result;
-      if(!d.objectStoreNames.contains('campaigns')) d.createObjectStore('campaigns',{keyPath:'id'});
-      if(!d.objectStoreNames.contains('stations')) d.createObjectStore('stations',{keyPath:'id'});
-      if(!d.objectStoreNames.contains('measurements')) d.createObjectStore('measurements',{keyPath:'id'});
-    };
-    req.onsuccess=(e)=>{ DB=e.target.result; resolve(DB); };
-    req.onerror=(e)=>reject(e.target.error);
-  });
-}
-function tx(store,mode){ return DB.transaction(store,mode).objectStore(store); }
-function dbPut(store,obj){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').put(obj); r.onsuccess=()=>res(obj); r.onerror=()=>rej(r.error); }); }
-function dbGet(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').get(id); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
-function dbGetAll(store){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); }); }
-function dbDelete(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
-
-async function dbGetByStation(stationId){
-  const all = await dbGetAll('measurements');
-  return all.filter(m => m.stationId === stationId);
-}
-async function dbGetByCampaign(campId){
-  const all = await dbGetAll('stations');
-  return all.filter(s => s.campaignId === campId);
-}
-async function dbDeleteStationCascade(stationId){
-  const meas = await dbGetByStation(stationId);
-  for(const m of meas) await dbDelete('measurements', m.id);
-  await dbDelete('stations', stationId);
-}
-async function dbDeleteCampaignCascade(campId){
-  const sts = await dbGetByCampaign(campId);
-  for(const s of sts) await dbDeleteStationCascade(s.id);
-  await dbDelete('campaigns', campId);
-}
-
-/* =========================================================
    ESTADO GLOBAL Y SENSORES
    ========================================================= */
 const state={ view:'campaigns', campId:null, stationId:null, measId:null, measType:null };
 const stereoState = {
-  proj: 'schmidt',
+  proj: 'schmidt', campId: 'ALL', stationId: 'ALL',
+  showPlanes: true, showPoles: true, showFaults: true, showPT: true, showBeachball: false, interactiveItems: []
+};
+
+/* ESTADO DEL VISOR CARTOGRÁFICO SIG */
+const mapState = {
   campId: 'ALL',
-  stationId: 'ALL',
-  showPlanes: true,
-  showPoles: true,
-  showFaults: true,
-  showPT: true,
-  showBeachball: false,
-  interactiveItems: []
+  centerLat: -33.45,
+  centerLon: -70.66,
+  zoom: 15, // metros por píxel aprox
+  scale: 1, // factor de zoom en pantalla
+  panX: 0,
+  panY: 0,
+  isDragging: false,
+  lastX: 0,
+  lastY: 0,
+  touchDist: 0,
+  overlayImg: null,
+  overlayMeta: null,
+  filterLayer: 'ALL', // 'ALL', 'planar', 'fault', 'linear', 'vein', 'contact'
+  stationsCache: [],
+  measCache: []
 };
 
 const gpsState={ status:'idle', lat:null, lon:null, alt:null, accuracy:null, errorMsg:'' };
@@ -824,12 +781,1576 @@ function getDialDiameter(){
 }
 
 /* =========================================================
-   PANEL SENSOR
+   NAVEGACIÓN / ROUTER
    ========================================================= */
+const Nav={
+  home(){ state.view='campaigns'; state.campId=null; state.stationId=null; render(); },
+  newCampaign(){ state.view='campForm'; state.campId=null; render(); },
+  editCampaign(id){ state.view='campForm'; state.campId=id; render(); },
+  campaign(id){ state.view='campaignDetail'; state.campId=id; state.stationId=null; render(); },
+  newStation(campId){ state.view='stationForm'; state.campId=campId; state.stationId=null; render(); },
+  editStation(id, campId){ state.view='stationForm'; state.campId=campId; state.stationId=id; render(); },
+  station(id, campId){ state.view='stationDetail'; state.stationId=id; if(campId) state.campId=campId; render(); },
+  newMeasurement(stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=null; render(); },
+  editMeasurement(id, stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=id; render(); },
+  stereonet(campId, stationId){ 
+    state.view='stereonet'; 
+    if(campId) stereoState.campId = campId;
+    if(stationId) stereoState.stationId = stationId;
+    render(); 
+  },
+  mapView(campId){
+    state.view='mapView';
+    if(campId) mapState.campId = campId;
+    render();
+  },
+  exportView(){ state.view='export'; render(); },
+  settings(){ state.view='settings'; render(); },
+  back(){
+    if(state.view==='measForm') Nav.station(state.stationId, state.campId);
+    else if(state.view==='stationForm') { if(state.stationId) Nav.station(state.stationId, state.campId); else Nav.campaign(state.campId); }
+    else if(state.view==='stationDetail') { if(state.campId) Nav.campaign(state.campId); else Nav.home(); }
+    else if(state.view==='stereonet' && state.stationId) Nav.station(state.stationId, state.campId);
+    else if(state.view==='stereonet' && state.campId) Nav.campaign(state.campId);
+    else if(state.view==='mapView' && state.campId) Nav.campaign(state.campId);
+    else Nav.home();
+  }
+};
+
+function setActiveNav(){
+  ['navHome','navMap','navStereo','navExport'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
+  if(['campaigns','campForm','campaignDetail','stationForm','stationDetail','measForm'].includes(state.view)) document.getElementById('navHome')?.classList.add('active');
+  if(state.view==='mapView') document.getElementById('navMap')?.classList.add('active');
+  if(state.view==='stereonet') document.getElementById('navStereo')?.classList.add('active');
+  if(state.view==='export') document.getElementById('navExport')?.classList.add('active');
+
+  document.getElementById('navHomeTxt').textContent = t('campaigns');
+  document.getElementById('navMapTxt').textContent = t('mapView');
+  document.getElementById('navStereoTxt').textContent = t('stereonet');
+  document.getElementById('navExportTxt').textContent = t('export');
+}
+
+async function render(){
+  const app=document.getElementById('app');
+  applyTheme();
+  setActiveNav();
+  app.className = (state.view==='mapView') ? 'no-pad' : '';
+
+  if(state.view==='campaigns') app.innerHTML = await renderCampaigns();
+  else if(state.view==='campForm') app.innerHTML = await renderCampaignForm();
+  else if(state.view==='campaignDetail') app.innerHTML = await renderCampaignDetail();
+  else if(state.view==='stationForm'){ app.innerHTML = await renderStationForm(); utmFromLatLon(); }
+  else if(state.view==='stationDetail') app.innerHTML = await renderStationDetail();
+  else if(state.view==='measForm'){ app.innerHTML = await renderMeasForm(); attachSensorInit(); postRenderMeasForm(); }
+  else if(state.view==='stereonet'){ app.innerHTML = await renderStereonetView(); initStereonetCanvas(); }
+  else if(state.view==='mapView'){ app.innerHTML = renderMapGISView(); initGISMap(); }
+  else if(state.view==='export') app.innerHTML = await renderExport();
+  else if(state.view==='settings') app.innerHTML = renderSettings();
+  
+  if(state.view!=='mapView'){ window.scrollTo(0,0); app.scrollTop=0; }
+}
+
+/* =========================================================
+   MÓDULO: MOTOR CARTOGRÁFICO NATIVO Y SIMBOLOGÍA GEOLÓGICA
+   ========================================================= */
+function renderMapGISView(){
+  return `
+  <div id="mapContainer">
+    <div class="map-toolbar">
+      <select id="mapCampSelect" onchange="onMapCampChange(this.value)" style="flex:1;">
+        <option value="ALL">📁 Todas las campañas</option>
+      </select>
+      <select id="mapLayerFilter" onchange="onMapLayerFilter(this.value)" style="flex:1;">
+        <option value="ALL">Capas: Todas</option>
+        <option value="planar">Planos (S0/S1)</option>
+        <option value="fault">Fallas / Estrías</option>
+        <option value="contact">Contactos</option>
+        <option value="vein">Vetas</option>
+        <option value="linear">Lineaciones</option>
+      </select>
+      <button class="icon-btn" onclick="openMapCalibrator()" title="Importar/Calibrar Mapa Base" style="flex:0 0 36px;height:36px;">🗺️</button>
+    </div>
+
+    <div class="map-controls">
+      <button class="map-btn" onclick="gisZoom(1.3)" title="Acercar">+</button>
+      <button class="map-btn" onclick="gisZoom(0.7)" title="Alejar">-</button>
+      <button class="map-btn" onclick="gisCenterGPS()" title="Mi Ubicación GPS">📍</button>
+      <button class="map-btn" onclick="gisFitBounds()" title="Ajustar a datos">⛶</button>
+    </div>
+
+    <canvas id="gisCanvas"></canvas>
+
+    <div id="mapBottomSheet" class="map-bottom-sheet">
+      <div class="sheet-header">
+        <b id="sheetTitle" style="font-size:16px;">Detalle de Estación</b>
+        <button class="icon-sm" onclick="closeMapSheet()">✕</button>
+      </div>
+      <div id="sheetContent"></div>
+    </div>
+  </div>
+
+  <!-- MODAL CALIBRADOR MAPA BASE -->
+  <div id="mapCalibModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:60;padding:20px;overflow-y:auto;">
+    <div class="card" style="max-width:440px;margin:30px auto;cursor:default;">
+      <div class="card-title">🗺️ Calibrar Mapa Base Offline</div>
+      <div class="card-sub">Carga una imagen (.jpg/.png) e ingresa su Bounding Box (Límites WGS84)</div>
+      
+      <label>Archivo de imagen</label>
+      <input type="file" id="calibImgFile" accept="image/*" onchange="onCalibFileSelect(event)">
+
+      <label>Latitud Norte (Lat Max)</label>
+      <input type="number" step="0.000001" id="calibLatMax" placeholder="-33.4000">
+      
+      <label>Latitud Sur (Lat Min)</label>
+      <input type="number" step="0.000001" id="calibLatMin" placeholder="-33.5000">
+
+      <label>Longitud Oeste (Lon Min)</label>
+      <input type="number" step="0.000001" id="calibLonMin" placeholder="-70.7500">
+
+      <label>Longitud Este (Lon Max)</label>
+      <input type="number" step="0.000001" id="calibLonMax" placeholder="-70.6000">
+
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="btn ghost" onclick="closeMapCalibrator()">Cancelar</button>
+        <button class="btn primary" onclick="saveMapOverlay()">Guardar Base</button>
+      </div>
+    </div>
+  </div>
+  `;
+}
+
+let gisTouchState = { dragging:false, startX:0, startY:0, lastX:0, lastY:0, pinchDist:0, lastTap:0 };
+
+async function initGISMap(){
+  const canvas = document.getElementById('gisCanvas');
+  if(!canvas) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const container = document.getElementById('mapContainer');
+  canvas.width = container.clientWidth * dpr;
+  canvas.height = container.clientHeight * dpr;
+
+  // Cargar campañas al selector
+  const camps = await dbGetAll('campaigns');
+  const sel = document.getElementById('mapCampSelect');
+  if(sel){
+    camps.forEach(c=>{
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = '📂 ' + c.name;
+      if(mapState.campId === c.id) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  // Cargar mapa base ráster de IndexedDB
+  await loadSavedMapOverlay();
+
+  // Cargar datos espaciales
+  await loadMapData();
+
+  // Ajustar vista inicial
+  if(mapState.stationsCache.length > 0){
+    gisFitBounds();
+  } else if(gpsState.lat != null){
+    mapState.centerLat = gpsState.lat;
+    mapState.centerLon = gpsState.lon;
+  }
+
+  // Eventos táctiles y mouse nativos
+  setupGISMapEvents(canvas);
+  drawGISMap();
+}
+
+async function loadMapData(){
+  let stations = await dbGetAll('stations');
+  if(mapState.campId !== 'ALL'){
+    stations = stations.filter(s => s.campaignId === mapState.campId);
+  }
+  stations = stations.filter(s => s.lat != null && s.lon != null && !isNaN(s.lat) && !isNaN(s.lon));
+  const meas = await dbGetAll('measurements');
+  mapState.stationsCache = stations;
+  mapState.measCache = meas;
+}
+
+function onMapCampChange(val){
+  mapState.campId = val;
+  loadMapData().then(()=>{ gisFitBounds(); drawGISMap(); });
+}
+function onMapLayerFilter(val){
+  mapState.filterLayer = val;
+  drawGISMap();
+}
+
+// Proyección de Coordenadas Geográficas (Lat/Lon) a Coordenadas Pantalla (Canvas)
+function geoToScreen(lat, lon, width, height){
+  // Escala métrica aproximada centrada (1 grado latitud ≈ 111,320m)
+  const latRad = toRad(mapState.centerLat);
+  const metersPerDegLat = 111320;
+  const metersPerDegLon = 111320 * Math.cos(latRad);
+
+  const dx = (lon - mapState.centerLon) * metersPerDegLon;
+  const dy = (lat - mapState.centerLat) * metersPerDegLat;
+
+  // Factor de escala
+  const pxPerMeter = (1 / mapState.zoom) * mapState.scale;
+  const screenX = (width / 2) + dx * pxPerMeter + mapState.panX;
+  const screenY = (height / 2) - dy * pxPerMeter + mapState.panY;
+
+  return { x: screenX, y: screenY };
+}
+
+function screenToGeo(sx, sy, width, height){
+  const latRad = toRad(mapState.centerLat);
+  const metersPerDegLat = 111320;
+  const metersPerDegLon = 111320 * Math.cos(latRad);
+  const pxPerMeter = (1 / mapState.zoom) * mapState.scale;
+
+  const dx = (sx - (width / 2) - mapState.panX) / pxPerMeter;
+  const dy = ((height / 2) - (sy - mapState.panY)) / pxPerMeter;
+
+  const lon = mapState.centerLon + (dx / metersPerDegLon);
+  const lat = mapState.centerLat + (dy / metersPerDegLat);
+  return { lat, lon };
+}
+
+/* =========================================================
+   DIBUJADO PRINCIPAL DEL MAPA (CANVAS NATIVO)
+   ========================================================= */
+function drawGISMap(){
+  const canvas = document.getElementById('gisCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width / dpr;
+  const h = canvas.height / dpr;
+
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  // 1. Fondo de terreno
+  ctx.fillStyle = colorTheme === 'sun' ? '#f4f6f8' : (colorTheme==='earth' ? '#1f1c18' : '#14181c');
+  ctx.fillRect(0, 0, w, h);
+
+  // 2. Dibujar Imagen Satelital / Topográfica Calibrada (Ráster)
+  if(mapState.overlayImg && mapState.overlayMeta){
+    const m = mapState.overlayMeta;
+    const nw = geoToScreen(m.latMax, m.lonMin, w, h);
+    const se = geoToScreen(m.latMin, m.lonMax, w, h);
+    const imgW = se.x - nw.x;
+    const imgH = se.y - nw.y;
+    ctx.drawImage(mapState.overlayImg, nw.x, nw.y, imgW, imgH);
+  }
+
+  // 3. Dibujar Cuadrícula Geográfica / UTM dinámica
+  drawMapGrid(ctx, w, h);
+
+  // 4. Dibujar Símbolos Geológicos Estructurales
+  mapState.stationsCache.forEach(st => {
+    const pt = geoToScreen(st.lat, st.lon, w, h);
+    if(pt.x < -60 || pt.x > w + 60 || pt.y < -60 || pt.y > h + 60) return; // Culling
+
+    const stMeas = mapState.measCache.filter(m => m.stationId === st.id);
+    
+    // Punto base de la estación
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.strokeStyle = '#e8a33d';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Etiqueta de la estación
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.fillStyle = colorTheme==='sun' ? '#111' : '#eef2f5';
+    ctx.fillText(st.name || st.id, pt.x + 8, pt.y - 6);
+
+    // Dibujar cada estructura registrada en la estación
+    if(stMeas.length === 0){
+      // Estación vacía
+    } else {
+      stMeas.forEach((m, idx) => {
+        if(mapState.filterLayer !== 'ALL' && m.type !== mapState.filterLayer) return;
+        drawGeologicalSymbol(ctx, pt.x, pt.y, m);
+      });
+    }
+  });
+
+  // 5. Dibujar posición GPS en vivo del usuario
+  if(gpsState.lat != null && gpsState.lon != null){
+    const gpsPt = geoToScreen(gpsState.lat, gpsState.lon, w, h);
+    ctx.beginPath();
+    ctx.arc(gpsPt.x, gpsPt.y, 7, 0, Math.PI*2);
+    ctx.fillStyle = '#38a169';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Pulso animado
+    ctx.beginPath();
+    ctx.arc(gpsPt.x, gpsPt.y, 14, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(56, 161, 105, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // 6. Elementos cartográficos: Rosa de los vientos y Escala gráfica
+  drawNorthArrow(ctx, w - 35, 95);
+  drawMapScaleBar(ctx, 20, h - 25, w);
+
+  ctx.restore();
+}
+
+/* =========================================================
+   SIMBOLOGÍA ESTRUCTURAL EN PLANTA NORMALIZADA
+   ========================================================= */
+function drawGeologicalSymbol(ctx, cx, cy, m){
+  const strike = m.strike != null ? m.strike : (m.dipDir != null ? norm360(m.dipDir - 90) : 0);
+  const dip = m.dip || 0;
+  const strikeRad = toRad(strike);
+  const len = 22; // Longitud del rumbo
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // A. ESTRATIFICACIÓN (S0) Y FOLIACIONES (S1, S2, CLIVAJE)
+  if(m.type === 'planar' || (m.subtype && m.subtype.includes('Estratificación')) || (m.subtype && m.subtype.includes('Foliación'))){
+    const isFoliation = (m.subtype || '').includes('Foliación');
+    ctx.rotate(strikeRad);
+
+    // Línea de rumbo
+    ctx.strokeStyle = isFoliation ? '#e8a33d' : '#5fb583';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(-len/2, 0);
+    ctx.lineTo(len/2, 0);
+    ctx.stroke();
+
+    // Trazo de buzamiento / manteo perpendicular hacia el bloque techo
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 8);
+    ctx.stroke();
+
+    if(isFoliation){
+      // Trazado doble para foliación
+      ctx.beginPath();
+      ctx.moveTo(-len/3, -3);
+      ctx.lineTo(len/3, -3);
+      ctx.stroke();
+    }
+
+    // Texto con el valor de manteo
+    ctx.rotate(-strikeRad);
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = isFoliation ? '#e8a33d' : '#5fb583';
+    ctx.fillText(`${dip}°`, 8, 14);
+  }
+
+  // B. FALLAS Y CINEMÁTICA EN PLANTA
+  else if(m.type === 'fault'){
+    ctx.rotate(strikeRad);
+    ctx.strokeStyle = '#e0645c';
+    ctx.lineWidth = 2.8;
+
+    // Trazo de falla
+    ctx.beginPath();
+    ctx.moveTo(-len/2, 0);
+    ctx.lineTo(len/2, 0);
+    ctx.stroke();
+
+    // Diente o línea de manteo
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 7);
+    ctx.stroke();
+
+    // Flechas de cizalle según cinemática (Dextral / Sinistral)
+    const sense = (m.sense || '').toLowerCase();
+    if(sense.includes('dextral') || sense.includes('rl')){
+      // Flecha arriba hacia la derecha, abajo hacia la izquierda
+      drawArrowHead(ctx, 6, -4, 0);
+      drawArrowHead(ctx, -6, 4, Math.PI);
+    } else if(sense.includes('sinistral') || sense.includes('ll')){
+      // Flecha arriba hacia la izquierda, abajo hacia la derecha
+      drawArrowHead(ctx, -6, -4, Math.PI);
+      drawArrowHead(ctx, 6, 4, 0);
+    } else if(sense.includes('invers') || sense.includes('thrust')){
+      // Dientes de cabalgamiento
+      ctx.fillStyle = '#e0645c';
+      ctx.beginPath();
+      ctx.moveTo(-6, 0); ctx.lineTo(-2, 6); ctx.lineTo(2, 0);
+      ctx.fill();
+    }
+
+    ctx.rotate(-strikeRad);
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = '#e0645c';
+    ctx.fillText(`${dip}°`, 8, 14);
+  }
+
+  // C. LINEACIONES Y ESTRÍAS PURAS
+  else if(m.trend != null && m.plunge != null){
+    const trendRad = toRad(m.trend);
+    ctx.rotate(trendRad);
+    ctx.strokeStyle = '#ff6b6b';
+    ctx.fillStyle = '#ff6b6b';
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 16);
+    ctx.stroke();
+    drawArrowHead(ctx, 0, 16, Math.PI/2);
+
+    ctx.rotate(-trendRad);
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText(`${m.plunge}°`, 6, 12);
+  }
+
+  // D. VETAS Y CONTACTOS
+  else if(m.type === 'vein' || m.type === 'contact'){
+    ctx.rotate(strikeRad);
+    ctx.strokeStyle = m.type === 'vein' ? '#5cb3ff' : '#d38aea';
+    ctx.lineWidth = 2;
+    if(m.type === 'contact') ctx.setLineDash([3, 3]);
+
+    ctx.beginPath();
+    ctx.moveTo(-len/2, 0);
+    ctx.lineTo(len/2, 0);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 6);
+    ctx.stroke();
+
+    ctx.rotate(-strikeRad);
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = m.type === 'vein' ? '#5cb3ff' : '#d38aea';
+    ctx.fillText(`${dip}°`, 8, 12);
+  }
+
+  ctx.restore();
+}
+
+function drawArrowHead(ctx, x, y, angRad){
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angRad);
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.beginPath();
+  ctx.moveTo(3, 0);
+  ctx.lineTo(-3, -2.5);
+  ctx.lineTo(-3, 2.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// Cuadrícula y coordenadas
+function drawMapGrid(ctx, w, h){
+  ctx.save();
+  ctx.strokeStyle = colorTheme==='sun' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+
+  const step = 80;
+  for(let x = 0; x < w; x += step){
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for(let y = 0; y < h; y += step){
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  // Ticks con coordenadas en las esquinas
+  const nw = screenToGeo(10, 10, w, h);
+  const se = screenToGeo(w-10, h-10, w, h);
+  ctx.font = '9px monospace';
+  ctx.fillStyle = colorTheme==='sun' ? '#78909c' : '#5c6770';
+  ctx.fillText(`NW: ${nw.lat.toFixed(4)}, ${nw.lon.toFixed(4)}`, 14, 52);
+  ctx.fillText(`SE: ${se.lat.toFixed(4)}, ${se.lon.toFixed(4)}`, w - 160, h - 35);
+  ctx.restore();
+}
+
+function drawNorthArrow(ctx, x, y){
+  ctx.save();
+  ctx.translate(x, y);
+  
+  // Fondo circular tenue
+  ctx.beginPath();
+  ctx.arc(0, 0, 16, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(28,34,39,0.75)';
+  ctx.fill();
+  ctx.strokeStyle = 'var(--border)';
+  ctx.stroke();
+
+  // Flecha Norte
+  ctx.beginPath();
+  ctx.moveTo(0, -12);
+  ctx.lineTo(5, 6);
+  ctx.lineTo(0, 2);
+  ctx.fillStyle = '#e0645c';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(0, -12);
+  ctx.lineTo(-5, 6);
+  ctx.lineTo(0, 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+
+  ctx.font = 'bold 9px monospace';
+  ctx.fillStyle = '#eef2f5';
+  ctx.textAlign = 'center';
+  ctx.fillText('N', 0, -15);
+  ctx.restore();
+}
+
+function drawMapScaleBar(ctx, x, y, maxW){
+  ctx.save();
+  const pxPerMeter = (1 / mapState.zoom) * mapState.scale;
+  
+  // Determinar longitud ideal de la barra (aprox 80-120px)
+  let targetMeters = 100;
+  if(pxPerMeter < 0.001) targetMeters = 50000;
+  else if(pxPerMeter < 0.01) targetMeters = 10000;
+  else if(pxPerMeter < 0.1) targetMeters = 1000;
+  else if(pxPerMeter < 0.5) targetMeters = 500;
+  else if(pxPerMeter < 2) targetMeters = 100;
+  else targetMeters = 20;
+
+  const barPx = targetMeters * pxPerMeter;
+  const label = targetMeters >= 1000 ? `${targetMeters/1000} km` : `${targetMeters} m`;
+
+  ctx.fillStyle = 'rgba(28,34,39,0.85)';
+  ctx.fillRect(x - 6, y - 18, barPx + 12, 24);
+  ctx.strokeStyle = 'var(--border)';
+  ctx.strokeRect(x - 6, y - 18, barPx + 12, 24);
+
+  ctx.strokeStyle = 'var(--accent)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + barPx, y);
+  ctx.stroke();
+
+  ctx.font = 'bold 10px monospace';
+  ctx.fillStyle = '#eef2f5';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, x + barPx/2, y - 5);
+  ctx.restore();
+}
+
+/* =========================================================
+   GESTOS TÁCTILES Y HIT-TESTING DEL MAPA
+   ========================================================= */
+function setupGISMapEvents(canvas){
+  canvas.onpointerdown = (e) => {
+    gisTouchState.dragging = true;
+    gisTouchState.startX = e.clientX;
+    gisTouchState.startY = e.clientY;
+    gisTouchState.lastX = e.clientX;
+    gisTouchState.lastY = e.clientY;
+  };
+
+  canvas.onpointermove = (e) => {
+    if(!gisTouchState.dragging) return;
+    const dx = e.clientX - gisTouchState.lastX;
+    const dy = e.clientY - gisTouchState.lastY;
+    mapState.panX += dx;
+    mapState.panY += dy;
+    gisTouchState.lastX = e.clientX;
+    gisTouchState.lastY = e.clientY;
+    drawGISMap();
+  };
+
+  const endDrag = (e) => {
+    if(!gisTouchState.dragging) return;
+    gisTouchState.dragging = false;
+
+    // Detectar si fue un tap (clic) sin arrastre
+    const dist = Math.hypot(e.clientX - gisTouchState.startX, e.clientY - gisTouchState.startY);
+    if(dist < 6){
+      handleMapClick(e.clientX, e.clientY);
+    }
+  };
+  canvas.onpointerup = endDrag;
+  canvas.onpointercancel = endDrag;
+
+  // Zoom táctil (Pinch to Zoom)
+  canvas.addEventListener('touchstart', (e)=>{
+    if(e.touches.length === 2){
+      gisTouchState.pinchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  }, {passive:true});
+
+  canvas.addEventListener('touchmove', (e)=>{
+    if(e.touches.length === 2){
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if(gisTouchState.pinchDist > 0){
+        const factor = dist / gisTouchState.pinchDist;
+        mapState.scale = clamp(mapState.scale * factor, 0.1, 50);
+        gisTouchState.pinchDist = dist;
+        drawGISMap();
+      }
+    }
+  }, {passive:true});
+
+  // Doble toque para centrar
+  canvas.addEventListener('touchend', (e)=>{
+    const now = Date.now();
+    if(now - gisTouchState.lastTap < 300 && e.changedTouches.length === 1){
+      const t = e.changedTouches[0];
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      const geo = screenToGeo(t.clientX - rect.left, t.clientY - rect.top, canvas.width/dpr, canvas.height/dpr);
+      mapState.centerLat = geo.lat;
+      mapState.centerLon = geo.lon;
+      mapState.panX = 0; mapState.panY = 0;
+      mapState.scale *= 1.4;
+      drawGISMap();
+    }
+    gisTouchState.lastTap = now;
+  });
+}
+
+function handleMapClick(clientX, clientY){
+  const canvas = document.getElementById('gisCanvas');
+  if(!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const clickX = clientX - rect.left;
+  const clickY = clientY - rect.top;
+
+  let clickedStation = null;
+  for(const st of mapState.stationsCache){
+    const pt = geoToScreen(st.lat, st.lon, canvas.width/dpr, canvas.height/dpr);
+    if(Math.hypot(clickX - pt.x, clickY - pt.y) < 22){
+      clickedStation = st;
+      break;
+    }
+  }
+
+  if(clickedStation){
+    openMapSheet(clickedStation);
+  } else {
+    closeMapSheet();
+  }
+}
+
+function openMapSheet(st){
+  const sheet = document.getElementById('mapBottomSheet');
+  const title = document.getElementById('sheetTitle');
+  const content = document.getElementById('sheetContent');
+  if(!sheet || !content) return;
+
+  const stMeas = mapState.measCache.filter(m => m.stationId === st.id);
+  title.textContent = `📍 ${st.name || st.id}`;
+
+  const measList = stMeas.map(m=>`
+    <div class="mini-row" style="margin-top:6px;">
+      <div class="ml">
+        <b>${esc(m.subtype || m.type)}</b>
+        <span>${esc(measSub(m))}</span>
+      </div>
+    </div>
+  `).join('') || '<div class="hint">Sin mediciones registradas</div>';
+
+  content.innerHTML = `
+    <div style="font-size:12px;color:var(--text-dim);font-family:var(--mono);margin-bottom:8px;">
+      ${st.lat.toFixed(5)}, ${st.lon.toFixed(5)} ${st.alt ? '· ' + st.alt + 'm' : ''}
+    </div>
+    ${st.notes ? `<p style="font-size:13px;margin-bottom:8px;">${esc(st.notes)}</p>` : ''}
+    <div class="section-hdr" style="margin:10px 0 6px;"><h3>Estructuras (${stMeas.length})</h3></div>
+    ${measList}
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn ghost small" onclick="Nav.station('${st.id}','${st.campaignId}')">Abrir Detalle</button>
+      <button class="btn primary small" onclick="Nav.stereonet('${st.campaignId}','${st.id}')">🌐 Ver en Estereograma</button>
+    </div>
+  `;
+
+  sheet.classList.add('open');
+}
+
+function closeMapSheet(){
+  document.getElementById('mapBottomSheet')?.classList.remove('open');
+}
+
+/* =========================================================
+   CONTROLES DE MAPA (ZOOM / PAN / AJUSTE DE EXTENSIÓN)
+   ========================================================= */
+function gisZoom(factor){
+  mapState.scale = clamp(mapState.scale * factor, 0.05, 60);
+  drawGISMap();
+}
+
+function gisCenterGPS(){
+  if(gpsState.lat == null){ toast('Sin señal GPS'); return; }
+  mapState.centerLat = gpsState.lat;
+  mapState.centerLon = gpsState.lon;
+  mapState.panX = 0;
+  mapState.panY = 0;
+  drawGISMap();
+  toast('Mapa centrado en tu posición');
+}
+
+function gisFitBounds(){
+  if(mapState.stationsCache.length === 0){
+    mapState.panX = 0; mapState.panY = 0; mapState.scale = 1;
+    drawGISMap();
+    return;
+  }
+
+  let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+  mapState.stationsCache.forEach(s => {
+    minLat = Math.min(minLat, s.lat);
+    maxLat = Math.max(maxLat, s.lat);
+    minLon = Math.min(minLon, s.lon);
+    maxLon = Math.max(maxLon, s.lon);
+  });
+
+  mapState.centerLat = (minLat + maxLat) / 2;
+  mapState.centerLon = (minLon + maxLon) / 2;
+  mapState.panX = 0;
+  mapState.panY = 0;
+
+  const latSpan = Math.max(0.002, maxLat - minLat);
+  const lonSpan = Math.max(0.002, maxLon - minLon);
+  const metersSpan = Math.max(latSpan * 111320, lonSpan * 111320 * Math.cos(toRad(mapState.centerLat)));
+  
+  const canvas = document.getElementById('gisCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const viewSize = canvas ? Math.min(canvas.width/dpr, canvas.height/dpr) - 100 : 300;
+  
+  mapState.zoom = 1;
+  mapState.scale = viewSize / metersSpan;
+  drawGISMap();
+}
+
+/* =========================================================
+   CALIBRADOR Y PERSISTENCIA DE MAPAS BASE OFFLINE
+   ========================================================= */
+let tempCalibDataUrl = null;
+function openMapCalibrator(){
+  document.getElementById('mapCalibModal').style.display = 'block';
+}
+function closeMapCalibrator(){
+  document.getElementById('mapCalibModal').style.display = 'none';
+}
+function onCalibFileSelect(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    tempCalibDataUrl = evt.target.result;
+    toast('Imagen cargada, ingresa coordenadas');
+  };
+  reader.readAsDataURL(file);
+}
+async function saveMapOverlay(){
+  const latMax = parseFloat(document.getElementById('calibLatMax').value);
+  const latMin = parseFloat(document.getElementById('calibLatMin').value);
+  const lonMin = parseFloat(document.getElementById('calibLonMin').value);
+  const lonMax = parseFloat(document.getElementById('calibLonMax').value);
+
+  if(!tempCalibDataUrl && !mapState.overlayImg){ toast('Selecciona una imagen'); return; }
+  if(isNaN(latMax) || isNaN(latMin) || isNaN(lonMin) || isNaN(lonMax)){ toast('Completa los 4 límites'); return; }
+
+  const overlayObj = {
+    id: 'current_overlay',
+    dataUrl: tempCalibDataUrl || mapState.overlayMeta?.dataUrl,
+    latMax, latMin, lonMin, lonMax,
+    timestamp: nowIso()
+  };
+
+  await dbPut('map_overlays', overlayObj);
+  await loadSavedMapOverlay();
+  closeMapCalibrator();
+  drawGISMap();
+  toast('Mapa base guardado y calibrado');
+}
+
+async function loadSavedMapOverlay(){
+  const overlay = await dbGet('map_overlays', 'current_overlay');
+  if(overlay && overlay.dataUrl){
+    mapState.overlayMeta = overlay;
+    const img = new Image();
+    img.onload = () => {
+      mapState.overlayImg = img;
+      drawGISMap();
+    };
+    img.src = overlay.dataUrl;
+  }
+}
+
+/* =========================================================
+   PARSERS Y NOTACIÓN
+   ========================================================= */
+function parseQuadrantToStrike(qStr){
+  if(!qStr) return null;
+  const str = qStr.trim().toUpperCase().replace(/\s+/g,'');
+  const m = /^([NS])(\d+)(?:°)?([EOW])$/.exec(str);
+  if(!m) return null;
+  const ns = m[1];
+  const ang = parseFloat(m[2]);
+  const ew = m[3] === 'O' ? 'W' : m[3];
+  if(isNaN(ang)) return null;
+
+  let strike = 0;
+  if(ns==='N' && ew==='E') strike = ang;
+  else if(ns==='N' && ew==='W') strike = 360 - ang;
+  else if(ns==='S' && ew==='E') strike = 180 - ang;
+  else if(ns==='S' && ew==='W') strike = 180 + ang;
+  return roundInt(norm360(strike));
+}
+
+function estimateDeclination(lat, lon){
+  if(lat==null || lon==null) return 0;
+  const d = -0.15 * lat + 0.12 * lon + 0.002 * lat * lon;
+  return Math.round(clamp(d, -30, 30));
+}
+
+function computeOrientation(alphaDeg, betaDeg, gammaDeg){
+  const correctedAlpha = norm360(alphaDeg + magOffset);
+  const a=toRad(correctedAlpha), b=toRad(betaDeg), g=toRad(gammaDeg);
+  const cA=Math.cos(a), sA=Math.sin(a);
+  const cB=Math.cos(b), sB=Math.sin(b);
+  const cG=Math.cos(g), sG=Math.sin(g);
+  const E = cA*sG + cG*sA*sB;
+  const N = sA*sG - cA*cG*sB;
+  const U = cB*cG;
+  const dip = toDeg(Math.acos(clamp(U,-1,1)));
+  const dipDir = norm360(toDeg(Math.atan2(E,N)) + 180);
+  const strike = norm360(dipDir - 90);
+  const Ey = -cB*sA, Ny = cA*cB, Uy = sB;
+  let trend = norm360(toDeg(Math.atan2(Ey,Ny)));
+  let plunge = toDeg(-Math.asin(clamp(Uy,-1,1)));
+  if(plunge<0){ trend=norm360(trend+180); plunge=-plunge; }
+  return { dip: roundInt(dip), dipDir: roundInt(dipDir), strike: roundInt(strike), trend: roundInt(trend), plunge: roundInt(plunge) };
+}
+
+function toQuadrant(strikeAz){
+  if(strikeAz==null||isNaN(strikeAz)) return '—';
+  let s = norm360(strikeAz);
+  const wChar = currentLang==='es'?'O':'W';
+  
+  if(quadrantPref==='N_ONLY'){
+    let half = s % 180;
+    if(half<=90) return `N${Math.round(half)}°E`;
+    return `N${Math.round(180-half)}°${wChar}`;
+  } else {
+    let sNorm = s % 180;
+    let ns, ew, angle;
+    if(sNorm<=90){ ns='N'; ew='E'; angle=sNorm; } else { ns='S'; ew=wChar; angle=180-sNorm; }
+    angle=Math.round(angle);
+    if(angle===0) return 'N-S';
+    if(angle===90) return `E-${wChar}`;
+    return ns+angle+'°'+ew;
+  }
+}
+
+function dipDirQuadrant(dipDirAz){
+  if(dipDirAz==null||isNaN(dipDirAz)) return '—';
+  const az=norm360(dipDirAz);
+  const dirsEs=[['N',0],['NNE',22.5],['NE',45],['ENE',67.5],['E',90],['ESE',112.5],['SE',135],['SSE',157.5],
+                ['S',180],['SSO',202.5],['SO',225],['OSO',247.5],['O',270],['ONO',292.5],['NO',315],['NNO',337.5]];
+  const dirsEn=[['N',0],['NNE',22.5],['NE',45],['ENE',67.5],['E',90],['ESE',112.5],['SE',135],['SSE',157.5],
+                ['S',180],['SSW',202.5],['SW',225],['WSW',247.5],['W',270],['WNW',292.5],['NW',315],['NNW',337.5]];
+  const dirs = currentLang==='en'? dirsEn : dirsEs;
+  let best=dirs[0], bd=999;
+  dirs.forEach(d=>{ let diff=Math.abs(az-d[1]); if(diff>180) diff=360-diff; if(diff<bd){bd=diff; best=d;} });
+  return best[0];
+}
+
+function calculateRakeFromTP(dipDir, dip, trend, plunge){
+  if(dip==null || trend==null || plunge==null || dip===0) return null;
+  const sinR = Math.sin(toRad(plunge)) / Math.sin(toRad(dip));
+  const rakeDeg = roundInt(toDeg(Math.asin(clamp(sinR, -1, 1))));
+  const strike = norm360((dipDir||0) - 90);
+  const strikeOpp = norm360(strike + 180);
+  let diff1 = Math.abs(trend - strike); if(diff1>180) diff1 = 360-diff1;
+  let diff2 = Math.abs(trend - strikeOpp); if(diff2>180) diff2 = 360-diff2;
+  const refAz = diff1 <= diff2 ? strike : strikeOpp;
+  const quad = dipDirQuadrant(refAz);
+  return { rake: rakeDeg, quadrant: quad };
+}
+
+/* =========================================================
+   FORMULARIOS Y ENTRADA DE DATOS
+   ========================================================= */
+function renderPlanarInputBlocks(formKey, strikeVal, dipVal, dipDirVal){
+  const quadVal = strikeVal != null ? toQuadrant(strikeVal) : '';
+  return `
+  <div style="margin-top:10px;">
+    <label style="margin-top:0;">Formato de entrada manual</label>
+    <select id="notSel_${formKey}" onchange="switchInputNotation('${formKey}', this.value)">
+      <option value="dipdir" ${inputNotation==='dipdir'?'selected':''}>Dip Direction / Dip (ej. 135 / 45)</option>
+      <option value="strike" ${inputNotation==='strike'?'selected':''}>Strike RHR / Dip (ej. 045 / 45)</option>
+      <option value="quadrant" ${inputNotation==='quadrant'?'selected':''}>Cuadrante / Dip (ej. N45°E / 45)</option>
+    </select>
+  </div>
+
+  <div id="box_dipdir_${formKey}" style="display:${inputNotation==='dipdir'?'block':'none'};">
+    <div class="numfield-row">
+      <div><label>Dip Direction (0–360°)</label><input type="number" step="1" id="dipDir_${formKey}" min="0" max="360" value="${dipDirVal??''}" oninput="onOrientationInputChange('${formKey}','dipdir')"></div>
+      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="onOrientationInputChange('${formKey}','dipdir')"></div>
+    </div>
+  </div>
+
+  <div id="box_strike_${formKey}" style="display:${inputNotation==='strike'?'block':'none'};">
+    <div class="numfield-row">
+      <div><label>Strike RHR (0–360°)</label><input type="number" step="1" id="strike_${formKey}" min="0" max="360" value="${strikeVal??''}" oninput="onOrientationInputChange('${formKey}','strike')"></div>
+      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip2_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="syncDip('${formKey}', this.value)"></div>
+    </div>
+  </div>
+
+  <div id="box_quad_${formKey}" style="display:${inputNotation==='quadrant'?'block':'none'};">
+    <div class="numfield-row">
+      <div><label>Rumbo Cuadrante (ej. N30E)</label><input type="text" id="quad_${formKey}" value="${quadVal}" placeholder="N30E" oninput="onOrientationInputChange('${formKey}','quadrant')"></div>
+      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip3_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="syncDip('${formKey}', this.value)"></div>
+    </div>
+  </div>
+
+  <div class="derived" id="derived_${formKey}">Strike RHR: — · Cuadrante: —</div>
+  `;
+}
+
+function switchInputNotation(formKey, mode){
+  ['dipdir','strike','quadrant'].forEach(m=>{
+    const el = document.getElementById(`box_${m==='quadrant'?'quad':m}_${formKey}`);
+    if(el) el.style.display = (m === mode) ? 'block' : 'none';
+  });
+}
+
+function syncDip(formKey, val){
+  setVal('dip_'+formKey, val);
+  setVal('dip2_'+formKey, val);
+  setVal('dip3_'+formKey, val);
+  onOrientationInputChange(formKey, 'dipdir');
+}
+
+function onOrientationInputChange(formKey, fromSource){
+  let dipDir = parseInt(document.getElementById('dipDir_'+formKey)?.value, 10);
+  let dip = parseInt(document.getElementById('dip_'+formKey)?.value, 10);
+  let strike = parseInt(document.getElementById('strike_'+formKey)?.value, 10);
+  let quad = document.getElementById('quad_'+formKey)?.value;
+
+  if(fromSource === 'strike'){
+    if(!isNaN(strike)){
+      dipDir = roundInt(norm360(strike + 90));
+      setVal('dipDir_'+formKey, dipDir);
+      setVal('quad_'+formKey, toQuadrant(strike));
+    }
+  } else if(fromSource === 'quadrant'){
+    const parsedStrike = parseQuadrantToStrike(quad);
+    if(parsedStrike != null){
+      strike = parsedStrike;
+      dipDir = roundInt(norm360(strike + 90));
+      setVal('strike_'+formKey, strike);
+      setVal('dipDir_'+formKey, dipDir);
+    }
+  } else if(fromSource === 'dipdir'){
+    if(!isNaN(dipDir)){
+      strike = roundInt(norm360(dipDir - 90));
+      setVal('strike_'+formKey, strike);
+      setVal('quad_'+formKey, toQuadrant(strike));
+    }
+  }
+
+  const out = document.getElementById('derived_'+formKey);
+  if(!out) return;
+  if(isNaN(dipDir) || isNaN(dip)){ out.textContent='Strike RHR: — · '+t('quadrant')+': —'; return; }
+  out.innerHTML = `${t('strikeRHR')}: <b style="color:var(--accent)">${strike}°</b> &nbsp;·&nbsp; ${t('quadrant')}: <b style="color:var(--accent)">${toQuadrant(strike)}</b> &nbsp;·&nbsp; ${t('dipTowards')}: <b style="color:var(--accent)">${dipDirQuadrant(dipDir)}</b>`;
+}
+
+function setVal(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
+function intOrNull(id){ const v=parseInt(document.getElementById(id)?.value, 10); return isNaN(v)?null:v; }
+
+function pad3(v){ return v==null?'—':String(roundInt(v)).padStart(3,'0'); }
+function pad2(v){ return v==null?'—':String(roundInt(v)).padStart(2,'0'); }
+
+const PLANAR_SUBTYPES = ['Estratificación (S0)','Foliación (S1)','Foliación (S2)','Diaclasa / Fractura','Clivaje','Lineación mineral','Eje de pliegue'];
+const LINEAR_SUBTYPES = ['Lineación mineral','Eje de pliegue'];
+const FAULT_SENSES = ['Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso','TR','LL','RL','N','T'];
+const KIN_QUALITY = ['Definida','Probable','Posible'];
+const KIN_CRITERIA = ['Fibras minerales','Escalones de crecimiento','Estructuras S-C','Estilolitos','Brechas','Estrías simples','Otro'];
+const CONTACT_TYPES = ['Concordante','Discordante angular','Discordante erosiva','Falla','Intrusivo','Transicional'];
+const VEIN_TEXTURES = ['Masiva','Bandeada','Brechosa','Peine (comb)','Coloforme','Otro'];
+const VEIN_MINERALS = ['Cuarzo','Calcita','Pirita','Calcopirita','Turmalina','Especularita','Yeso','Clorita','Epidota'];
+const ALTERATION_TYPES = ['Propilítica','Fílica (sericítica)','Potásica','Argílica intermedia','Argílica avanzada','Silicificación','Skarn','Sin alteración visible'];
+const ALTERATION_INTENSITY = ['Débil','Moderada','Fuerte','Pervasiva'];
+
+function measSub(m){
+  if(m.type==='planar'){
+    if(m.strike!=null) return `${pad3(m.strike)}/${pad2(m.dip)} (RHR) · DipDir ${pad3(m.dipDir)}`;
+    if(m.trend!=null) return `Trend/Plunge ${pad3(m.trend)}/${pad2(m.plunge)}`;
+    return '';
+  }
+  if(m.type==='fault') return `Plano ${pad3(m.strike)}/${pad2(m.dip)} · Rake: ${m.rake??'—'}° (${m.rakeQuadrant||'—'}) · ${m.sense||''}`;
+  if(m.type==='contact') return `${esc(m.lithoTop||'?')} / ${esc(m.lithoBottom||'?')} · e=${m.trueThickness??'?'} m`;
+  if(m.type==='vein') return `${esc(m.structKind||'Veta')}: ${m.veinThickness??'?'} ${m.veinUnit||'cm'} · ${(m.alteration||[]).join(', ')||'Sin alteración'}`;
+  return '';
+}
+
+/* =========================================================
+   VISTAS Y GESTIÓN DE EXPEDICIÓN
+   ========================================================= */
+async function renderCampaigns(){
+  const camps = (await dbGetAll('campaigns')).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+  const allSts = await dbGetAll('stations');
+  document.getElementById('stationCountLabel').textContent = camps.length+' '+(currentLang==='es'?'campañas':'campaigns');
+
+  if(camps.length===0){
+    return `
+    <div class="empty">
+      <div class="big">📁</div>
+      <p>${t('noCampaigns')}</p>
+      <button class="btn primary" style="margin-top:16px;" onclick="Nav.newCampaign()">${t('addCampBtn')}</button>
+    </div>
+    <button class="fab" onclick="Nav.newCampaign()">+</button>`;
+  }
+
+  const cards = camps.map(c=>{
+    const stCount = allSts.filter(s=>s.campaignId===c.id).length;
+    return `
+      <div class="card" onclick="Nav.campaign('${c.id}')">
+        <div class="card-title">📁 ${esc(c.name)}</div>
+        <div class="card-sub">${fmtDate(c.timestamp)} · ${stCount} ${t('stations')}</div>
+        ${c.notes? `<div class="card-sub" style="margin-top:6px;">${esc(c.notes)}</div>`:''}
+      </div>`;
+  }).join('');
+
+  return `<div>${cards}</div><button class="fab" onclick="Nav.newCampaign()">+</button>`;
+}
+
+async function renderCampaignForm(){
+  let c = state.campId ? await dbGet('campaigns', state.campId) : null;
+  const isNew = !c;
+  if(isNew) c = { id: uid(), name: '', timestamp: nowIso(), notes: '' };
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>${isNew? t('newCampaign') : t('editCampaign')}</h2></div>
+  </div>
+  <label>${t('campName')}</label>
+  <input type="text" id="f_campName" value="${esc(c.name)}" placeholder="ej. Expedición Atacama 2026">
+
+  <label>${t('notes')}</label>
+  <textarea id="f_campNotes" placeholder="Objetivo, cuadrángulo, geólogo...">${esc(c.notes||'')}</textarea>
+
+  <div class="btn-row" style="margin-top:22px;">
+    <button class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
+    <button class="btn primary" onclick="saveCampaign('${c.id}', ${isNew})">${t('save')}</button>
+  </div>
+  ${!isNew? `<button class="btn danger" style="margin-top:10px;" onclick="confirmDeleteCampaign('${c.id}')">${t('delete')} ${t('campaign')}</button>`:''}
+  `;
+}
+async function saveCampaign(id, isNew){
+  const name=document.getElementById('f_campName').value.trim() || (currentLang==='es'?'Campaña sin nombre':'Unnamed Campaign');
+  const notes=document.getElementById('f_campNotes').value;
+  await dbPut('campaigns', { id, name, timestamp: nowIso(), notes });
+  toast(currentLang==='es'?'Campaña guardada':'Campaign saved');
+  Nav.campaign(id);
+}
+async function confirmDeleteCampaign(id){
+  if(!confirm(currentLang==='es'?'¿Eliminar esta campaña y todas sus estaciones?':'Delete campaign and stations?')) return;
+  await dbDeleteCampaignCascade(id);
+  Nav.home();
+}
+
+async function renderCampaignDetail(){
+  const camp = await dbGet('campaigns', state.campId);
+  if(!camp){ Nav.home(); return ''; }
+  const stations = (await dbGetByCampaign(camp.id)).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+  const allMeas = await dbGetAll('measurements');
+
+  const cards = stations.map(s=>{
+    const meas = allMeas.filter(m=>m.stationId===s.id);
+    const counts={planar:0, fault:0, contact:0, vein:0};
+    meas.forEach(m=>{ if(counts[m.type]!=null) counts[m.type]++; });
+    const badges = [
+      counts.planar? `<span class="badge accent">${counts.planar} ${t('structural')}</span>`:'',
+      counts.fault? `<span class="badge accent">${counts.fault} ${t('fault')}</span>`:'',
+      counts.contact? `<span class="badge accent">${counts.contact} ${t('contact')}</span>`:'',
+      counts.vein? `<span class="badge accent">${counts.vein} ${t('vein')}</span>`:'',
+      meas.length===0? `<span class="badge">0 datos</span>`:''
+    ].join('');
+    const coords = (s.lat!=null && s.lon!=null) ? `${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}` : 'sin GPS';
+    const utmInfo = utmLabel(s.lat, s.lon);
+    return `
+      <div class="card" onclick="Nav.station('${s.id}','${camp.id}')">
+        <div class="card-title">📍 ${esc(s.name||s.id)}</div>
+        <div class="card-sub">${fmtDate(s.timestamp)} · <span style="font-family:var(--mono)">${coords}</span></div>
+        ${utmInfo? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>`:''}
+        <div class="badge-row">${badges}</div>
+      </div>`;
+  }).join('');
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.home()">←</button>
+    <div><h2>📁 ${esc(camp.name)}</h2><div class="sub">${stations.length} ${t('stations')}</div></div>
+  </div>
+  <div class="card" style="cursor:default;">
+    <div class="card-sub">${fmtDate(camp.timestamp)}</div>
+    ${camp.notes? `<p style="margin-top:6px;font-size:13px;">${esc(camp.notes)}</p>`:''}
+    <div class="btn-row" style="margin-top:10px; flex-wrap:wrap;">
+      <button class="btn ghost small" onclick="Nav.editCampaign('${camp.id}')">✎ ${t('editCampaign')}</button>
+      <button class="btn primary small" onclick="Nav.mapView('${camp.id}')">🗺️ Ver en Mapa</button>
+      <button class="btn primary small" onclick="Nav.stereonet('${camp.id}', 'ALL')">🌐 Estereograma</button>
+      <button class="btn primary small" onclick="Nav.newStation('${camp.id}')">${t('addStationBtn')}</button>
+    </div>
+  </div>
+  <div class="section-hdr"><h3>${t('stationsInCamp')}</h3></div>
+  ${stations.length===0 ? `<div class="empty"><p>${t('noStations')}</p><button class="btn primary" style="margin-top:10px;" onclick="Nav.newStation('${camp.id}')">${t('addStationBtn')}</button></div>` : cards}
+  <button class="fab" onclick="Nav.newStation('${camp.id}')">+</button>
+  `;
+}
+
+async function nextStationName(campId){
+  const stations=await dbGetByCampaign(campId);
+  let max=0;
+  stations.forEach(s=>{ const m=/EST-(\d+)/.exec(s.name||''); if(m) max=Math.max(max,parseInt(m[1],10)); });
+  return 'EST-'+String(max+1).padStart(2,'0');
+}
+
+async function renderStationForm(){
+  let st = state.stationId ? await dbGet('stations', state.stationId) : null;
+  const isNew = !st;
+  if(isNew){
+    st = { id: uid(), campaignId: state.campId, name: await nextStationName(state.campId), timestamp: nowIso(),
+           lat: gpsState.lat, lon: gpsState.lon, alt: gpsState.alt ? Math.round(gpsState.alt) : null, notes:'' };
+  }
+  const localDt = new Date(st.timestamp || Date.now());
+  const localDtVal = new Date(localDt.getTime() - localDt.getTimezoneOffset()*60000).toISOString().slice(0,16);
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>${isNew? t('newStation') : t('editStation')}</h2></div>
+  </div>
+  <label>ID / ${t('station')}</label>
+  <input type="text" id="f_name" value="${esc(st.name)}">
+
+  <label>${currentLang==='es'?'Fecha y hora':'Date & Time'}</label>
+  <input type="datetime-local" id="f_dt" value="${localDtVal}">
+
+  <div class="grid3">
+    <div><label>${t('lat')}</label><input type="number" step="0.000001" id="f_lat" value="${st.lat??''}" oninput="utmFromLatLon()"></div>
+    <div><label>${t('lon')}</label><input type="number" step="0.000001" id="f_lon" value="${st.lon??''}" oninput="utmFromLatLon()"></div>
+    <div><label>${t('alt')}</label><input type="number" step="1" id="f_alt" value="${st.alt??''}"></div>
+  </div>
+  <button type="button" class="btn ghost small" style="width:100%;margin-top:8px;" onclick="captureGpsIntoStation()">${t('useGps')}</button>
+
+  <div class="section-hdr"><h3>Coordenadas UTM (WGS84)</h3></div>
+  <div class="grid2">
+    <div><label>${currentLang==='es'?'Huso':'Zone'}</label><input type="number" id="f_utmZone" min="1" max="60" value=""></div>
+    <div><label>${currentLang==='es'?'Hemisferio':'Hemisphere'}</label>
+      <select id="f_utmHemi"><option value="S">S</option><option value="N">N</option></select>
+    </div>
+  </div>
+  <div class="grid2">
+    <div><label>${currentLang==='es'?'Este (m)':'Easting (m)'}</label><input type="number" step="1" id="f_utmEast" value=""></div>
+    <div><label>${currentLang==='es'?'Norte (m)':'Northing (m)'}</label><input type="number" step="1" id="f_utmNorth" value=""></div>
+  </div>
+  <div class="btn-row" style="margin-top:6px;">
+    <button type="button" class="btn ghost small" onclick="utmFromLatLon()">↻ Lat/Lon → UTM</button>
+    <button type="button" class="btn ghost small" onclick="latLonFromUtm()">↻ UTM → Lat/Lon</button>
+  </div>
+
+  <label>${t('notes')}</label>
+  <textarea id="f_notes" placeholder="Afloramiento, litología...">${esc(st.notes||'')}</textarea>
+
+  <div class="btn-row" style="margin-top:22px;">
+    <button class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
+    <button class="btn primary" onclick="saveStation('${st.id}', ${isNew})">${t('save')}</button>
+  </div>
+  ${!isNew? `<button class="btn danger" style="margin-top:10px;" onclick="confirmDeleteStation('${st.id}')">${t('delete')} ${t('station')}</button>`:''}
+  `;
+}
+function utmFromLatLon(){
+  const lat=parseFloat(document.getElementById('f_lat')?.value);
+  const lon=parseFloat(document.getElementById('f_lon')?.value);
+  if(isNaN(lat)||isNaN(lon)) return;
+  const r=llToUTM(lat,lon);
+  setVal('f_utmZone', r.zoneNumber);
+  const hemiEl=document.getElementById('f_utmHemi'); if(hemiEl) hemiEl.value=r.hemisphere;
+  setVal('f_utmEast', r.easting);
+  setVal('f_utmNorth', r.northing);
+}
+function latLonFromUtm(){
+  const zone=parseInt(document.getElementById('f_utmZone')?.value,10);
+  const hemi=document.getElementById('f_utmHemi')?.value||'S';
+  const east=parseInt(document.getElementById('f_utmEast')?.value, 10);
+  const north=parseInt(document.getElementById('f_utmNorth')?.value, 10);
+  if(isNaN(zone)||isNaN(east)||isNaN(north)){ toast('Completa UTM'); return; }
+  const r=utmToLL(east, north, zone, hemi);
+  setVal('f_lat', r.lat);
+  setVal('f_lon', r.lon);
+}
+function captureGpsIntoStation(){
+  if(gpsState.lat==null){ toast('Sin señal GPS'); return; }
+  setVal('f_lat', gpsState.lat.toFixed(6));
+  setVal('f_lon', gpsState.lon.toFixed(6));
+  if(gpsState.alt!=null) setVal('f_alt', Math.round(gpsState.alt));
+  utmFromLatLon();
+}
+async function saveStation(id, isNew){
+  const name=document.getElementById('f_name').value.trim() || id;
+  const dt=document.getElementById('f_dt').value;
+  const lat=parseFloat(document.getElementById('f_lat').value);
+  const lon=parseFloat(document.getElementById('f_lon').value);
+  const alt=parseInt(document.getElementById('f_alt').value, 10);
+  const notes=document.getElementById('f_notes').value;
+  const obj={ id, campaignId: state.campId, name, timestamp: dt? new Date(dt).toISOString(): nowIso(),
+              lat: isNaN(lat)?null:lat, lon: isNaN(lon)?null:lon, alt: isNaN(alt)?null:alt, notes };
+  await dbPut('stations', obj);
+  toast(currentLang==='es'?'Estación guardada':'Station saved');
+  Nav.station(id, state.campId);
+}
+async function confirmDeleteStation(id){
+  if(!confirm(currentLang==='es'?'¿Eliminar esta estación?':'Delete station?')) return;
+  await dbDeleteStationCascade(id);
+  Nav.campaign(state.campId);
+}
+
+const CATS = [
+  { key:'planar', title:'Estructuras planares / lineares', titleEn:'Planar / Linear Structures', icon:'📐' },
+  { key:'fault',  title:'Fallas y cinemática', titleEn:'Faults & Kinematics', icon:'⚡' },
+  { key:'contact',title:'Contactos litológicos', titleEn:'Lithological Contacts', icon:'🪨' },
+  { key:'vein',   title:'Vetas, vetillas y alteración', titleEn:'Veins & Alteration', icon:'💠' },
+];
+
+async function renderStationDetail(){
+  const st = await dbGet('stations', state.stationId);
+  if(!st){ Nav.home(); return ''; }
+  const meas = await dbGetByStation(st.id);
+  const coords = (st.lat!=null&&st.lon!=null) ? `${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}${st.alt!=null?' · '+st.alt+' m':''}` : 'Sin GPS';
+  const utmInfo = utmLabel(st.lat, st.lon);
+
+  const cats = CATS.map(c=>{
+    const items = meas.filter(m=>m.type===c.key).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+    const rows = items.map(m=>`
+      <div class="mini-row">
+        <div class="ml"><b>${esc(m.structKind ? (m.structKind+' - '+(m.texture||'')) : (m.subtype||c.title))}</b><span>${esc(measSub(m))}</span></div>
+        <div class="mini-actions">
+          <button class="icon-sm" onclick="event.stopPropagation();Nav.editMeasurement('${m.id}','${st.id}','${m.type}')">✎</button>
+          <button class="icon-sm" onclick="event.stopPropagation();deleteMeasurement('${m.id}')">🗑</button>
+        </div>
+      </div>`).join('') || `<div class="hint" style="margin-top:8px;">${currentLang==='es'?'Sin registros aún':'No records yet'}</div>`;
+    const title = currentLang==='en'? c.titleEn : c.title;
+    return `
+    <details class="accordion" open>
+      <summary><span class="sum-l">${c.icon} ${title} <span class="badge">${items.length}</span></span><span class="chev">›</span></summary>
+      <div class="accordion-body">
+        ${rows}
+        <button class="btn primary small" style="width:100%;margin-top:10px;" onclick="Nav.newMeasurement('${st.id}','${c.key}')">+ Añadir ${title.toLowerCase()}</button>
+      </div>
+    </details>`;
+  }).join('');
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.campaign('${st.campaignId}')">←</button>
+    <div><h2>📍 ${esc(st.name)}</h2><div class="sub">${fmtDate(st.timestamp)}</div></div>
+  </div>
+  <div class="card" style="cursor:default;">
+    <div class="card-sub" style="font-family:var(--mono);font-size:12px;">${coords}</div>
+    ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>` : ''}
+    ${st.notes? `<p style="margin-top:6px;font-size:13px;">${esc(st.notes)}</p>`:''}
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn ghost small" onclick="Nav.editStation('${st.id}','${st.campaignId}')">✎ ${t('editStation')}</button>
+      <button class="btn primary small" onclick="Nav.stereonet('${st.campaignId}','${st.id}')">🌐 Estereograma</button>
+    </div>
+  </div>
+  <div class="section-hdr"><h3>Toma de datos geológicos</h3></div>
+  ${cats}
+  `;
+}
+async function deleteMeasurement(id){
+  if(!confirm('¿Eliminar registro?')) return;
+  await dbDelete('measurements', id);
+  render();
+}
+
+/* =========================================================
+   FORMULARIOS DE MEDIDAS
+   ========================================================= */
+async function renderMeasForm(){
+  const isNew = !state.measId;
+  const m = isNew ? { id:uid(), stationId:state.stationId, type:state.measType, timestamp: nowIso() }
+                  : await dbGet('measurements', state.measId);
+  let fields='';
+  if(m.type==='planar') fields=renderPlanarFields(m);
+  else if(m.type==='fault') fields=renderFaultFields(m);
+  else if(m.type==='contact') fields=renderContactFields(m);
+  else if(m.type==='vein') fields=renderVeinFields(m);
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>${isNew?'Nuevo registro':'Editar registro'}</h2><div class="sub">${m.type}</div></div>
+  </div>
+  <form id="measForm" onsubmit="event.preventDefault(); saveMeasurement('${m.id}', ${isNew});">
+    ${fields}
+    <label>${t('notes')}</label>
+    <textarea id="f_notes">${esc(m.notes||'')}</textarea>
+    <div class="btn-row" style="margin-top:22px;">
+      <button type="button" class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
+      <button type="submit" class="btn primary">${t('save')}</button>
+    </div>
+  </form>
+  `;
+}
+
+function renderPlanarFields(m){
+  const isLinear = LINEAR_SUBTYPES.includes(m.subtype);
+  return `
+  <label>Tipo de estructura</label>
+  <select id="f_subtype" onchange="onPlanarSubtypeChange()">
+    ${PLANAR_SUBTYPES.map(s=>`<option ${m.subtype===s?'selected':''}>${s}</option>`).join('')}
+  </select>
+
+  <div id="planarBlock" style="display:${isLinear?'none':''}">
+    ${renderSensorPanel('planar','p1')}
+    ${renderPlanarInputBlocks('p1', m.strike, m.dip, m.dipDir)}
+  </div>
+  <div id="linearBlock" style="display:${isLinear?'':'none'}">
+    ${renderSensorPanel('linear','l1')}
+    <div class="numfield-row">
+      <div><label>Trend (0–360°)</label><input type="number" step="1" id="trend_l1" min="0" max="360" value="${m.trend??''}"></div>
+      <div><label>Plunge (0–90°)</label><input type="number" step="1" id="plunge_l1" min="0" max="90" value="${m.plunge??''}"></div>
+    </div>
+  </div>
+  `;
+}
+function onPlanarSubtypeChange(){
+  const sel=document.getElementById('f_subtype').value;
+  const isLinear = LINEAR_SUBTYPES.includes(sel);
+  document.getElementById('planarBlock').style.display = isLinear?'none':'';
+  document.getElementById('linearBlock').style.display = isLinear?'':'none';
+}
+
+function renderFaultFields(m){
+  const rakeMode = m.striaeMode!=='trendplunge';
+  return `
+  <label>Plano de falla</label>
+  ${renderSensorPanel('planar','fp')}
+  ${renderPlanarInputBlocks('fp', m.strike, m.dip, m.dipDir)}
+
+  <label>Lineación de estría — Modo de captura</label>
+  <div class="radio-row">
+    <label class="opt ${rakeMode?'on':''}"><input type="radio" name="striaeMode" value="rake" ${rakeMode?'checked':''} onchange="onStriaeModeChange(this)">Rake / Pitch directo</label>
+    <label class="opt ${!rakeMode?'on':''}"><input type="radio" name="striaeMode" value="trendplunge" ${!rakeMode?'checked':''} onchange="onStriaeModeChange(this)">Trend / Plunge (Sensor)</label>
+  </div>
+  
+  <div id="rakeBlock" style="display:${rakeMode?'':'none'}">
+    <div class="numfield-row">
+      <div><label>Rake (0–90°)</label><input type="number" step="1" id="f_rake" min="0" max="90" value="${m.rake??''}"></div>
+      <div><label>Cuadrante de referencia</label>
+        <select id="f_rakeQuad">${['N','NE','E','SE','S','SO','O','NO'].map(q=>`<option ${m.rakeQuadrant===q?'selected':''}>${q}</option>`).join('')}</select>
+      </div>
+    </div>
+  </div>
+
+  <div id="tpBlock" style="display:${!rakeMode?'':'none'}">
+    ${renderSensorPanel('linear','fl')}
+    <div class="numfield-row">
+      <div><label>Trend estría (0–360°)</label><input type="number" step="1" id="trend_fl" min="0" max="360" value="${m.trend??''}" oninput="autoCalcRakeIfReady()"></div>
+      <div><label>Plunge estría (0–90°)</label><input type="number" step="1" id="plunge_fl" min="0" max="90" value="${m.plunge??''}" oninput="autoCalcRakeIfReady()"></div>
+    </div>
+    <div class="derived" id="rakeCalculatedOut">Rake calculado: —</div>
+  </div>
+
+  <label>Sentido de movimiento</label>
+  <select id="f_sense">${FAULT_SENSES.map(s=>`<option ${m.sense===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Calidad cinemática</label>
+  <select id="f_senseQuality">${KIN_QUALITY.map(s=>`<option ${m.senseQuality===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Criterio cinemático observado</label>
+  <div class="check-grid">
+    ${KIN_CRITERIA.map(c=>`<label class="check-item"><input type="checkbox" value="${c}" ${((m.criteria||[]).includes(c))?'checked':''} class="crit-chk">${c}</label>`).join('')}
+  </div>
+  `;
+}
+function onStriaeModeChange(inputEl){
+  const mode=inputEl.value;
+  const row=inputEl.closest('.radio-row');
+  row.querySelectorAll('label.opt').forEach(l=>l.classList.remove('on'));
+  inputEl.closest('label').classList.add('on');
+  document.getElementById('rakeBlock').style.display = mode==='rake'?'':'none';
+  document.getElementById('tpBlock').style.display = mode==='trendplunge'?'':'none';
+  if(mode==='trendplunge') autoCalcRakeIfReady();
+}
+function autoCalcRakeIfReady(){
+  const dipDir = parseInt(document.getElementById('dipDir_fp')?.value, 10);
+  const dip = parseInt(document.getElementById('dip_fp')?.value, 10);
+  const trend = parseInt(document.getElementById('trend_fl')?.value, 10);
+  const plunge = parseInt(document.getElementById('plunge_fl')?.value, 10);
+  const out = document.getElementById('rakeCalculatedOut');
+  if(isNaN(dip)||isNaN(trend)||isNaN(plunge)){ if(out) out.textContent='Rake calculado: —'; return; }
+  const res = calculateRakeFromTP(dipDir||0, dip, trend, plunge);
+  if(res && out){
+    out.innerHTML = `Rake geométrico: <b style="color:var(--accent)">${res.rake}°</b> (desde el extremo <b style="color:var(--accent)">${res.quadrant}</b>)`;
+    setVal('f_rake', res.rake);
+    const qEl=document.getElementById('f_rakeQuad'); if(qEl) qEl.value=res.quadrant;
+  }
+}
+
+function renderContactFields(m){
+  return `
+  <label>Tipo de contacto</label>
+  <select id="f_contactType">${CONTACT_TYPES.map(s=>`<option ${m.contactType===s?'selected':''}>${s}</option>`).join('')}</select>
+  ${renderSensorPanel('planar','c1')}
+  ${renderPlanarInputBlocks('c1', m.strike, m.dip, m.dipDir)}
+
+  <div class="grid2">
+    <div><label>Litología techo</label><input type="text" id="f_lithoTop" value="${esc(m.lithoTop||'')}"></div>
+    <div><label>Litología piso</label><input type="text" id="f_lithoBottom" value="${esc(m.lithoBottom||'')}"></div>
+  </div>
+
+  <div class="grid2">
+    <div><label>Espesor aparente (m)</label><input type="number" step="1" id="f_appThickness" value="${m.appThickness??''}" oninput="calcThickness()"></div>
+    <div><label>Manteo capa (°)</label><input type="number" step="1" id="f_bedDip" value="${m.bedDip ?? m.dip ?? ''}" oninput="calcThickness()"></div>
+  </div>
+  <div class="grid2">
+    <div><label>Pendiente suelo (°)</label><input type="number" step="1" id="f_slope" value="${m.slope??0}" oninput="calcThickness()"></div>
+    <div><label>Sentido</label>
+      <select id="f_slopeSense" onchange="calcThickness()">
+        <option value="opp" ${m.slopeSense==='opp'?'selected':''}>Opuesto</option>
+        <option value="same" ${m.slopeSense==='same'?'selected':''}>Mismo sentido</option>
+        <option value="flat" ${m.slopeSense==='flat'?'selected':''}>Plano</option>
+      </select>
+    </div>
+  </div>
+  <div class="derived" id="thicknessOut">${t('trueThick')}: — m</div>
+  `;
+}
+function calcThickness(){
+  const ta=parseFloat(document.getElementById('f_appThickness').value);
+  const dip=parseFloat(document.getElementById('f_bedDip').value);
+  const slope=parseFloat(document.getElementById('f_slope').value)||0;
+  const sense=document.getElementById('f_slopeSense').value;
+  const out=document.getElementById('thicknessOut');
+  if(isNaN(ta)||isNaN(dip)){ out.textContent=t('trueThick')+': — m'; return null; }
+  let angle = sense==='flat'? dip : sense==='same'? (dip-slope) : (dip+slope);
+  const val = roundInt(Math.abs(ta*Math.sin(toRad(angle))));
+  out.textContent = t('trueThick')+' ≈ '+val+' m';
+  return val;
+}
+
+function renderVeinFields(m){
+  const kind = m.structKind || 'Veta';
+  return `
+  <label>Tipo de estructura</label>
+  <div class="radio-row">
+    <label class="opt ${kind==='Veta'?'on':''}"><input type="radio" name="structKind" value="Veta" ${kind==='Veta'?'checked':''} onchange="onKindChange(this)">Veta</label>
+    <label class="opt ${kind==='Vetilla'?'on':''}"><input type="radio" name="structKind" value="Vetilla" ${kind==='Vetilla'?'checked':''} onchange="onKindChange(this)">Vetilla</label>
+  </div>
+
+  <label>Actitud del plano</label>
+  ${renderSensorPanel('planar','v1')}
+  ${renderPlanarInputBlocks('v1', m.strike, m.dip, m.dipDir)}
+
+  <div class="grid2">
+    <div><label>Espesor</label><input type="number" step="1" id="f_veinThick" value="${m.veinThickness??''}"></div>
+    <div><label>Unidad</label><select id="f_veinUnit"><option ${(!m.veinUnit||m.veinUnit==='cm')?'selected':''}>cm</option><option ${m.veinUnit==='mm'?'selected':''}>mm</option></select></div>
+  </div>
+  <label>Densidad de vetillas (vetillas/metro)</label>
+  <input type="number" step="1" id="f_veinDensity" value="${m.veinDensity??''}">
+
+  <label>Mineralogía de relleno</label>
+  <div class="check-grid">
+    ${VEIN_MINERALS.map(mn=>`<label class="check-item"><input type="checkbox" value="${mn}" ${((m.mineralogy||[]).includes(mn))?'checked':''} class="min-chk">${mn}</label>`).join('')}
+  </div>
+  <input type="text" id="f_mineralOther" placeholder="Otro mineral (opcional)" value="${esc(m.mineralOther||'')}" style="margin-top:8px;">
+
+  <label>Textura</label>
+  <select id="f_texture">${VEIN_TEXTURES.map(s=>`<option ${m.texture===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Ensamble de alteración hidrotermal</label>
+  <div class="check-grid">
+    ${ALTERATION_TYPES.map(a=>`<label class="check-item"><input type="checkbox" value="${a}" ${((m.alteration||[]).includes(a))?'checked':''} class="alt-chk">${a}</label>`).join('')}
+  </div>
+
+  <label>Intensidad de alteración</label>
+  <select id="f_intensity">${ALTERATION_INTENSITY.map(s=>`<option ${m.intensity===s?'selected':''}>${s}</option>`).join('')}</select>
+  `;
+}
+function onKindChange(el){
+  const row=el.closest('.radio-row');
+  row.querySelectorAll('label.opt').forEach(l=>l.classList.remove('on'));
+  el.closest('label').classList.add('on');
+}
+
+async function saveMeasurement(id, isNew){
+  const type=state.measType;
+  const obj={ id, stationId:state.stationId, type, timestamp: nowIso(), notes: document.getElementById('f_notes').value };
+
+  if(type==='planar'){
+    obj.subtype=document.getElementById('f_subtype').value;
+    if(LINEAR_SUBTYPES.includes(obj.subtype)){
+      obj.trend=intOrNull('trend_l1'); obj.plunge=intOrNull('plunge_l1');
+    } else {
+      obj.dipDir=intOrNull('dipDir_p1'); obj.dip=intOrNull('dip_p1');
+      obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    }
+  } else if(type==='fault'){
+    obj.dipDir=intOrNull('dipDir_fp'); obj.dip=intOrNull('dip_fp');
+    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    obj.striaeMode=document.querySelector('input[name=striaeMode]:checked')?.value || 'rake';
+    if(obj.striaeMode==='trendplunge'){
+      obj.trend=intOrNull('trend_fl'); obj.plunge=intOrNull('plunge_fl');
+    }
+    obj.rake=intOrNull('f_rake');
+    obj.rakeQuadrant=document.getElementById('f_rakeQuad')?.value || null;
+    obj.sense=document.getElementById('f_sense').value;
+    obj.senseQuality=document.getElementById('f_senseQuality').value;
+    obj.criteria=[...document.querySelectorAll('.crit-chk:checked')].map(c=>c.value);
+  } else if(type==='contact'){
+    obj.contactType=document.getElementById('f_contactType').value;
+    obj.dipDir=intOrNull('dipDir_c1'); obj.dip=intOrNull('dip_c1');
+    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    obj.lithoTop=document.getElementById('f_lithoTop').value;
+    obj.lithoBottom=document.getElementById('f_lithoBottom').value;
+    obj.appThickness=intOrNull('f_appThickness');
+    obj.bedDip=intOrNull('f_bedDip');
+    obj.slope=intOrNull('f_slope');
+    obj.slopeSense=document.getElementById('f_slopeSense').value;
+    obj.trueThickness=calcThickness();
+  } else if(type==='vein'){
+    obj.structKind=document.querySelector('input[name=structKind]:checked')?.value || 'Veta';
+    obj.dipDir=intOrNull('dipDir_v1'); obj.dip=intOrNull('dip_v1');
+    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    obj.veinThickness=intOrNull('f_veinThick');
+    obj.veinUnit=document.getElementById('f_veinUnit').value;
+    obj.veinDensity=intOrNull('f_veinDensity');
+    obj.mineralogy=[...document.querySelectorAll('.min-chk:checked')].map(c=>c.value);
+    obj.mineralOther=document.getElementById('f_mineralOther').value;
+    obj.texture=document.getElementById('f_texture').value;
+    obj.alteration=[...document.querySelectorAll('.alt-chk:checked')].map(c=>c.value);
+    obj.intensity=document.getElementById('f_intensity').value;
+  }
+  await dbPut('measurements', obj);
+  toast(currentLang==='es'?'Guardado':'Saved');
+  Nav.station(state.stationId, state.campId);
+}
+
 function renderSensorPanel(mode, formKey){
   const label = mode==='planar' 
-    ? (currentLang==='es'?'Modo plano (apoyar reverso del teléfono sobre superficie)':'Planar mode (back of phone on plane)')
-    : (currentLang==='es'?'Modo lineación (alinear borde con la línea)':'Linear mode (align edge with line)');
+    ? (currentLang==='es'?'Modo plano (apoyar reverso del teléfono)':'Planar mode (back of phone on plane)')
+    : (currentLang==='es'?'Modo lineación (alinear borde)':'Linear mode (align edge)');
   const dSize = getDialDiameter();
   return `
   <div class="sensor-box scale-${boxScale}" data-mode="${mode}" data-formkey="${formKey}">
@@ -932,153 +2453,6 @@ function captureSensorReading(formKey, mode){
   toast(currentLang==='es'?'Lectura capturada':'Reading captured');
 }
 
-function setVal(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
-
-/* Selector y sincronizador dinámico de formato de entrada manual */
-function renderPlanarInputBlocks(formKey, strikeVal, dipVal, dipDirVal){
-  const quadVal = strikeVal != null ? toQuadrant(strikeVal) : '';
-  return `
-  <div style="margin-top:10px;">
-    <label style="margin-top:0;">Formato de entrada manual</label>
-    <select id="notSel_${formKey}" onchange="switchInputNotation('${formKey}', this.value)">
-      <option value="dipdir" ${inputNotation==='dipdir'?'selected':''}>Dip Direction / Dip (ej. 135 / 45)</option>
-      <option value="strike" ${inputNotation==='strike'?'selected':''}>Strike RHR / Dip (ej. 045 / 45)</option>
-      <option value="quadrant" ${inputNotation==='quadrant'?'selected':''}>Cuadrante / Dip (ej. N45°E / 45)</option>
-    </select>
-  </div>
-
-  <div id="box_dipdir_${formKey}" style="display:${inputNotation==='dipdir'?'block':'none'};">
-    <div class="numfield-row">
-      <div><label>Dip Direction (0–360°)</label><input type="number" step="1" id="dipDir_${formKey}" min="0" max="360" value="${dipDirVal??''}" oninput="onOrientationInputChange('${formKey}','dipdir')"></div>
-      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="onOrientationInputChange('${formKey}','dipdir')"></div>
-    </div>
-  </div>
-
-  <div id="box_strike_${formKey}" style="display:${inputNotation==='strike'?'block':'none'};">
-    <div class="numfield-row">
-      <div><label>Strike RHR (0–360°)</label><input type="number" step="1" id="strike_${formKey}" min="0" max="360" value="${strikeVal??''}" oninput="onOrientationInputChange('${formKey}','strike')"></div>
-      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip2_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="syncDip('${formKey}', this.value)"></div>
-    </div>
-  </div>
-
-  <div id="box_quad_${formKey}" style="display:${inputNotation==='quadrant'?'block':'none'};">
-    <div class="numfield-row">
-      <div><label>Rumbo Cuadrante (ej. N30E)</label><input type="text" id="quad_${formKey}" value="${quadVal}" placeholder="N30E" oninput="onOrientationInputChange('${formKey}','quadrant')"></div>
-      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip3_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="syncDip('${formKey}', this.value)"></div>
-    </div>
-  </div>
-
-  <div class="derived" id="derived_${formKey}">Strike RHR: — · Cuadrante: —</div>
-  `;
-}
-
-function switchInputNotation(formKey, mode){
-  ['dipdir','strike','quadrant'].forEach(m=>{
-    const el = document.getElementById(`box_${m==='quadrant'?'quad':m}_${formKey}`);
-    if(el) el.style.display = (m === mode) ? 'block' : 'none';
-  });
-}
-
-function syncDip(formKey, val){
-  setVal('dip_'+formKey, val);
-  setVal('dip2_'+formKey, val);
-  setVal('dip3_'+formKey, val);
-  onOrientationInputChange(formKey, 'dipdir');
-}
-
-function onOrientationInputChange(formKey, fromSource){
-  let dipDir = parseInt(document.getElementById('dipDir_'+formKey)?.value, 10);
-  let dip = parseInt(document.getElementById('dip_'+formKey)?.value, 10);
-  let strike = parseInt(document.getElementById('strike_'+formKey)?.value, 10);
-  let quad = document.getElementById('quad_'+formKey)?.value;
-
-  if(fromSource === 'strike'){
-    if(!isNaN(strike)){
-      dipDir = roundInt(norm360(strike + 90));
-      setVal('dipDir_'+formKey, dipDir);
-      setVal('quad_'+formKey, toQuadrant(strike));
-    }
-  } else if(fromSource === 'quadrant'){
-    const parsedStrike = parseQuadrantToStrike(quad);
-    if(parsedStrike != null){
-      strike = parsedStrike;
-      dipDir = roundInt(norm360(strike + 90));
-      setVal('strike_'+formKey, strike);
-      setVal('dipDir_'+formKey, dipDir);
-    }
-  } else if(fromSource === 'dipdir'){
-    if(!isNaN(dipDir)){
-      strike = roundInt(norm360(dipDir - 90));
-      setVal('strike_'+formKey, strike);
-      setVal('quad_'+formKey, toQuadrant(strike));
-    }
-  }
-
-  const out = document.getElementById('derived_'+formKey);
-  if(!out) return;
-  if(isNaN(dipDir) || isNaN(dip)){ out.textContent='Strike RHR: — · '+t('quadrant')+': —'; return; }
-  out.innerHTML = `${t('strikeRHR')}: <b style="color:var(--accent)">${strike}°</b> &nbsp;·&nbsp; ${t('quadrant')}: <b style="color:var(--accent)">${toQuadrant(strike)}</b> &nbsp;·&nbsp; ${t('dipTowards')}: <b style="color:var(--accent)">${dipDirQuadrant(dipDir)}</b>`;
-}
-
-/* =========================================================
-   NAVEGACIÓN / ROUTER
-   ========================================================= */
-const Nav={
-  home(){ state.view='campaigns'; state.campId=null; state.stationId=null; render(); },
-  newCampaign(){ state.view='campForm'; state.campId=null; render(); },
-  editCampaign(id){ state.view='campForm'; state.campId=id; render(); },
-  campaign(id){ state.view='campaignDetail'; state.campId=id; state.stationId=null; render(); },
-  newStation(campId){ state.view='stationForm'; state.campId=campId; state.stationId=null; render(); },
-  editStation(id, campId){ state.view='stationForm'; state.campId=campId; state.stationId=id; render(); },
-  station(id, campId){ state.view='stationDetail'; state.stationId=id; if(campId) state.campId=campId; render(); },
-  newMeasurement(stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=null; render(); },
-  editMeasurement(id, stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=id; render(); },
-  stereonet(campId, stationId){ 
-    state.view='stereonet'; 
-    if(campId) stereoState.campId = campId;
-    if(stationId) stereoState.stationId = stationId;
-    render(); 
-  },
-  exportView(){ state.view='export'; render(); },
-  settings(){ state.view='settings'; render(); },
-  back(){
-    if(state.view==='measForm') Nav.station(state.stationId, state.campId);
-    else if(state.view==='stationForm') { if(state.stationId) Nav.station(state.stationId, state.campId); else Nav.campaign(state.campId); }
-    else if(state.view==='stationDetail') { if(state.campId) Nav.campaign(state.campId); else Nav.home(); }
-    else if(state.view==='stereonet' && state.stationId) Nav.station(state.stationId, state.campId);
-    else if(state.view==='stereonet' && state.campId) Nav.campaign(state.campId);
-    else Nav.home();
-  }
-};
-
-function setActiveNav(){
-  ['navHome','navStereo','navExport','navSettings'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
-  if(['campaigns','campForm','campaignDetail','stationForm','stationDetail','measForm'].includes(state.view)) document.getElementById('navHome')?.classList.add('active');
-  if(state.view==='stereonet') document.getElementById('navStereo')?.classList.add('active');
-  if(state.view==='export') document.getElementById('navExport')?.classList.add('active');
-  if(state.view==='settings') document.getElementById('navSettings')?.classList.add('active');
-
-  document.getElementById('navHomeTxt').textContent = t('campaigns');
-  document.getElementById('navStereoTxt').textContent = t('stereonet');
-  document.getElementById('navExportTxt').textContent = t('export');
-  document.getElementById('navSettingsTxt').textContent = t('settings');
-}
-
-async function render(){
-  const app=document.getElementById('app');
-  applyTheme();
-  setActiveNav();
-  if(state.view==='campaigns') app.innerHTML = await renderCampaigns();
-  else if(state.view==='campForm') app.innerHTML = await renderCampaignForm();
-  else if(state.view==='campaignDetail') app.innerHTML = await renderCampaignDetail();
-  else if(state.view==='stationForm'){ app.innerHTML = await renderStationForm(); utmFromLatLon(); }
-  else if(state.view==='stationDetail') app.innerHTML = await renderStationDetail();
-  else if(state.view==='measForm'){ app.innerHTML = await renderMeasForm(); attachSensorInit(); postRenderMeasForm(); }
-  else if(state.view==='stereonet'){ app.innerHTML = await renderStereonetView(); initStereonetCanvas(); }
-  else if(state.view==='export') app.innerHTML = await renderExport();
-  else if(state.view==='settings') app.innerHTML = renderSettings();
-  window.scrollTo(0,0); app.scrollTop=0;
-}
 function attachSensorInit(){
   document.querySelectorAll('[id^="dial_"]').forEach(svg=>{
     const mode=svg.closest('.sensor-box')?.dataset.mode||'planar';
@@ -1094,7 +2468,7 @@ function postRenderMeasForm(){
 }
 
 /* =========================================================
-   VISTA: ESTEREOGRAMA
+   VISTAS DE ESTEREOGRAMA Y EXPORTACIÓN
    ========================================================= */
 async function renderStereonetView(){
   const camps = await dbGetAll('campaigns');
@@ -1489,573 +2863,7 @@ function exportStereoImage(){
 }
 
 /* =========================================================
-   VISTAS CAMPANAS Y FORMULARIOS
-   ========================================================= */
-async function renderCampaigns(){
-  const camps = (await dbGetAll('campaigns')).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
-  const allSts = await dbGetAll('stations');
-  document.getElementById('stationCountLabel').textContent = camps.length+' '+(currentLang==='es'?'campañas':'campaigns');
-
-  if(camps.length===0){
-    return `
-    <div class="empty">
-      <div class="big">📁</div>
-      <p>${t('noCampaigns')}</p>
-      <button class="btn primary" style="margin-top:16px;" onclick="Nav.newCampaign()">${t('addCampBtn')}</button>
-    </div>
-    <button class="fab" onclick="Nav.newCampaign()">+</button>`;
-  }
-
-  const cards = camps.map(c=>{
-    const stCount = allSts.filter(s=>s.campaignId===c.id).length;
-    return `
-      <div class="card" onclick="Nav.campaign('${c.id}')">
-        <div class="card-title">📁 ${esc(c.name)}</div>
-        <div class="card-sub">${fmtDate(c.timestamp)} · ${stCount} ${t('stations')}</div>
-        ${c.notes? `<div class="card-sub" style="margin-top:6px;">${esc(c.notes)}</div>`:''}
-      </div>`;
-  }).join('');
-
-  return `<div>${cards}</div><button class="fab" onclick="Nav.newCampaign()">+</button>`;
-}
-
-async function renderCampaignForm(){
-  let c = state.campId ? await dbGet('campaigns', state.campId) : null;
-  const isNew = !c;
-  if(isNew) c = { id: uid(), name: '', timestamp: nowIso(), notes: '' };
-
-  return `
-  <div class="topline">
-    <button class="back-btn" onclick="Nav.back()">←</button>
-    <div><h2>${isNew? t('newCampaign') : t('editCampaign')}</h2></div>
-  </div>
-  <label>${t('campName')}</label>
-  <input type="text" id="f_campName" value="${esc(c.name)}" placeholder="ej. Expedición Atacama 2026">
-
-  <label>${t('notes')}</label>
-  <textarea id="f_campNotes" placeholder="Objetivo, cuadrángulo, geólogo...">${esc(c.notes||'')}</textarea>
-
-  <div class="btn-row" style="margin-top:22px;">
-    <button class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
-    <button class="btn primary" onclick="saveCampaign('${c.id}', ${isNew})">${t('save')}</button>
-  </div>
-  ${!isNew? `<button class="btn danger" style="margin-top:10px;" onclick="confirmDeleteCampaign('${c.id}')">${t('delete')} ${t('campaign')}</button>`:''}
-  `;
-}
-async function saveCampaign(id, isNew){
-  const name=document.getElementById('f_campName').value.trim() || (currentLang==='es'?'Campaña sin nombre':'Unnamed Campaign');
-  const notes=document.getElementById('f_campNotes').value;
-  await dbPut('campaigns', { id, name, timestamp: nowIso(), notes });
-  toast(currentLang==='es'?'Campaña guardada':'Campaign saved');
-  Nav.campaign(id);
-}
-async function confirmDeleteCampaign(id){
-  if(!confirm(currentLang==='es'?'¿Eliminar esta campaña y todas sus estaciones?':'Delete campaign and stations?')) return;
-  await dbDeleteCampaignCascade(id);
-  Nav.home();
-}
-
-async function renderCampaignDetail(){
-  const camp = await dbGet('campaigns', state.campId);
-  if(!camp){ Nav.home(); return ''; }
-  const stations = (await dbGetByCampaign(camp.id)).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
-  const allMeas = await dbGetAll('measurements');
-
-  const cards = stations.map(s=>{
-    const meas = allMeas.filter(m=>m.stationId===s.id);
-    const counts={planar:0, fault:0, contact:0, vein:0};
-    meas.forEach(m=>{ if(counts[m.type]!=null) counts[m.type]++; });
-    const badges = [
-      counts.planar? `<span class="badge accent">${counts.planar} ${t('structural')}</span>`:'',
-      counts.fault? `<span class="badge accent">${counts.fault} ${t('fault')}</span>`:'',
-      counts.contact? `<span class="badge accent">${counts.contact} ${t('contact')}</span>`:'',
-      counts.vein? `<span class="badge accent">${counts.vein} ${t('vein')}</span>`:'',
-      meas.length===0? `<span class="badge">0 datos</span>`:''
-    ].join('');
-    const coords = (s.lat!=null && s.lon!=null) ? `${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}` : 'sin GPS';
-    const utmInfo = utmLabel(s.lat, s.lon);
-    return `
-      <div class="card" onclick="Nav.station('${s.id}','${camp.id}')">
-        <div class="card-title">📍 ${esc(s.name||s.id)}</div>
-        <div class="card-sub">${fmtDate(s.timestamp)} · <span style="font-family:var(--mono)">${coords}</span></div>
-        ${utmInfo? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>`:''}
-        <div class="badge-row">${badges}</div>
-      </div>`;
-  }).join('');
-
-  return `
-  <div class="topline">
-    <button class="back-btn" onclick="Nav.home()">←</button>
-    <div><h2>📁 ${esc(camp.name)}</h2><div class="sub">${stations.length} ${t('stations')}</div></div>
-  </div>
-  <div class="card" style="cursor:default;">
-    <div class="card-sub">${fmtDate(camp.timestamp)}</div>
-    ${camp.notes? `<p style="margin-top:6px;font-size:13px;">${esc(camp.notes)}</p>`:''}
-    <div class="btn-row" style="margin-top:10px;">
-      <button class="btn ghost small" onclick="Nav.editCampaign('${camp.id}')">✎ ${t('editCampaign')}</button>
-      <button class="btn primary small" onclick="Nav.stereonet('${camp.id}', 'ALL')">🌐 Estereograma</button>
-      <button class="btn primary small" onclick="Nav.newStation('${camp.id}')">${t('addStationBtn')}</button>
-    </div>
-  </div>
-  <div class="section-hdr"><h3>${t('stationsInCamp')}</h3></div>
-  ${stations.length===0 ? `<div class="empty"><p>${t('noStations')}</p><button class="btn primary" style="margin-top:10px;" onclick="Nav.newStation('${camp.id}')">${t('addStationBtn')}</button></div>` : cards}
-  <button class="fab" onclick="Nav.newStation('${camp.id}')">+</button>
-  `;
-}
-
-async function nextStationName(campId){
-  const stations=await dbGetByCampaign(campId);
-  let max=0;
-  stations.forEach(s=>{ const m=/EST-(\d+)/.exec(s.name||''); if(m) max=Math.max(max,parseInt(m[1],10)); });
-  return 'EST-'+String(max+1).padStart(2,'0');
-}
-async function renderStationForm(){
-  let st = state.stationId ? await dbGet('stations', state.stationId) : null;
-  const isNew = !st;
-  if(isNew){
-    st = { id: uid(), campaignId: state.campId, name: await nextStationName(state.campId), timestamp: nowIso(),
-           lat: gpsState.lat, lon: gpsState.lon, alt: gpsState.alt ? Math.round(gpsState.alt) : null, notes:'' };
-  }
-  const localDt = new Date(st.timestamp || Date.now());
-  const localDtVal = new Date(localDt.getTime() - localDt.getTimezoneOffset()*60000).toISOString().slice(0,16);
-
-  return `
-  <div class="topline">
-    <button class="back-btn" onclick="Nav.back()">←</button>
-    <div><h2>${isNew? t('newStation') : t('editStation')}</h2></div>
-  </div>
-  <label>ID / ${t('station')}</label>
-  <input type="text" id="f_name" value="${esc(st.name)}">
-
-  <label>${currentLang==='es'?'Fecha y hora':'Date & Time'}</label>
-  <input type="datetime-local" id="f_dt" value="${localDtVal}">
-
-  <div class="grid3">
-    <div><label>${t('lat')}</label><input type="number" step="0.000001" id="f_lat" value="${st.lat??''}" oninput="utmFromLatLon()"></div>
-    <div><label>${t('lon')}</label><input type="number" step="0.000001" id="f_lon" value="${st.lon??''}" oninput="utmFromLatLon()"></div>
-    <div><label>${t('alt')}</label><input type="number" step="1" id="f_alt" value="${st.alt??''}"></div>
-  </div>
-  <button type="button" class="btn ghost small" style="width:100%;margin-top:8px;" onclick="captureGpsIntoStation()">${t('useGps')}</button>
-
-  <div class="section-hdr"><h3>Coordenadas UTM (WGS84)</h3></div>
-  <div class="grid2">
-    <div><label>${currentLang==='es'?'Huso':'Zone'}</label><input type="number" id="f_utmZone" min="1" max="60" value=""></div>
-    <div><label>${currentLang==='es'?'Hemisferio':'Hemisphere'}</label>
-      <select id="f_utmHemi"><option value="S">S</option><option value="N">N</option></select>
-    </div>
-  </div>
-  <div class="grid2">
-    <div><label>${currentLang==='es'?'Este (m)':'Easting (m)'}</label><input type="number" step="1" id="f_utmEast" value=""></div>
-    <div><label>${currentLang==='es'?'Norte (m)':'Northing (m)'}</label><input type="number" step="1" id="f_utmNorth" value=""></div>
-  </div>
-  <div class="btn-row" style="margin-top:6px;">
-    <button type="button" class="btn ghost small" onclick="utmFromLatLon()">↻ Lat/Lon → UTM</button>
-    <button type="button" class="btn ghost small" onclick="latLonFromUtm()">↻ UTM → Lat/Lon</button>
-  </div>
-
-  <label>${t('notes')}</label>
-  <textarea id="f_notes" placeholder="Afloramiento, litología...">${esc(st.notes||'')}</textarea>
-
-  <div class="btn-row" style="margin-top:22px;">
-    <button class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
-    <button class="btn primary" onclick="saveStation('${st.id}', ${isNew})">${t('save')}</button>
-  </div>
-  ${!isNew? `<button class="btn danger" style="margin-top:10px;" onclick="confirmDeleteStation('${st.id}')">${t('delete')} ${t('station')}</button>`:''}
-  `;
-}
-function utmFromLatLon(){
-  const lat=parseFloat(document.getElementById('f_lat')?.value);
-  const lon=parseFloat(document.getElementById('f_lon')?.value);
-  if(isNaN(lat)||isNaN(lon)) return;
-  const r=llToUTM(lat,lon);
-  setVal('f_utmZone', r.zoneNumber);
-  const hemiEl=document.getElementById('f_utmHemi'); if(hemiEl) hemiEl.value=r.hemisphere;
-  setVal('f_utmEast', r.easting);
-  setVal('f_utmNorth', r.northing);
-}
-function latLonFromUtm(){
-  const zone=parseInt(document.getElementById('f_utmZone')?.value,10);
-  const hemi=document.getElementById('f_utmHemi')?.value||'S';
-  const east=parseInt(document.getElementById('f_utmEast')?.value, 10);
-  const north=parseInt(document.getElementById('f_utmNorth')?.value, 10);
-  if(isNaN(zone)||isNaN(east)||isNaN(north)){ toast('Completa UTM'); return; }
-  const r=utmToLL(east, north, zone, hemi);
-  setVal('f_lat', r.lat);
-  setVal('f_lon', r.lon);
-}
-function captureGpsIntoStation(){
-  if(gpsState.lat==null){ toast('Sin señal GPS'); return; }
-  setVal('f_lat', gpsState.lat.toFixed(6));
-  setVal('f_lon', gpsState.lon.toFixed(6));
-  if(gpsState.alt!=null) setVal('f_alt', Math.round(gpsState.alt));
-  utmFromLatLon();
-}
-async function saveStation(id, isNew){
-  const name=document.getElementById('f_name').value.trim() || id;
-  const dt=document.getElementById('f_dt').value;
-  const lat=parseFloat(document.getElementById('f_lat').value);
-  const lon=parseFloat(document.getElementById('f_lon').value);
-  const alt=parseInt(document.getElementById('f_alt').value, 10);
-  const notes=document.getElementById('f_notes').value;
-  const obj={ id, campaignId: state.campId, name, timestamp: dt? new Date(dt).toISOString(): nowIso(),
-              lat: isNaN(lat)?null:lat, lon: isNaN(lon)?null:lon, alt: isNaN(alt)?null:alt, notes };
-  await dbPut('stations', obj);
-  toast(currentLang==='es'?'Estación guardada':'Station saved');
-  Nav.station(id, state.campId);
-}
-async function confirmDeleteStation(id){
-  if(!confirm(currentLang==='es'?'¿Eliminar esta estación?':'Delete station?')) return;
-  await dbDeleteStationCascade(id);
-  Nav.campaign(state.campId);
-}
-
-const CATS = [
-  { key:'planar', title:'Estructuras planares / lineares', titleEn:'Planar / Linear Structures', icon:'📐' },
-  { key:'fault',  title:'Fallas y cinemática', titleEn:'Faults & Kinematics', icon:'⚡' },
-  { key:'contact',title:'Contactos litológicos', titleEn:'Lithological Contacts', icon:'🪨' },
-  { key:'vein',   title:'Vetas, vetillas y alteración', titleEn:'Veins & Alteration', icon:'💠' },
-];
-function measSub(m){
-  if(m.type==='planar'){
-    if(m.strike!=null) return `${pad3(m.strike)}/${pad2(m.dip)} (RHR) · DipDir ${pad3(m.dipDir)}`;
-    if(m.trend!=null) return `Trend/Plunge ${pad3(m.trend)}/${pad2(m.plunge)}`;
-    return '';
-  }
-  if(m.type==='fault') return `Plano ${pad3(m.strike)}/${pad2(m.dip)} · Rake: ${m.rake??'—'}° (${m.rakeQuadrant||'—'}) · ${m.sense||''}`;
-  if(m.type==='contact') return `${esc(m.lithoTop||'?')} / ${esc(m.lithoBottom||'?')} · e=${m.trueThickness??'?'} m`;
-  if(m.type==='vein') return `${esc(m.structKind||'Veta')}: ${m.veinThickness??'?'} ${m.veinUnit||'cm'} · ${(m.alteration||[]).join(', ')||'Sin alteración'}`;
-  return '';
-}
-function pad3(v){ return v==null?'—':String(roundInt(v)).padStart(3,'0'); }
-function pad2(v){ return v==null?'—':String(roundInt(v)).padStart(2,'0'); }
-
-async function renderStationDetail(){
-  const st = await dbGet('stations', state.stationId);
-  if(!st){ Nav.home(); return ''; }
-  const meas = await dbGetByStation(st.id);
-  const coords = (st.lat!=null&&st.lon!=null) ? `${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}${st.alt!=null?' · '+st.alt+' m':''}` : 'Sin GPS';
-  const utmInfo = utmLabel(st.lat, st.lon);
-
-  const cats = CATS.map(c=>{
-    const items = meas.filter(m=>m.type===c.key).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
-    const rows = items.map(m=>`
-      <div class="mini-row">
-        <div class="ml"><b>${esc(m.structKind ? (m.structKind+' - '+(m.texture||'')) : (m.subtype||c.title))}</b><span>${esc(measSub(m))}</span></div>
-        <div class="mini-actions">
-          <button class="icon-sm" onclick="event.stopPropagation();Nav.editMeasurement('${m.id}','${st.id}','${m.type}')">✎</button>
-          <button class="icon-sm" onclick="event.stopPropagation();deleteMeasurement('${m.id}')">🗑</button>
-        </div>
-      </div>`).join('') || `<div class="hint" style="margin-top:8px;">${currentLang==='es'?'Sin registros aún':'No records yet'}</div>`;
-    const title = currentLang==='en'? c.titleEn : c.title;
-    return `
-    <details class="accordion" open>
-      <summary><span class="sum-l">${c.icon} ${title} <span class="badge">${items.length}</span></span><span class="chev">›</span></summary>
-      <div class="accordion-body">
-        ${rows}
-        <button class="btn primary small" style="width:100%;margin-top:10px;" onclick="Nav.newMeasurement('${st.id}','${c.key}')">+ Añadir ${title.toLowerCase()}</button>
-      </div>
-    </details>`;
-  }).join('');
-
-  return `
-  <div class="topline">
-    <button class="back-btn" onclick="Nav.campaign('${st.campaignId}')">←</button>
-    <div><h2>📍 ${esc(st.name)}</h2><div class="sub">${fmtDate(st.timestamp)}</div></div>
-  </div>
-  <div class="card" style="cursor:default;">
-    <div class="card-sub" style="font-family:var(--mono);font-size:12px;">${coords}</div>
-    ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>` : ''}
-    ${st.notes? `<p style="margin-top:6px;font-size:13px;">${esc(st.notes)}</p>`:''}
-    <div class="btn-row" style="margin-top:10px;">
-      <button class="btn ghost small" onclick="Nav.editStation('${st.id}','${st.campaignId}')">✎ ${t('editStation')}</button>
-      <button class="btn primary small" onclick="Nav.stereonet('${st.campaignId}','${st.id}')">🌐 Ver Estereograma</button>
-    </div>
-  </div>
-  <div class="section-hdr"><h3>Toma de datos geológicos</h3></div>
-  ${cats}
-  `;
-}
-async function deleteMeasurement(id){
-  if(!confirm('¿Eliminar registro?')) return;
-  await dbDelete('measurements', id);
-  render();
-}
-
-const PLANAR_SUBTYPES = ['Estratificación (S0)','Foliación (S1)','Foliación (S2)','Diaclasa / Fractura','Clivaje','Lineación mineral','Eje de pliegue'];
-const LINEAR_SUBTYPES = ['Lineación mineral','Eje de pliegue'];
-const FAULT_SENSES = ['Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso','TR','LL','RL','N','T'];
-const KIN_QUALITY = ['Definida','Probable','Posible'];
-const KIN_CRITERIA = ['Fibras minerales','Escalones de crecimiento','Estructuras S-C','Estilolitos','Brechas','Estrías simples','Otro'];
-const CONTACT_TYPES = ['Concordante','Discordante angular','Discordante erosiva','Falla','Intrusivo','Transicional'];
-const VEIN_TEXTURES = ['Masiva','Bandeada','Brechosa','Peine (comb)','Coloforme','Otro'];
-const VEIN_MINERALS = ['Cuarzo','Calcita','Pirita','Calcopirita','Turmalina','Especularita','Yeso','Clorita','Epidota'];
-const ALTERATION_TYPES = ['Propilítica','Fílica (sericítica)','Potásica','Argílica intermedia','Argílica avanzada','Silicificación','Skarn','Sin alteración visible'];
-const ALTERATION_INTENSITY = ['Débil','Moderada','Fuerte','Pervasiva'];
-
-async function renderMeasForm(){
-  const isNew = !state.measId;
-  const m = isNew ? { id:uid(), stationId:state.stationId, type:state.measType, timestamp: nowIso() }
-                  : await dbGet('measurements', state.measId);
-  let fields='';
-  if(m.type==='planar') fields=renderPlanarFields(m);
-  else if(m.type==='fault') fields=renderFaultFields(m);
-  else if(m.type==='contact') fields=renderContactFields(m);
-  else if(m.type==='vein') fields=renderVeinFields(m);
-
-  return `
-  <div class="topline">
-    <button class="back-btn" onclick="Nav.back()">←</button>
-    <div><h2>${isNew?'Nuevo registro':'Editar registro'}</h2><div class="sub">${m.type}</div></div>
-  </div>
-  <form id="measForm" onsubmit="event.preventDefault(); saveMeasurement('${m.id}', ${isNew});">
-    ${fields}
-    <label>${t('notes')}</label>
-    <textarea id="f_notes">${esc(m.notes||'')}</textarea>
-    <div class="btn-row" style="margin-top:22px;">
-      <button type="button" class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
-      <button type="submit" class="btn primary">${t('save')}</button>
-    </div>
-  </form>
-  `;
-}
-
-function renderPlanarFields(m){
-  const isLinear = LINEAR_SUBTYPES.includes(m.subtype);
-  return `
-  <label>Tipo de estructura</label>
-  <select id="f_subtype" onchange="onPlanarSubtypeChange()">
-    ${PLANAR_SUBTYPES.map(s=>`<option ${m.subtype===s?'selected':''}>${s}</option>`).join('')}
-  </select>
-
-  <div id="planarBlock" style="display:${isLinear?'none':''}">
-    ${renderSensorPanel('planar','p1')}
-    ${renderPlanarInputBlocks('p1', m.strike, m.dip, m.dipDir)}
-  </div>
-  <div id="linearBlock" style="display:${isLinear?'':'none'}">
-    ${renderSensorPanel('linear','l1')}
-    <div class="numfield-row">
-      <div><label>Trend (0–360°)</label><input type="number" step="1" id="trend_l1" min="0" max="360" value="${m.trend??''}"></div>
-      <div><label>Plunge (0–90°)</label><input type="number" step="1" id="plunge_l1" min="0" max="90" value="${m.plunge??''}"></div>
-    </div>
-  </div>
-  `;
-}
-function onPlanarSubtypeChange(){
-  const sel=document.getElementById('f_subtype').value;
-  const isLinear = LINEAR_SUBTYPES.includes(sel);
-  document.getElementById('planarBlock').style.display = isLinear?'none':'';
-  document.getElementById('linearBlock').style.display = isLinear?'':'none';
-}
-
-function renderFaultFields(m){
-  const rakeMode = m.striaeMode!=='trendplunge';
-  return `
-  <label>Plano de falla</label>
-  ${renderSensorPanel('planar','fp')}
-  ${renderPlanarInputBlocks('fp', m.strike, m.dip, m.dipDir)}
-
-  <label>Lineación de estría — Modo de captura</label>
-  <div class="radio-row">
-    <label class="opt ${rakeMode?'on':''}"><input type="radio" name="striaeMode" value="rake" ${rakeMode?'checked':''} onchange="onStriaeModeChange(this)">Rake / Pitch directo</label>
-    <label class="opt ${!rakeMode?'on':''}"><input type="radio" name="striaeMode" value="trendplunge" ${!rakeMode?'checked':''} onchange="onStriaeModeChange(this)">Trend / Plunge (Sensor)</label>
-  </div>
-  
-  <div id="rakeBlock" style="display:${rakeMode?'':'none'}">
-    <div class="numfield-row">
-      <div><label>Rake (0–90°)</label><input type="number" step="1" id="f_rake" min="0" max="90" value="${m.rake??''}"></div>
-      <div><label>Cuadrante de referencia</label>
-        <select id="f_rakeQuad">${['N','NE','E','SE','S','SO','O','NO'].map(q=>`<option ${m.rakeQuadrant===q?'selected':''}>${q}</option>`).join('')}</select>
-      </div>
-    </div>
-  </div>
-
-  <div id="tpBlock" style="display:${!rakeMode?'':'none'}">
-    ${renderSensorPanel('linear','fl')}
-    <div class="numfield-row">
-      <div><label>Trend estría (0–360°)</label><input type="number" step="1" id="trend_fl" min="0" max="360" value="${m.trend??''}" oninput="autoCalcRakeIfReady()"></div>
-      <div><label>Plunge estría (0–90°)</label><input type="number" step="1" id="plunge_fl" min="0" max="90" value="${m.plunge??''}" oninput="autoCalcRakeIfReady()"></div>
-    </div>
-    <div class="derived" id="rakeCalculatedOut">Rake calculado: —</div>
-  </div>
-
-  <label>Sentido de movimiento</label>
-  <select id="f_sense">${FAULT_SENSES.map(s=>`<option ${m.sense===s?'selected':''}>${s}</option>`).join('')}</select>
-
-  <label>Calidad cinemática</label>
-  <select id="f_senseQuality">${KIN_QUALITY.map(s=>`<option ${m.senseQuality===s?'selected':''}>${s}</option>`).join('')}</select>
-
-  <label>Criterio cinemático observado</label>
-  <div class="check-grid">
-    ${KIN_CRITERIA.map(c=>`<label class="check-item"><input type="checkbox" value="${c}" ${((m.criteria||[]).includes(c))?'checked':''} class="crit-chk">${c}</label>`).join('')}
-  </div>
-  `;
-}
-function onStriaeModeChange(inputEl){
-  const mode=inputEl.value;
-  const row=inputEl.closest('.radio-row');
-  row.querySelectorAll('label.opt').forEach(l=>l.classList.remove('on'));
-  inputEl.closest('label').classList.add('on');
-  document.getElementById('rakeBlock').style.display = mode==='rake'?'':'none';
-  document.getElementById('tpBlock').style.display = mode==='trendplunge'?'':'none';
-  if(mode==='trendplunge') autoCalcRakeIfReady();
-}
-function autoCalcRakeIfReady(){
-  const dipDir = parseInt(document.getElementById('dipDir_fp')?.value, 10);
-  const dip = parseInt(document.getElementById('dip_fp')?.value, 10);
-  const trend = parseInt(document.getElementById('trend_fl')?.value, 10);
-  const plunge = parseInt(document.getElementById('plunge_fl')?.value, 10);
-  const out = document.getElementById('rakeCalculatedOut');
-  if(isNaN(dip)||isNaN(trend)||isNaN(plunge)){ if(out) out.textContent='Rake calculado: —'; return; }
-  const res = calculateRakeFromTP(dipDir||0, dip, trend, plunge);
-  if(res && out){
-    out.innerHTML = `Rake geométrico: <b style="color:var(--accent)">${res.rake}°</b> (desde el extremo <b style="color:var(--accent)">${res.quadrant}</b>)`;
-    setVal('f_rake', res.rake);
-    const qEl=document.getElementById('f_rakeQuad'); if(qEl) qEl.value=res.quadrant;
-  }
-}
-
-function renderContactFields(m){
-  return `
-  <label>Tipo de contacto</label>
-  <select id="f_contactType">${CONTACT_TYPES.map(s=>`<option ${m.contactType===s?'selected':''}>${s}</option>`).join('')}</select>
-  ${renderSensorPanel('planar','c1')}
-  ${renderPlanarInputBlocks('c1', m.strike, m.dip, m.dipDir)}
-
-  <div class="grid2">
-    <div><label>Litología techo</label><input type="text" id="f_lithoTop" value="${esc(m.lithoTop||'')}"></div>
-    <div><label>Litología piso</label><input type="text" id="f_lithoBottom" value="${esc(m.lithoBottom||'')}"></div>
-  </div>
-
-  <div class="grid2">
-    <div><label>Espesor aparente (m)</label><input type="number" step="1" id="f_appThickness" value="${m.appThickness??''}" oninput="calcThickness()"></div>
-    <div><label>Manteo capa (°)</label><input type="number" step="1" id="f_bedDip" value="${m.bedDip ?? m.dip ?? ''}" oninput="calcThickness()"></div>
-  </div>
-  <div class="grid2">
-    <div><label>Pendiente suelo (°)</label><input type="number" step="1" id="f_slope" value="${m.slope??0}" oninput="calcThickness()"></div>
-    <div><label>Sentido</label>
-      <select id="f_slopeSense" onchange="calcThickness()">
-        <option value="opp" ${m.slopeSense==='opp'?'selected':''}>Opuesto</option>
-        <option value="same" ${m.slopeSense==='same'?'selected':''}>Mismo sentido</option>
-        <option value="flat" ${m.slopeSense==='flat'?'selected':''}>Plano</option>
-      </select>
-    </div>
-  </div>
-  <div class="derived" id="thicknessOut">${t('trueThick')}: — m</div>
-  `;
-}
-function calcThickness(){
-  const ta=parseFloat(document.getElementById('f_appThickness').value);
-  const dip=parseFloat(document.getElementById('f_bedDip').value);
-  const slope=parseFloat(document.getElementById('f_slope').value)||0;
-  const sense=document.getElementById('f_slopeSense').value;
-  const out=document.getElementById('thicknessOut');
-  if(isNaN(ta)||isNaN(dip)){ out.textContent=t('trueThick')+': — m'; return null; }
-  let angle = sense==='flat'? dip : sense==='same'? (dip-slope) : (dip+slope);
-  const val = roundInt(Math.abs(ta*Math.sin(toRad(angle))));
-  out.textContent = t('trueThick')+' ≈ '+val+' m';
-  return val;
-}
-
-function renderVeinFields(m){
-  const kind = m.structKind || 'Veta';
-  return `
-  <label>Tipo de estructura</label>
-  <div class="radio-row">
-    <label class="opt ${kind==='Veta'?'on':''}"><input type="radio" name="structKind" value="Veta" ${kind==='Veta'?'checked':''} onchange="onKindChange(this)">Veta</label>
-    <label class="opt ${kind==='Vetilla'?'on':''}"><input type="radio" name="structKind" value="Vetilla" ${kind==='Vetilla'?'checked':''} onchange="onKindChange(this)">Vetilla</label>
-  </div>
-
-  <label>Actitud del plano</label>
-  ${renderSensorPanel('planar','v1')}
-  ${renderPlanarInputBlocks('v1', m.strike, m.dip, m.dipDir)}
-
-  <div class="grid2">
-    <div><label>Espesor</label><input type="number" step="1" id="f_veinThick" value="${m.veinThickness??''}"></div>
-    <div><label>Unidad</label><select id="f_veinUnit"><option ${(!m.veinUnit||m.veinUnit==='cm')?'selected':''}>cm</option><option ${m.veinUnit==='mm'?'selected':''}>mm</option></select></div>
-  </div>
-  <label>Densidad de vetillas (vetillas/metro)</label>
-  <input type="number" step="1" id="f_veinDensity" value="${m.veinDensity??''}">
-
-  <label>Mineralogía de relleno</label>
-  <div class="check-grid">
-    ${VEIN_MINERALS.map(mn=>`<label class="check-item"><input type="checkbox" value="${mn}" ${((m.mineralogy||[]).includes(mn))?'checked':''} class="min-chk">${mn}</label>`).join('')}
-  </div>
-  <input type="text" id="f_mineralOther" placeholder="Otro mineral (opcional)" value="${esc(m.mineralOther||'')}" style="margin-top:8px;">
-
-  <label>Textura</label>
-  <select id="f_texture">${VEIN_TEXTURES.map(s=>`<option ${m.texture===s?'selected':''}>${s}</option>`).join('')}</select>
-
-  <label>Ensamble de alteración hidrotermal</label>
-  <div class="check-grid">
-    ${ALTERATION_TYPES.map(a=>`<label class="check-item"><input type="checkbox" value="${a}" ${((m.alteration||[]).includes(a))?'checked':''} class="alt-chk">${a}</label>`).join('')}
-  </div>
-
-  <label>Intensidad de alteración</label>
-  <select id="f_intensity">${ALTERATION_INTENSITY.map(s=>`<option ${m.intensity===s?'selected':''}>${s}</option>`).join('')}</select>
-  `;
-}
-function onKindChange(el){
-  const row=el.closest('.radio-row');
-  row.querySelectorAll('label.opt').forEach(l=>l.classList.remove('on'));
-  el.closest('label').classList.add('on');
-}
-
-async function saveMeasurement(id, isNew){
-  const type=state.measType;
-  const obj={ id, stationId:state.stationId, type, timestamp: nowIso(), notes: document.getElementById('f_notes').value };
-
-  if(type==='planar'){
-    obj.subtype=document.getElementById('f_subtype').value;
-    if(LINEAR_SUBTYPES.includes(obj.subtype)){
-      obj.trend=intOrNull('trend_l1'); obj.plunge=intOrNull('plunge_l1');
-    } else {
-      obj.dipDir=intOrNull('dipDir_p1'); obj.dip=intOrNull('dip_p1');
-      obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
-    }
-  } else if(type==='fault'){
-    obj.dipDir=intOrNull('dipDir_fp'); obj.dip=intOrNull('dip_fp');
-    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
-    obj.striaeMode=document.querySelector('input[name=striaeMode]:checked')?.value || 'rake';
-    if(obj.striaeMode==='trendplunge'){
-      obj.trend=intOrNull('trend_fl'); obj.plunge=intOrNull('plunge_fl');
-    }
-    obj.rake=intOrNull('f_rake');
-    obj.rakeQuadrant=document.getElementById('f_rakeQuad')?.value || null;
-    obj.sense=document.getElementById('f_sense').value;
-    obj.senseQuality=document.getElementById('f_senseQuality').value;
-    obj.criteria=[...document.querySelectorAll('.crit-chk:checked')].map(c=>c.value);
-  } else if(type==='contact'){
-    obj.contactType=document.getElementById('f_contactType').value;
-    obj.dipDir=intOrNull('dipDir_c1'); obj.dip=intOrNull('dip_c1');
-    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
-    obj.lithoTop=document.getElementById('f_lithoTop').value;
-    obj.lithoBottom=document.getElementById('f_lithoBottom').value;
-    obj.appThickness=intOrNull('f_appThickness');
-    obj.bedDip=intOrNull('f_bedDip');
-    obj.slope=intOrNull('f_slope');
-    obj.slopeSense=document.getElementById('f_slopeSense').value;
-    obj.trueThickness=calcThickness();
-  } else if(type==='vein'){
-    obj.structKind=document.querySelector('input[name=structKind]:checked')?.value || 'Veta';
-    obj.dipDir=intOrNull('dipDir_v1'); obj.dip=intOrNull('dip_v1');
-    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
-    obj.veinThickness=intOrNull('f_veinThick');
-    obj.veinUnit=document.getElementById('f_veinUnit').value;
-    obj.veinDensity=intOrNull('f_veinDensity');
-    obj.mineralogy=[...document.querySelectorAll('.min-chk:checked')].map(c=>c.value);
-    obj.mineralOther=document.getElementById('f_mineralOther').value;
-    obj.texture=document.getElementById('f_texture').value;
-    obj.alteration=[...document.querySelectorAll('.alt-chk:checked')].map(c=>c.value);
-    obj.intensity=document.getElementById('f_intensity').value;
-  }
-  await dbPut('measurements', obj);
-  toast(currentLang==='es'?'Guardado':'Saved');
-  Nav.station(state.stationId, state.campId);
-}
-function intOrNull(id){ const v=parseInt(document.getElementById(id)?.value, 10); return isNaN(v)?null:v; }
-
-/* =========================================================
-   EXPORTAR E IMPORTAR (.TXT / FAULTKIN / CSV)
+   IMPORTADOR Y EXPORTADOR DE ARCHIVOS
    ========================================================= */
 async function renderExport(){
   const camps = await dbGetAll('campaigns');
@@ -2078,7 +2886,6 @@ async function renderExport(){
   </div>
   <div class="card" style="cursor:default;">
     <div class="card-title">CSV (Excel / FaultKin / Stereonet)</div>
-    <div class="card-sub">${currentLang==='es'?'Valores numéricos redondeados a enteros':'Integer values ready for GIS/Excel'}</div>
     <button class="btn primary" style="margin-top:12px;" onclick="exportCSV()">${t('exportCsv')}</button>
   </div>
   <div class="card" style="cursor:default;">
@@ -2154,9 +2961,6 @@ async function exportGeoJSON(){
   toast('GeoJSON exportado');
 }
 
-/* =========================================================
-   PARSER E IMPORTADOR UNIVERSAL DE ARCHIVOS
-   ========================================================= */
 async function handleFileImport(e){
   const file = e.target.files[0];
   if(!file) return;
@@ -2164,24 +2968,15 @@ async function handleFileImport(e){
   const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
   if(lines.length < 2){ toast('Archivo vacío o sin datos'); return; }
 
-  // Crear o identificar campaña de importación
   const campName = 'Importación_' + file.name.replace(/\.[^/.]+$/, "");
   const campId = uid();
-  await dbPut('campaigns', {
-    id: campId,
-    name: campName,
-    timestamp: nowIso(),
-    notes: `Importado desde archivo ${file.name}`
-  });
+  await dbPut('campaigns', { id: campId, name: campName, timestamp: nowIso(), notes: `Importado desde ${file.name}` });
 
-  // Detectar delimitador (tabulador o coma)
   const headerLine = lines[0];
   const delim = headerLine.includes('\t') ? '\t' : (headerLine.includes(';') ? ';' : ',');
   const rawHeaders = headerLine.split(delim).map(h => h.trim().toLowerCase());
 
-  // Mapear índices
   const getIdx = (patterns) => rawHeaders.findIndex(h => patterns.some(p => h.includes(p)));
-  
   const iStrike = getIdx(['fault strike','strike']);
   const iDip = getIdx(['fault dip','dip']);
   const iTrend = getIdx(['striae trend','trend']);
@@ -2211,13 +3006,8 @@ async function handleFileImport(e){
       stId = uid();
       stationsCreated[stName] = stId;
       await dbPut('stations', {
-        id: stId,
-        campaignId: campId,
-        name: stName,
-        timestamp: nowIso(),
-        lat: isNaN(latVal) ? null : latVal,
-        lon: isNaN(lonVal) ? null : lonVal,
-        alt: isNaN(altVal) ? null : altVal,
+        id: stId, campaignId: campId, name: stName, timestamp: nowIso(),
+        lat: isNaN(latVal) ? null : latVal, lon: isNaN(lonVal) ? null : lonVal, alt: isNaN(altVal) ? null : altVal,
         notes: 'Importado de FaultKin/Texto'
       });
     }
@@ -2232,39 +3022,29 @@ async function handleFileImport(e){
     if(strikeVal != null && dipVal != null){
       const dipDirVal = roundInt(norm360(strikeVal + 90));
       const measObj = {
-        id: uid(),
-        stationId: stId,
+        id: uid(), stationId: stId,
         type: (trendVal != null || senseVal) ? 'fault' : 'planar',
-        subtype: 'Importado',
-        timestamp: nowIso(),
-        strike: strikeVal,
-        dip: dipVal,
-        dipDir: dipDirVal,
-        trend: trendVal,
-        plunge: plungeVal,
-        striaeMode: 'trendplunge',
-        sense: senseVal || 'Normal',
-        notes: noteVal
+        subtype: 'Importado', timestamp: nowIso(),
+        strike: strikeVal, dip: dipVal, dipDir: dipDirVal,
+        trend: trendVal, plunge: plungeVal, striaeMode: 'trendplunge',
+        sense: senseVal || 'Normal', notes: noteVal
       };
 
       if(trendVal != null && plungeVal != null){
         const rk = calculateRakeFromTP(dipDirVal, dipVal, trendVal, plungeVal);
-        if(rk){
-          measObj.rake = rk.rake;
-          measObj.rakeQuadrant = rk.quadrant;
-        }
+        if(rk){ measObj.rake = rk.rake; measObj.rakeQuadrant = rk.quadrant; }
       }
       await dbPut('measurements', measObj);
       count++;
     }
   }
 
-  toast(`Importados ${count} registros con éxito`);
+  toast(`Importados ${count} registros`);
   Nav.campaign(campId);
 }
 
 /* =========================================================
-   VISTA: AJUSTES (PALETAS DE TERRENO + SENSORES)
+   VISTA: AJUSTES
    ========================================================= */
 function renderSettings(){
   return `
@@ -2272,9 +3052,9 @@ function renderSettings(){
 
   <div class="card" style="cursor:default;">
     <div class="card-title">🎨 ${t('colorTheme')}</div>
-    <div class="card-sub">Selecciona una paleta de alto contraste optimizada para terreno y luz solar</div>
+    <div class="card-sub">Selecciona una paleta de alto contraste para luz solar</div>
     <select onchange="changeColorTheme(this.value)" style="margin-top:8px;">
-      <option value="sun" ${colorTheme==='sun'?'selected':''}>☀️ Sol Directo (Blanco / Alto Contraste Solar)</option>
+      <option value="sun" ${colorTheme==='sun'?'selected':''}>☀️ Sol Directo (Blanco / Alto Contraste)</option>
       <option value="dark" ${colorTheme==='dark'?'selected':''}>🌙 Noche / Campamento (Dark Slate)</option>
       <option value="earth" ${colorTheme==='earth'?'selected':''}>🏜️ Geológico Tierra / Ocre</option>
       <option value="forest" ${colorTheme==='forest'?'selected':''}>🌲 Bosque / Oliva</option>
@@ -2283,7 +3063,6 @@ function renderSettings(){
 
   <div class="card" style="cursor:default;">
     <div class="card-title">⌨️ ${t('inputNotation')}</div>
-    <div class="card-sub">Define cómo ingresar datos manualmente en los formularios</div>
     <select onchange="changeInputNotation(this.value)" style="margin-top:8px;">
       <option value="dipdir" ${inputNotation==='dipdir'?'selected':''}>Dip Direction / Dip (ej. 135 / 45)</option>
       <option value="strike" ${inputNotation==='strike'?'selected':''}>Strike RHR / Dip (ej. 045 / 45)</option>
@@ -2317,7 +3096,6 @@ function renderSettings(){
 
   <div class="card" style="cursor:default;">
     <div class="card-title">${t('calibration')}</div>
-    <div class="card-sub">Corrige la declinación magnética hacia el Norte Verdadero.</div>
     <input type="number" step="1" value="${magOffset}" id="magOffsetInput" onchange="changeMagOffset(this.value)" style="margin-top:8px;" placeholder="ej. -5 o 8">
     <button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="autoEstimateDeclination()">📍 Calcular declinación desde GPS actual</button>
   </div>
@@ -2339,21 +3117,6 @@ function renderSettings(){
       <option value="lg" ${boxScale==='lg'?'selected':''}>Grande (Recomendado)</option>
       <option value="xl" ${boxScale==='xl'?'selected':''}>Extra grande</option>
     </select>
-  </div>
-
-  <div class="card" style="cursor:default;">
-    <div class="card-title">📖 Guía de Terreno: Cinemática y Rake</div>
-    <div class="guide-box">
-      <b>1. Determinación de Cinemática (Fallas):</b>
-      <ul>
-        <li><b>Escalones y fibras minerales:</b> Al pasar los dedos suavemente a lo largo del plano, la dirección suave indica el movimiento del bloque opuesto.</li>
-        <li><b>Estructuras S-C:</b> Los planos S (foliación sigmoidal) se curvan hacia los planos C (cizalle principal), indicando el desplazamiento relativo.</li>
-      </ul>
-      <b>2. Sentido del Rake (Pitch):</b>
-      <ul>
-        <li>El <b>Rake</b> es el ángulo (0° a 90°) que forma la estría medido sobre el plano de falla desde el rumbo.</li>
-      </ul>
-    </div>
   </div>
 
   <div class="card" style="cursor:default;">
