@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+"<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -8,7 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <title>GeoField Core - GIS & Estereogramas</title>
-<link rel="manifest" href='data:application/manifest+json,{"name":"GeoField Core","short_name":"GeoField","start_url":".","display":"standalone","background_color":"%2314181c","theme_color":"%2314181c"}'>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
     --bg:#14181c;
@@ -254,35 +256,36 @@
   /* ESTILOS DEL MÓDULO DE MAPA GIS */
   #mapContainer{ position:relative; width:100%; height:100%; background:var(--bg); overflow:hidden; }
   #gisCanvas{ width:100%; height:100%; display:block; touch-action:none; }
-  
-  .map-toolbar{
+ 
+.map-toolbar{
     position:absolute; top:12px; left:12px; right:12px; z-index:10;
     display:flex; gap:8px; background:rgba(28,34,39,0.85); backdrop-filter:blur(8px);
     border:1px solid var(--border); border-radius:var(--radius); padding:8px 10px;
     box-shadow:0 4px 12px rgba(0,0,0,0.4);
   }
-  .map-toolbar select{ min-height:36px; padding:6px 8px; font-size:12px; }
-
-  .map-controls{
+.map-toolbar select{ min-height:36px; padding:6px 8px; font-size:12px; }
+ 
+.map-controls{
     position:absolute; right:14px; top:75px; z-index:10;
     display:flex; flex-direction:column; gap:8px;
   }
-  .map-btn{
+.map-btn{
     width:42px; height:42px; border-radius:10px; background:var(--surface);
     border:1px solid var(--border); color:var(--text); font-size:18px;
     display:flex; align-items:center; justify-content:center; cursor:pointer;
     box-shadow:0 3px 10px rgba(0,0,0,0.3); font-weight:bold;
   }
-  .map-btn:active{ background:var(--surface-2); transform:scale(0.96); }
-  
-  .map-bottom-sheet{
+.map-btn:active{ background:var(--surface-2); transform:scale(0.96); }
+ 
+.map-bottom-sheet{
     position:absolute; left:0; right:0; bottom:0; z-index:25;
     background:var(--surface); border-top:2px solid var(--accent);
     border-radius:16px 16px 0 0; padding:16px; box-shadow:0 -6px 20px rgba(0,0,0,0.5);
     max-height:65%; overflow-y:auto; transform:translateY(100%); transition:transform 0.25s ease-out;
   }
-  .map-bottom-sheet.open{ transform:translateY(0); }
-  .sheet-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.map-bottom-sheet.open{ transform:translateY(0); }
+.sheet-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+
 </style>
 </head>
 <body>
@@ -542,7 +545,7 @@ function planeToPoleVector(strike, dip) {
 function faultRakeToSlipVector(strike, dip, rake, rakeQuad) {
   const sR = toRad(strike), dR = toRad(dip), rR = toRad(rake);
   const strikeVec = [Math.sin(sR), Math.cos(sR), 0];
-  const dipVec = [Math.cos(sR) * Math.sin(dR), -Math.sin(sR) * Math.sin(dR), Math.cos(dR)];
+  const dipVec = [Math.cos(sR) * Math.cos(dR), -Math.sin(sR) * Math.cos(dR), Math.sin(dR)];
   const strikeQuad = dipDirQuadrant(strike);
   let rakeFromStrikeStart = true;
   if (rakeQuad && rakeQuad !== strikeQuad) rakeFromStrikeStart = false;
@@ -912,7 +915,7 @@ async function render(){
 }
 
 /* =========================================================
-   MÓDULO: MOTOR CARTOGRÁFICO NATIVO Y SIMBOLOGÍA GEOLÓGICA
+   MÓDULO MAPA GIS
    ========================================================= */
 function renderMapGISView(){
   return `
@@ -931,16 +934,16 @@ function renderMapGISView(){
       </select>
       <button class="icon-btn" onclick="openMapCalibrator()" title="Importar/Calibrar Mapa Base" style="flex:0 0 36px;height:36px;">🗺️</button>
     </div>
-
+ 
     <div class="map-controls">
       <button class="map-btn" onclick="gisZoom(1.3)" title="Acercar">+</button>
       <button class="map-btn" onclick="gisZoom(0.7)" title="Alejar">-</button>
       <button class="map-btn" onclick="gisCenterGPS()" title="Mi Ubicación GPS">📍</button>
       <button class="map-btn" onclick="gisFitBounds()" title="Ajustar a datos">⛶</button>
     </div>
-
+ 
     <canvas id="gisCanvas"></canvas>
-
+ 
     <div id="mapBottomSheet" class="map-bottom-sheet">
       <div class="sheet-header">
         <b id="sheetTitle" style="font-size:16px;">Detalle de Estación</b>
@@ -949,28 +952,28 @@ function renderMapGISView(){
       <div id="sheetContent"></div>
     </div>
   </div>
-
+ 
   <!-- MODAL CALIBRADOR MAPA BASE -->
   <div id="mapCalibModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:60;padding:20px;overflow-y:auto;">
     <div class="card" style="max-width:440px;margin:30px auto;cursor:default;">
       <div class="card-title">🗺️ Calibrar Mapa Base Offline</div>
       <div class="card-sub">Carga una imagen (.jpg/.png) e ingresa su Bounding Box (Límites WGS84)</div>
-      
+ 
       <label>Archivo de imagen</label>
       <input type="file" id="calibImgFile" accept="image/*" onchange="onCalibFileSelect(event)">
-
+ 
       <label>Latitud Norte (Lat Max)</label>
       <input type="number" step="0.000001" id="calibLatMax" placeholder="-33.4000">
-      
+ 
       <label>Latitud Sur (Lat Min)</label>
       <input type="number" step="0.000001" id="calibLatMin" placeholder="-33.5000">
-
+ 
       <label>Longitud Oeste (Lon Min)</label>
       <input type="number" step="0.000001" id="calibLonMin" placeholder="-70.7500">
-
+ 
       <label>Longitud Este (Lon Max)</label>
       <input type="number" step="0.000001" id="calibLonMax" placeholder="-70.6000">
-
+ 
       <div class="btn-row" style="margin-top:16px;">
         <button class="btn ghost" onclick="closeMapCalibrator()">Cancelar</button>
         <button class="btn primary" onclick="saveMapOverlay()">Guardar Base</button>
@@ -979,18 +982,18 @@ function renderMapGISView(){
   </div>
   `;
 }
-
+ 
 let gisTouchState = { dragging:false, startX:0, startY:0, lastX:0, lastY:0, pinchDist:0, lastTap:0 };
-
+ 
 async function initGISMap(){
   const canvas = document.getElementById('gisCanvas');
   if(!canvas) return;
-
+ 
   const dpr = window.devicePixelRatio || 1;
   const container = document.getElementById('mapContainer');
   canvas.width = container.clientWidth * dpr;
   canvas.height = container.clientHeight * dpr;
-
+ 
   // Cargar campañas al selector
   const camps = await dbGetAll('campaigns');
   const sel = document.getElementById('mapCampSelect');
@@ -1003,13 +1006,13 @@ async function initGISMap(){
       sel.appendChild(opt);
     });
   }
-
+ 
   // Cargar mapa base ráster de IndexedDB
   await loadSavedMapOverlay();
-
+ 
   // Cargar datos espaciales
   await loadMapData();
-
+ 
   // Ajustar vista inicial
   if(mapState.stationsCache.length > 0){
     gisFitBounds();
@@ -1017,12 +1020,12 @@ async function initGISMap(){
     mapState.centerLat = gpsState.lat;
     mapState.centerLon = gpsState.lon;
   }
-
+ 
   // Eventos táctiles y mouse nativos
   setupGISMapEvents(canvas);
   drawGISMap();
 }
-
+ 
 async function loadMapData(){
   let stations = await dbGetAll('stations');
   if(mapState.campId !== 'ALL'){
@@ -1033,7 +1036,7 @@ async function loadMapData(){
   mapState.stationsCache = stations;
   mapState.measCache = meas;
 }
-
+ 
 function onMapCampChange(val){
   mapState.campId = val;
   loadMapData().then(()=>{ gisFitBounds(); drawGISMap(); });
@@ -1042,39 +1045,39 @@ function onMapLayerFilter(val){
   mapState.filterLayer = val;
   drawGISMap();
 }
-
+ 
 // Proyección de Coordenadas Geográficas (Lat/Lon) a Coordenadas Pantalla (Canvas)
 function geoToScreen(lat, lon, width, height){
   // Escala métrica aproximada centrada (1 grado latitud ≈ 111,320m)
   const latRad = toRad(mapState.centerLat);
   const metersPerDegLat = 111320;
   const metersPerDegLon = 111320 * Math.cos(latRad);
-
+ 
   const dx = (lon - mapState.centerLon) * metersPerDegLon;
   const dy = (lat - mapState.centerLat) * metersPerDegLat;
-
+ 
   // Factor de escala
   const pxPerMeter = (1 / mapState.zoom) * mapState.scale;
   const screenX = (width / 2) + dx * pxPerMeter + mapState.panX;
   const screenY = (height / 2) - dy * pxPerMeter + mapState.panY;
-
+ 
   return { x: screenX, y: screenY };
 }
-
+ 
 function screenToGeo(sx, sy, width, height){
   const latRad = toRad(mapState.centerLat);
   const metersPerDegLat = 111320;
   const metersPerDegLon = 111320 * Math.cos(latRad);
   const pxPerMeter = (1 / mapState.zoom) * mapState.scale;
-
+ 
   const dx = (sx - (width / 2) - mapState.panX) / pxPerMeter;
   const dy = ((height / 2) - (sy - mapState.panY)) / pxPerMeter;
-
+ 
   const lon = mapState.centerLon + (dx / metersPerDegLon);
   const lat = mapState.centerLat + (dy / metersPerDegLat);
   return { lat, lon };
 }
-
+ 
 /* =========================================================
    DIBUJADO PRINCIPAL DEL MAPA (CANVAS NATIVO)
    ========================================================= */
@@ -1085,15 +1088,15 @@ function drawGISMap(){
   const dpr = window.devicePixelRatio || 1;
   const w = canvas.width / dpr;
   const h = canvas.height / dpr;
-
+ 
   ctx.save();
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, w, h);
-
+ 
   // 1. Fondo de terreno
   ctx.fillStyle = colorTheme === 'sun' ? '#f4f6f8' : (colorTheme==='earth' ? '#1f1c18' : '#14181c');
   ctx.fillRect(0, 0, w, h);
-
+ 
   // 2. Dibujar Imagen Satelital / Topográfica Calibrada (Ráster)
   if(mapState.overlayImg && mapState.overlayMeta){
     const m = mapState.overlayMeta;
@@ -1103,17 +1106,17 @@ function drawGISMap(){
     const imgH = se.y - nw.y;
     ctx.drawImage(mapState.overlayImg, nw.x, nw.y, imgW, imgH);
   }
-
+ 
   // 3. Dibujar Cuadrícula Geográfica / UTM dinámica
   drawMapGrid(ctx, w, h);
-
+ 
   // 4. Dibujar Símbolos Geológicos Estructurales
   mapState.stationsCache.forEach(st => {
     const pt = geoToScreen(st.lat, st.lon, w, h);
     if(pt.x < -60 || pt.x > w + 60 || pt.y < -60 || pt.y > h + 60) return; // Culling
-
+ 
     const stMeas = mapState.measCache.filter(m => m.stationId === st.id);
-    
+ 
     // Punto base de la estación
     ctx.beginPath();
     ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2);
@@ -1122,12 +1125,12 @@ function drawGISMap(){
     ctx.strokeStyle = '#e8a33d';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-
+ 
     // Etiqueta de la estación
     ctx.font = 'bold 11px system-ui, sans-serif';
     ctx.fillStyle = colorTheme==='sun' ? '#111' : '#eef2f5';
     ctx.fillText(st.name || st.id, pt.x + 8, pt.y - 6);
-
+ 
     // Dibujar cada estructura registrada en la estación
     if(stMeas.length === 0){
       // Estación vacía
@@ -1138,7 +1141,7 @@ function drawGISMap(){
       });
     }
   });
-
+ 
   // 5. Dibujar posición GPS en vivo del usuario
   if(gpsState.lat != null && gpsState.lon != null){
     const gpsPt = geoToScreen(gpsState.lat, gpsState.lon, w, h);
@@ -1149,7 +1152,7 @@ function drawGISMap(){
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2;
     ctx.stroke();
-
+ 
     // Pulso animado
     ctx.beginPath();
     ctx.arc(gpsPt.x, gpsPt.y, 14, 0, Math.PI*2);
@@ -1157,14 +1160,14 @@ function drawGISMap(){
     ctx.lineWidth = 2;
     ctx.stroke();
   }
-
+ 
   // 6. Elementos cartográficos: Rosa de los vientos y Escala gráfica
   drawNorthArrow(ctx, w - 35, 95);
   drawMapScaleBar(ctx, 20, h - 25, w);
-
+ 
   ctx.restore();
 }
-
+ 
 /* =========================================================
    SIMBOLOGÍA ESTRUCTURAL EN PLANTA NORMALIZADA
    ========================================================= */
@@ -1173,15 +1176,15 @@ function drawGeologicalSymbol(ctx, cx, cy, m){
   const dip = m.dip || 0;
   const strikeRad = toRad(strike);
   const len = 22; // Longitud del rumbo
-
+ 
   ctx.save();
   ctx.translate(cx, cy);
-
+ 
   // A. ESTRATIFICACIÓN (S0) Y FOLIACIONES (S1, S2, CLIVAJE)
   if(m.type === 'planar' || (m.subtype && m.subtype.includes('Estratificación')) || (m.subtype && m.subtype.includes('Foliación'))){
     const isFoliation = (m.subtype || '').includes('Foliación');
     ctx.rotate(strikeRad);
-
+ 
     // Línea de rumbo
     ctx.strokeStyle = isFoliation ? '#e8a33d' : '#5fb583';
     ctx.lineWidth = 2.2;
@@ -1189,13 +1192,13 @@ function drawGeologicalSymbol(ctx, cx, cy, m){
     ctx.moveTo(-len/2, 0);
     ctx.lineTo(len/2, 0);
     ctx.stroke();
-
+ 
     // Trazo de buzamiento / manteo perpendicular hacia el bloque techo
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.lineTo(0, 8);
     ctx.stroke();
-
+ 
     if(isFoliation){
       // Trazado doble para foliación
       ctx.beginPath();
@@ -1203,32 +1206,32 @@ function drawGeologicalSymbol(ctx, cx, cy, m){
       ctx.lineTo(len/3, -3);
       ctx.stroke();
     }
-
+ 
     // Texto con el valor de manteo
     ctx.rotate(-strikeRad);
     ctx.font = 'bold 10px monospace';
     ctx.fillStyle = isFoliation ? '#e8a33d' : '#5fb583';
     ctx.fillText(`${dip}°`, 8, 14);
   }
-
+ 
   // B. FALLAS Y CINEMÁTICA EN PLANTA
   else if(m.type === 'fault'){
     ctx.rotate(strikeRad);
     ctx.strokeStyle = '#e0645c';
     ctx.lineWidth = 2.8;
-
+ 
     // Trazo de falla
     ctx.beginPath();
     ctx.moveTo(-len/2, 0);
     ctx.lineTo(len/2, 0);
     ctx.stroke();
-
+ 
     // Diente o línea de manteo
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.lineTo(0, 7);
     ctx.stroke();
-
+ 
     // Flechas de cizalle según cinemática (Dextral / Sinistral)
     const sense = (m.sense || '').toLowerCase();
     if(sense.includes('dextral') || sense.includes('rl')){
@@ -1246,13 +1249,13 @@ function drawGeologicalSymbol(ctx, cx, cy, m){
       ctx.moveTo(-6, 0); ctx.lineTo(-2, 6); ctx.lineTo(2, 0);
       ctx.fill();
     }
-
+ 
     ctx.rotate(-strikeRad);
     ctx.font = 'bold 10px monospace';
     ctx.fillStyle = '#e0645c';
     ctx.fillText(`${dip}°`, 8, 14);
   }
-
+ 
   // C. LINEACIONES Y ESTRÍAS PURAS
   else if(m.trend != null && m.plunge != null){
     const trendRad = toRad(m.trend);
@@ -1260,44 +1263,44 @@ function drawGeologicalSymbol(ctx, cx, cy, m){
     ctx.strokeStyle = '#ff6b6b';
     ctx.fillStyle = '#ff6b6b';
     ctx.lineWidth = 2;
-
+ 
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.lineTo(0, 16);
     ctx.stroke();
     drawArrowHead(ctx, 0, 16, Math.PI/2);
-
+ 
     ctx.rotate(-trendRad);
     ctx.font = 'bold 10px monospace';
     ctx.fillText(`${m.plunge}°`, 6, 12);
   }
-
+ 
   // D. VETAS Y CONTACTOS
   else if(m.type === 'vein' || m.type === 'contact'){
     ctx.rotate(strikeRad);
     ctx.strokeStyle = m.type === 'vein' ? '#5cb3ff' : '#d38aea';
     ctx.lineWidth = 2;
     if(m.type === 'contact') ctx.setLineDash([3, 3]);
-
+ 
     ctx.beginPath();
     ctx.moveTo(-len/2, 0);
     ctx.lineTo(len/2, 0);
     ctx.stroke();
-
+ 
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.lineTo(0, 6);
     ctx.stroke();
-
+ 
     ctx.rotate(-strikeRad);
     ctx.font = 'bold 10px monospace';
     ctx.fillStyle = m.type === 'vein' ? '#5cb3ff' : '#d38aea';
     ctx.fillText(`${dip}°`, 8, 12);
   }
-
+ 
   ctx.restore();
 }
-
+ 
 function drawArrowHead(ctx, x, y, angRad){
   ctx.save();
   ctx.translate(x, y);
@@ -1311,13 +1314,13 @@ function drawArrowHead(ctx, x, y, angRad){
   ctx.fill();
   ctx.restore();
 }
-
+ 
 // Cuadrícula y coordenadas
 function drawMapGrid(ctx, w, h){
   ctx.save();
   ctx.strokeStyle = colorTheme==='sun' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
   ctx.lineWidth = 1;
-
+ 
   const step = 80;
   for(let x = 0; x < w; x += step){
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
@@ -1325,7 +1328,7 @@ function drawMapGrid(ctx, w, h){
   for(let y = 0; y < h; y += step){
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
   }
-
+ 
   // Ticks con coordenadas en las esquinas
   const nw = screenToGeo(10, 10, w, h);
   const se = screenToGeo(w-10, h-10, w, h);
@@ -1335,11 +1338,11 @@ function drawMapGrid(ctx, w, h){
   ctx.fillText(`SE: ${se.lat.toFixed(4)}, ${se.lon.toFixed(4)}`, w - 160, h - 35);
   ctx.restore();
 }
-
+ 
 function drawNorthArrow(ctx, x, y){
   ctx.save();
   ctx.translate(x, y);
-  
+ 
   // Fondo circular tenue
   ctx.beginPath();
   ctx.arc(0, 0, 16, 0, Math.PI*2);
@@ -1347,7 +1350,7 @@ function drawNorthArrow(ctx, x, y){
   ctx.fill();
   ctx.strokeStyle = 'var(--border)';
   ctx.stroke();
-
+ 
   // Flecha Norte
   ctx.beginPath();
   ctx.moveTo(0, -12);
@@ -1355,25 +1358,25 @@ function drawNorthArrow(ctx, x, y){
   ctx.lineTo(0, 2);
   ctx.fillStyle = '#e0645c';
   ctx.fill();
-
+ 
   ctx.beginPath();
   ctx.moveTo(0, -12);
   ctx.lineTo(-5, 6);
   ctx.lineTo(0, 2);
   ctx.fillStyle = '#ffffff';
   ctx.fill();
-
+ 
   ctx.font = 'bold 9px monospace';
   ctx.fillStyle = '#eef2f5';
   ctx.textAlign = 'center';
   ctx.fillText('N', 0, -15);
   ctx.restore();
 }
-
+ 
 function drawMapScaleBar(ctx, x, y, maxW){
   ctx.save();
   const pxPerMeter = (1 / mapState.zoom) * mapState.scale;
-  
+ 
   // Determinar longitud ideal de la barra (aprox 80-120px)
   let targetMeters = 100;
   if(pxPerMeter < 0.001) targetMeters = 50000;
@@ -1382,29 +1385,29 @@ function drawMapScaleBar(ctx, x, y, maxW){
   else if(pxPerMeter < 0.5) targetMeters = 500;
   else if(pxPerMeter < 2) targetMeters = 100;
   else targetMeters = 20;
-
+ 
   const barPx = targetMeters * pxPerMeter;
   const label = targetMeters >= 1000 ? `${targetMeters/1000} km` : `${targetMeters} m`;
-
+ 
   ctx.fillStyle = 'rgba(28,34,39,0.85)';
   ctx.fillRect(x - 6, y - 18, barPx + 12, 24);
   ctx.strokeStyle = 'var(--border)';
   ctx.strokeRect(x - 6, y - 18, barPx + 12, 24);
-
+ 
   ctx.strokeStyle = 'var(--accent)';
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(x, y);
   ctx.lineTo(x + barPx, y);
   ctx.stroke();
-
+ 
   ctx.font = 'bold 10px monospace';
   ctx.fillStyle = '#eef2f5';
   ctx.textAlign = 'center';
   ctx.fillText(label, x + barPx/2, y - 5);
   ctx.restore();
 }
-
+ 
 /* =========================================================
    GESTOS TÁCTILES Y HIT-TESTING DEL MAPA
    ========================================================= */
@@ -1416,7 +1419,7 @@ function setupGISMapEvents(canvas){
     gisTouchState.lastX = e.clientX;
     gisTouchState.lastY = e.clientY;
   };
-
+ 
   canvas.onpointermove = (e) => {
     if(!gisTouchState.dragging) return;
     const dx = e.clientX - gisTouchState.lastX;
@@ -1427,11 +1430,11 @@ function setupGISMapEvents(canvas){
     gisTouchState.lastY = e.clientY;
     drawGISMap();
   };
-
+ 
   const endDrag = (e) => {
     if(!gisTouchState.dragging) return;
     gisTouchState.dragging = false;
-
+ 
     // Detectar si fue un tap (clic) sin arrastre
     const dist = Math.hypot(e.clientX - gisTouchState.startX, e.clientY - gisTouchState.startY);
     if(dist < 6){
@@ -1440,7 +1443,7 @@ function setupGISMapEvents(canvas){
   };
   canvas.onpointerup = endDrag;
   canvas.onpointercancel = endDrag;
-
+ 
   // Zoom táctil (Pinch to Zoom)
   canvas.addEventListener('touchstart', (e)=>{
     if(e.touches.length === 2){
@@ -1450,7 +1453,7 @@ function setupGISMapEvents(canvas){
       );
     }
   }, {passive:true});
-
+ 
   canvas.addEventListener('touchmove', (e)=>{
     if(e.touches.length === 2){
       const dist = Math.hypot(
@@ -1465,7 +1468,7 @@ function setupGISMapEvents(canvas){
       }
     }
   }, {passive:true});
-
+ 
   // Doble toque para centrar
   canvas.addEventListener('touchend', (e)=>{
     const now = Date.now();
@@ -1483,7 +1486,7 @@ function setupGISMapEvents(canvas){
     gisTouchState.lastTap = now;
   });
 }
-
+ 
 function handleMapClick(clientX, clientY){
   const canvas = document.getElementById('gisCanvas');
   if(!canvas) return;
@@ -1491,7 +1494,7 @@ function handleMapClick(clientX, clientY){
   const rect = canvas.getBoundingClientRect();
   const clickX = clientX - rect.left;
   const clickY = clientY - rect.top;
-
+ 
   let clickedStation = null;
   for(const st of mapState.stationsCache){
     const pt = geoToScreen(st.lat, st.lon, canvas.width/dpr, canvas.height/dpr);
@@ -1500,23 +1503,23 @@ function handleMapClick(clientX, clientY){
       break;
     }
   }
-
+ 
   if(clickedStation){
     openMapSheet(clickedStation);
   } else {
     closeMapSheet();
   }
 }
-
+ 
 function openMapSheet(st){
   const sheet = document.getElementById('mapBottomSheet');
   const title = document.getElementById('sheetTitle');
   const content = document.getElementById('sheetContent');
   if(!sheet || !content) return;
-
+ 
   const stMeas = mapState.measCache.filter(m => m.stationId === st.id);
   title.textContent = `📍 ${st.name || st.id}`;
-
+ 
   const measList = stMeas.map(m=>`
     <div class="mini-row" style="margin-top:6px;">
       <div class="ml">
@@ -1525,7 +1528,7 @@ function openMapSheet(st){
       </div>
     </div>
   `).join('') || '<div class="hint">Sin mediciones registradas</div>';
-
+ 
   content.innerHTML = `
     <div style="font-size:12px;color:var(--text-dim);font-family:var(--mono);margin-bottom:8px;">
       ${st.lat.toFixed(5)}, ${st.lon.toFixed(5)} ${st.alt ? '· ' + st.alt + 'm' : ''}
@@ -1538,14 +1541,14 @@ function openMapSheet(st){
       <button class="btn primary small" onclick="Nav.stereonet('${st.campaignId}','${st.id}')">🌐 Ver en Estereograma</button>
     </div>
   `;
-
+ 
   sheet.classList.add('open');
 }
-
+ 
 function closeMapSheet(){
   document.getElementById('mapBottomSheet')?.classList.remove('open');
 }
-
+ 
 /* =========================================================
    CONTROLES DE MAPA (ZOOM / PAN / AJUSTE DE EXTENSIÓN)
    ========================================================= */
@@ -1553,7 +1556,7 @@ function gisZoom(factor){
   mapState.scale = clamp(mapState.scale * factor, 0.05, 60);
   drawGISMap();
 }
-
+ 
 function gisCenterGPS(){
   if(gpsState.lat == null){ toast('Sin señal GPS'); return; }
   mapState.centerLat = gpsState.lat;
@@ -1563,14 +1566,14 @@ function gisCenterGPS(){
   drawGISMap();
   toast('Mapa centrado en tu posición');
 }
-
+ 
 function gisFitBounds(){
   if(mapState.stationsCache.length === 0){
     mapState.panX = 0; mapState.panY = 0; mapState.scale = 1;
     drawGISMap();
     return;
   }
-
+ 
   let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
   mapState.stationsCache.forEach(s => {
     minLat = Math.min(minLat, s.lat);
@@ -1578,25 +1581,25 @@ function gisFitBounds(){
     minLon = Math.min(minLon, s.lon);
     maxLon = Math.max(maxLon, s.lon);
   });
-
+ 
   mapState.centerLat = (minLat + maxLat) / 2;
   mapState.centerLon = (minLon + maxLon) / 2;
   mapState.panX = 0;
   mapState.panY = 0;
-
+ 
   const latSpan = Math.max(0.002, maxLat - minLat);
   const lonSpan = Math.max(0.002, maxLon - minLon);
   const metersSpan = Math.max(latSpan * 111320, lonSpan * 111320 * Math.cos(toRad(mapState.centerLat)));
-  
+ 
   const canvas = document.getElementById('gisCanvas');
   const dpr = window.devicePixelRatio || 1;
   const viewSize = canvas ? Math.min(canvas.width/dpr, canvas.height/dpr) - 100 : 300;
-  
+ 
   mapState.zoom = 1;
   mapState.scale = viewSize / metersSpan;
   drawGISMap();
 }
-
+ 
 /* =========================================================
    CALIBRADOR Y PERSISTENCIA DE MAPAS BASE OFFLINE
    ========================================================= */
@@ -1622,24 +1625,24 @@ async function saveMapOverlay(){
   const latMin = parseFloat(document.getElementById('calibLatMin').value);
   const lonMin = parseFloat(document.getElementById('calibLonMin').value);
   const lonMax = parseFloat(document.getElementById('calibLonMax').value);
-
+ 
   if(!tempCalibDataUrl && !mapState.overlayImg){ toast('Selecciona una imagen'); return; }
   if(isNaN(latMax) || isNaN(latMin) || isNaN(lonMin) || isNaN(lonMax)){ toast('Completa los 4 límites'); return; }
-
+ 
   const overlayObj = {
     id: 'current_overlay',
     dataUrl: tempCalibDataUrl || mapState.overlayMeta?.dataUrl,
     latMax, latMin, lonMin, lonMax,
     timestamp: nowIso()
   };
-
+ 
   await dbPut('map_overlays', overlayObj);
   await loadSavedMapOverlay();
   closeMapCalibrator();
   drawGISMap();
   toast('Mapa base guardado y calibrado');
 }
-
+ 
 async function loadSavedMapOverlay(){
   const overlay = await dbGet('map_overlays', 'current_overlay');
   if(overlay && overlay.dataUrl){
@@ -3401,6 +3404,15 @@ function changeMagOffset(val){ magOffset=parseFloat(val)||0; localStorage.setIte
   setInterval(updateTopbarStatus, 3000);
   render();
 })();
+
+// --- Funcionamiento sin conexión (service worker) ---
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(err => console.warn('Service worker no registrado:', err));
+  });
+}
+
 </script>
 </body>
 </html>
