@@ -1,4 +1,4 @@
-"<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -8,9 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <title>GeoField Core - GIS & Estereogramas</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" href="icon-192.png">
-  <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href='data:application/manifest+json,{"name":"GeoField Core","short_name":"GeoField","start_url":".","display":"standalone","background_color":"%2314181c","theme_color":"%2314181c"}'>
 <style>
   :root{
     --bg:#14181c;
@@ -3404,15 +3402,6 @@ function changeMagOffset(val){ magOffset=parseFloat(val)||0; localStorage.setIte
   setInterval(updateTopbarStatus, 3000);
   render();
 })();
-
-// --- Funcionamiento sin conexión (service worker) ---
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .catch(err => console.warn('Service worker no registrado:', err));
-  });
-}
-
 </script>
 </body>
 </html>
