@@ -1,0 +1,3418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#14181c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>GeoField Core - GIS & Estereogramas</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#14181c;
+    --surface:#1c2227;
+    --surface-2:#232a30;
+    --border:#333c44;
+    --border-soft:#2a3239;
+    --text:#eef2f5;
+    --text-dim:#8a97a3;
+    --text-faint:#5c6770;
+    --accent:#e8a33d;
+    --accent-dim:#7a5a25;
+    --accent-text:#1a1400;
+    --danger:#e0645c;
+    --danger-dim:#4a2422;
+    --ok:#5fb583;
+    --warn:#e8a33d;
+    --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --radius: 10px;
+    --topbar-h: 52px;
+    --navbar-h: 60px;
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+
+  body.theme-sun{
+    --bg:#f4f6f8;
+    --surface:#ffffff;
+    --surface-2:#e5e9ec;
+    --border:#b0bec5;
+    --border-soft:#cfd8dc;
+    --text:#0a0c0e;
+    --text-dim:#37474f;
+    --text-faint:#78909c;
+    --accent:#d87a00;
+    --accent-dim:#ffe0b2;
+    --accent-text:#ffffff;
+    --danger:#c62828;
+    --danger-dim:#ffcdd2;
+    --ok:#2e7d32;
+    --warn:#ef6c00;
+  }
+  body.theme-earth{
+    --bg:#1a1815;
+    --surface:#25221e;
+    --surface-2:#322d27;
+    --border:#4a4239;
+    --border-soft:#3d362e;
+    --text:#f5f0eb;
+    --text-dim:#b8ab9e;
+    --text-faint:#7d7265;
+    --accent:#d49244;
+    --accent-dim:#66441b;
+    --accent-text:#1f1406;
+    --danger:#d9534f;
+    --danger-dim:#4d1e1c;
+    --ok:#689f38;
+    --warn:#f57c00;
+  }
+  body.theme-forest{
+    --bg:#121815;
+    --surface:#19221e;
+    --surface-2:#222e28;
+    --border:#33423a;
+    --border-soft:#29362f;
+    --text:#edf5f0;
+    --text-dim:#94ab9e;
+    --text-faint:#5e7367;
+    --accent:#52b788;
+    --accent-dim:#214d38;
+    --accent-text:#081c12;
+    --danger:#e65c5c;
+    --danger-dim:#4d1f1f;
+    --ok:#40916c;
+    --warn:#d4a373;
+  }
+
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg); color:var(--text);
+    font-family:var(--sans);
+    touch-action:manipulation;
+    overscroll-behavior-y:none;
+    -webkit-text-size-adjust:100%;
+  }
+  body{ display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; }
+  input,select,textarea,button{ font-family:inherit; }
+  h1,h2,h3,p{ margin:0; }
+  ::selection{ background:var(--accent-dim); }
+
+  #topbar{
+    flex:0 0 auto;
+    padding-top:var(--safe-t);
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:10px;
+    height:calc(var(--topbar-h) + var(--safe-t));
+    padding-left:14px; padding-right:10px;
+  }
+  #topbar .brand{ display:flex; flex-direction:column; line-height:1.1; margin-right:auto; }
+  #topbar .brand b{ font-size:15px; letter-spacing:.3px; }
+  #topbar .brand span{ font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.8px; }
+  .status-dot{ width:9px; height:9px; border-radius:50%; display:inline-block; background:var(--text-faint); box-shadow:0 0 0 3px rgba(255,255,255,0.03); }
+  .status-dot.ok{ background:var(--ok); }
+  .status-dot.warn{ background:var(--warn); animation:pulse 1.4s infinite; }
+  .status-dot.err{ background:var(--danger); }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .status-chip{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); padding:6px 8px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border-soft); }
+  .icon-btn{ width:36px; height:36px; border-radius:8px; border:1px solid var(--border-soft); background:var(--surface-2); color:var(--text); display:flex; align-items:center; justify-content:center; font-size:16px; cursor:pointer; }
+
+  #app{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px 14px calc(24px + var(--safe-b)) 14px; position:relative; }
+  #app.no-pad{ padding:0; overflow:hidden; }
+
+  #navbar{
+    flex:0 0 auto;
+    display:flex;
+    background:var(--surface);
+    border-top:1px solid var(--border);
+    padding-bottom:var(--safe-b);
+    height:calc(var(--navbar-h) + var(--safe-b));
+  }
+  .nav-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    background:transparent; border:none; color:var(--text-faint); font-size:10px; letter-spacing:.3px; cursor:pointer;
+  }
+  .nav-btn .ic{ font-size:18px; }
+  .nav-btn.active{ color:var(--accent); font-weight:700; }
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    min-height:48px; padding:10px 16px; border-radius:var(--radius);
+    border:1px solid var(--border); background:var(--surface-2); color:var(--text);
+    font-size:15px; font-weight:600; width:100%; cursor:pointer;
+  }
+  .btn:active{ filter:brightness(1.15); }
+  .btn.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+  .btn.danger{ background:var(--danger-dim); color:#ffd7d3; border-color:#5c2f2c; }
+  .btn.ghost{ background:transparent; }
+  .btn.small{ min-height:38px; padding:6px 12px; font-size:13px; width:auto; }
+  .btn-row{ display:flex; gap:10px; }
+  .btn-row .btn{ flex:1; }
+
+  .fab{
+    position:fixed; right:calc(18px); bottom:calc(var(--navbar-h) + var(--safe-b) + 18px);
+    width:56px; height:56px; border-radius:50%; background:var(--accent); color:var(--accent-text);
+    border:none; font-size:28px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(0,0,0,.4); z-index:20; cursor:pointer;
+  }
+
+  .card{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); padding:14px; margin-bottom:12px; cursor:pointer; }
+  .card-title{ font-size:16px; font-weight:700; }
+  .card-sub{ font-size:12px; color:var(--text-dim); margin-top:2px; }
+  .badge-row{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .badge{ font-size:10.5px; background:var(--surface-2); color:var(--text-dim); border:1px solid var(--border-soft); padding:3px 8px; border-radius:20px; }
+  .badge.accent{ color:var(--accent); border-color:var(--accent-dim); }
+
+  .empty{ text-align:center; padding:40px 20px; color:var(--text-faint); }
+  .empty .big{ font-size:38px; margin-bottom:10px; }
+
+  label{ display:block; font-size:12px; color:var(--text-dim); margin:14px 0 6px; font-weight:600; letter-spacing:.2px; }
+  label:first-child{ margin-top:0; }
+  .hint{ font-size:11px; color:var(--text-faint); margin-top:4px; }
+  input[type=text], input[type=number], input[type=datetime-local], select, textarea{
+    width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:12px 12px; font-size:15px; min-height:46px;
+  }
+  select{ -webkit-appearance:none; appearance:none; background-image:linear-gradient(45deg,transparent 50%,var(--text-dim) 50%),linear-gradient(135deg,var(--text-dim) 50%,transparent 50%); background-position:calc(100% - 18px) center, calc(100% - 13px) center; background-size:5px 5px,5px 5px; background-repeat:no-repeat; }
+  textarea{ min-height:70px; resize:vertical; }
+  input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--accent); }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .check-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px; }
+  .check-item{ display:flex; align-items:center; gap:8px; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:9px 10px; font-size:13px; cursor:pointer; }
+  .check-item input{ width:16px; height:16px; min-height:unset; }
+  .radio-row{ display:flex; gap:8px; margin-top:6px; }
+  .radio-row label.opt{ flex:1; display:flex; align-items:center; justify-content:center; gap:6px; margin:0; padding:10px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border-soft); font-size:12.5px; font-weight:600; color:var(--text-dim); cursor:pointer; }
+  .radio-row input{ display:none; }
+  .radio-row label.opt.on{ border-color:var(--accent); color:var(--accent); background:rgba(232,163,61,0.08); }
+
+  .switch-row{ display:flex; align-items:center; justify-content:space-between; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:10px 12px; margin-top:10px; }
+  .switch{ position:relative; width:46px; height:26px; }
+  .switch input{ opacity:0; width:100%; height:100%; position:absolute; margin:0; cursor:pointer; }
+  .switch .track{ position:absolute; inset:0; background:var(--border); border-radius:20px; transition:.15s; }
+  .switch .thumb{ position:absolute; top:3px; left:3px; width:20px; height:20px; background:#fff; border-radius:50%; transition:.15s; }
+  .switch input:checked + .track{ background:var(--accent); }
+  .switch input:checked + .track .thumb{ transform:translateX(20px); }
+
+  .section-hdr{ display:flex; align-items:center; justify-content:space-between; margin:20px 0 10px; }
+  .section-hdr h3{ font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-dim); }
+
+  details.accordion{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); margin-bottom:10px; overflow:hidden; }
+  details.accordion > summary{ list-style:none; padding:14px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+  details.accordion > summary::-webkit-details-marker{ display:none; }
+  details.accordion .sum-l{ display:flex; align-items:center; gap:10px; font-weight:700; font-size:14.5px; }
+  details.accordion .chev{ color:var(--text-faint); transition:.15s; }
+  details.accordion[open] .chev{ transform:rotate(90deg); }
+  .accordion-body{ padding:0 14px 14px; }
+  .mini-row{ display:flex; align-items:center; justify-content:space-between; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:10px 12px; margin-top:8px; }
+  .mini-row .ml{ font-size:13px; }
+  .mini-row .ml b{ display:block; font-size:14px; }
+  .mini-row .ml span{ color:var(--text-dim); font-size:11.5px; font-family:var(--mono); }
+  .mini-actions{ display:flex; gap:6px; }
+  .icon-sm{ width:32px; height:32px; border-radius:7px; border:1px solid var(--border-soft); background:var(--bg); color:var(--text-dim); display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; }
+
+  .topline{ display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .back-btn{ width:38px; height:38px; border-radius:9px; background:var(--surface-2); border:1px solid var(--border-soft); color:var(--text); font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .topline h2{ font-size:18px; }
+  .topline .sub{ font-size:11px; color:var(--text-dim); }
+
+  .sensor-box{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); padding:14px; margin:14px 0; }
+  .sensor-box.scale-lg{ padding:20px; border-width:2px; }
+  .sensor-box.scale-xl{ padding:26px; border-width:2px; }
+  .sensor-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .sensor-head b{ font-size:13px; }
+  .dial-wrap{ display:flex; gap:14px; align-items:center; margin-top:10px; }
+  .dial-readout{ flex:1; }
+  .readout-line{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:12.5px; padding:3px 0; border-bottom:1px dashed var(--border-soft); }
+  .readout-line b{ color:var(--accent); font-size:15px; }
+
+  .scale-lg .readout-line{ font-size:14px; padding:5px 0; }
+  .scale-lg .readout-line b{ font-size:18px; }
+  .scale-xl .readout-line{ font-size:16px; padding:7px 0; }
+  .scale-xl .readout-line b{ font-size:22px; }
+
+  .numfield-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .derived{ margin-top:10px; font-size:11.5px; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:8px 10px; font-family:var(--mono); }
+
+  .toast{ position:fixed; left:50%; bottom:calc(var(--navbar-h) + var(--safe-b) + 16px); transform:translateX(-50%); background:var(--surface-2); border:1px solid var(--accent-dim); color:var(--text); padding:10px 16px; border-radius:20px; font-size:13px; z-index:50; box-shadow:0 4px 16px rgba(0,0,0,.4); }
+  .guide-box{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:12px; font-size:13px; line-height:1.5; color:var(--text); margin-top:8px; }
+  .guide-box ul{ padding-left:18px; margin:6px 0; }
+
+  .canvas-wrapper{ position:relative; width:100%; display:flex; justify-content:center; align-items:center; margin-top:10px; }
+  #stereoCanvas{ background:var(--surface-2); border-radius:50%; box-shadow:0 6px 20px rgba(0,0,0,0.4); touch-action:none; }
+  .stereo-tooltip{
+    position:absolute; background:var(--surface); border:1px solid var(--accent);
+    color:var(--text); padding:8px 12px; border-radius:8px; font-size:12px;
+    font-family:var(--mono); pointer-events:none; z-index:30; max-width:240px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.6); display:none;
+  }
+
+  /* ESTILOS DEL MÓDULO DE MAPA GIS */
+  #mapContainer{ position:relative; width:100%; height:100%; background:var(--bg); overflow:hidden; }
+  #gisCanvas{ width:100%; height:100%; display:block; touch-action:none; }
+ 
+.map-toolbar{
+    position:absolute; top:12px; left:12px; right:12px; z-index:10;
+    display:flex; gap:8px; background:rgba(28,34,39,0.85); backdrop-filter:blur(8px);
+    border:1px solid var(--border); border-radius:var(--radius); padding:8px 10px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.4);
+  }
+.map-toolbar select{ min-height:36px; padding:6px 8px; font-size:12px; }
+ 
+.map-controls{
+    position:absolute; right:14px; top:75px; z-index:10;
+    display:flex; flex-direction:column; gap:8px;
+  }
+.map-btn{
+    width:42px; height:42px; border-radius:10px; background:var(--surface);
+    border:1px solid var(--border); color:var(--text); font-size:18px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    box-shadow:0 3px 10px rgba(0,0,0,0.3); font-weight:bold;
+  }
+.map-btn:active{ background:var(--surface-2); transform:scale(0.96); }
+ 
+.map-bottom-sheet{
+    position:absolute; left:0; right:0; bottom:0; z-index:25;
+    background:var(--surface); border-top:2px solid var(--accent);
+    border-radius:16px 16px 0 0; padding:16px; box-shadow:0 -6px 20px rgba(0,0,0,0.5);
+    max-height:65%; overflow-y:auto; transform:translateY(100%); transition:transform 0.25s ease-out;
+  }
+.map-bottom-sheet.open{ transform:translateY(0); }
+.sheet-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+
+</style>
+</head>
+<body>
+
+  <div id="topbar">
+    <div class="brand"><b>GeoField Core</b><span id="stationCountLabel">...</span></div>
+    <div class="status-chip"><span id="gpsDot" class="status-dot"></span>GPS</div>
+    <div class="status-chip"><span id="sensorDot" class="status-dot"></span>Sensor</div>
+    <button class="icon-btn" onclick="Nav.settings()" title="Ajustes">⚙</button>
+  </div>
+
+  <main id="app"></main>
+
+  <nav id="navbar">
+    <button class="nav-btn" id="navHome" onclick="Nav.home()"><span class="ic">📁</span><span id="navHomeTxt">Campañas</span></button>
+    <button class="nav-btn" id="navMap" onclick="Nav.mapView()"><span class="ic">🗺️</span><span id="navMapTxt">Mapa GIS</span></button>
+    <button class="nav-btn" id="navStereo" onclick="Nav.stereonet()"><span class="ic">🌐</span><span id="navStereoTxt">Estereograma</span></button>
+    <button class="nav-btn" id="navExport" onclick="Nav.exportView()"><span class="ic">⇩</span><span id="navExportTxt">Exportar</span></button>
+  </nav>
+
+<script>
+"use strict";
+
+const I18N = {
+  es: {
+    campaigns: 'Campañas',
+    campaign: 'Campaña',
+    newCampaign: 'Nueva campaña',
+    editCampaign: 'Editar campaña',
+    noCampaigns: 'No hay campañas registradas todavía.',
+    campName: 'Nombre de la campaña / expedición',
+    stationsInCamp: 'Estaciones en esta campaña',
+    stations: 'estación(es)',
+    station: 'Estación',
+    newStation: 'Nueva estación',
+    editStation: 'Editar estación',
+    noStations: 'No hay estaciones en esta campaña.',
+    addStationBtn: '+ Añadir estación a esta campaña',
+    addCampBtn: '+ Crear primera campaña',
+    export: 'Exportar / Importar',
+    settings: 'Ajustes',
+    save: 'Guardar',
+    cancel: 'Cancelar',
+    delete: 'Eliminar',
+    lat: 'Latitud',
+    lon: 'Longitud',
+    alt: 'Altitud (m)',
+    notes: 'Notas',
+    captureSensor: '📍 Capturar lectura',
+    compassSize: 'Tamaño de la brújula / visor',
+    sensorBoxSize: 'Tamaño del contenedor de toma de datos',
+    lang: 'Idioma',
+    exportScope: 'Alcance de exportación',
+    exportAll: 'Todo el proyecto (Todas las campañas)',
+    selectCamp: 'Selecciona una campaña',
+    exportCsv: '⇩ Exportar CSV',
+    exportGeoJson: '⇩ Exportar GeoJSON',
+    structural: 'Estructural',
+    fault: 'Falla',
+    contact: 'Contacto',
+    vein: 'Vetas y Alteración',
+    strikeRHR: 'Strike (RHR)',
+    quadrant: 'Cuadrante',
+    dipTowards: 'Manteo hacia',
+    trueThick: 'Espesor real',
+    auto: 'Auto',
+    manual: 'Manual',
+    useGps: '📍 Usar posición GPS actual',
+    quadrantMode: 'Formato de cuadrante de salida',
+    needleTarget: 'Objetivo de aguja en brújula',
+    calibration: 'Calibración / Declinación magnética (°)',
+    stereonet: 'Estereograma',
+    mapView: 'Mapa / SIG',
+    projSchmidt: 'Equiárea (Schmidt)',
+    projWulff: 'Equiangular (Wulff)',
+    exportPng: '📷 Exportar Imagen PNG',
+    colorTheme: 'Paleta de colores de terreno',
+    inputNotation: 'Notación de entrada manual predeterminada'
+  },
+  en: {
+    campaigns: 'Campaigns',
+    campaign: 'Campaign',
+    newCampaign: 'New Campaign',
+    editCampaign: 'Edit Campaign',
+    noCampaigns: 'No campaigns recorded yet.',
+    campName: 'Campaign / Expedition Name',
+    stationsInCamp: 'Stations in this campaign',
+    stations: 'station(s)',
+    station: 'Station',
+    newStation: 'New Station',
+    editStation: 'Edit Station',
+    noStations: 'No stations in this campaign.',
+    addStationBtn: '+ Add station to this campaign',
+    addCampBtn: '+ Create first campaign',
+    export: 'Export / Import',
+    settings: 'Settings',
+    save: 'Save',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    lat: 'Latitude',
+    lon: 'Longitude',
+    alt: 'Altitude (m)',
+    notes: 'Notes',
+    captureSensor: '📍 Capture Reading',
+    compassSize: 'Compass / Dial Size',
+    sensorBoxSize: 'Measurement Container Size',
+    lang: 'Language',
+    exportScope: 'Export Scope',
+    exportAll: 'Entire project (All campaigns)',
+    selectCamp: 'Select a campaign',
+    exportCsv: '⇩ Export CSV',
+    exportGeoJson: '⇩ Export GeoJSON',
+    structural: 'Structural',
+    fault: 'Fault',
+    contact: 'Contact',
+    vein: 'Veins & Alteration',
+    strikeRHR: 'Strike (RHR)',
+    quadrant: 'Quadrant',
+    dipTowards: 'Dip direction',
+    trueThick: 'True thickness',
+    auto: 'Auto',
+    manual: 'Manual',
+    useGps: '📍 Use current GPS position',
+    quadrantMode: 'Output Quadrant Format',
+    needleTarget: 'Compass needle target',
+    calibration: 'Magnetic Declination / Calibration (°)',
+    stereonet: 'Stereonet',
+    mapView: 'Map / GIS',
+    projSchmidt: 'Equal-Area (Schmidt)',
+    projWulff: 'Equal-Angle (Wulff)',
+    exportPng: '📷 Export PNG Image',
+    colorTheme: 'Field Color Palette',
+    inputNotation: 'Default Manual Input Notation'
+  }
+};
+
+let currentLang = localStorage.getItem('geo_lang') || 'es';
+let compassScale = localStorage.getItem('geo_compass_scale') || 'md';
+let boxScale = localStorage.getItem('geo_box_scale') || 'md';
+let quadrantPref = localStorage.getItem('geo_quadrant_pref') || 'NS';
+let needleMode = localStorage.getItem('geo_needle_mode') || 'dipdir';
+let magOffset = parseFloat(localStorage.getItem('geo_mag_offset') || '0') || 0;
+let colorTheme = localStorage.getItem('geo_theme') || 'dark';
+let inputNotation = localStorage.getItem('geo_input_notation') || 'dipdir';
+
+function applyTheme(){
+  document.body.className = colorTheme === 'dark' ? '' : 'theme-' + colorTheme;
+}
+
+function t(key){ return I18N[currentLang]?.[key] || I18N.es[key] || key; }
+
+function uid(){ return 'id_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
+function nowIso(){ return new Date().toISOString(); }
+function fmtDate(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleDateString(currentLang==='es'?'es-CL':'en-US',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString(currentLang==='es'?'es-CL':'en-US',{hour:'2-digit',minute:'2-digit'}); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toRad(d){ return d*Math.PI/180; }
+function toDeg(r){ return r*180/Math.PI; }
+function norm360(x){ return ((x%360)+360)%360; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function roundInt(v){ return v==null||isNaN(v)?null:Math.round(v); }
+
+function toast(msg){
+  const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
+  document.body.appendChild(el); setTimeout(()=>el.remove(),2200);
+}
+function dateStamp(){ const d=new Date(); return d.toISOString().slice(0,19).replace(/[:T]/g,'-'); }
+function downloadFile(content, filename, mime){
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+}
+
+/* =========================================================
+   BASE DE DATOS INDEXEDDB (INCLUYE RASTERS OFFLINE)
+   ========================================================= */
+const DB_NAME='geofieldcore_db', DB_VERSION=4;
+let DB=null;
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded=(e)=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains('campaigns')) d.createObjectStore('campaigns',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('stations')) d.createObjectStore('stations',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('measurements')) d.createObjectStore('measurements',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('map_overlays')) d.createObjectStore('map_overlays',{keyPath:'id'});
+    };
+    req.onsuccess=(e)=>{ DB=e.target.result; resolve(DB); };
+    req.onerror=(e)=>reject(e.target.error);
+  });
+}
+function tx(store,mode){ return DB.transaction(store,mode).objectStore(store); }
+function dbPut(store,obj){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').put(obj); r.onsuccess=()=>res(obj); r.onerror=()=>rej(r.error); }); }
+function dbGet(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').get(id); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function dbGetAll(store){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); }); }
+function dbDelete(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
+
+async function dbGetByStation(stationId){
+  const all = await dbGetAll('measurements');
+  return all.filter(m => m.stationId === stationId);
+}
+async function dbGetByCampaign(campId){
+  const all = await dbGetAll('stations');
+  return all.filter(s => s.campaignId === campId);
+}
+async function dbDeleteStationCascade(stationId){
+  const meas = await dbGetByStation(stationId);
+  for(const m of meas) await dbDelete('measurements', m.id);
+  await dbDelete('stations', stationId);
+}
+async function dbDeleteCampaignCascade(campId){
+  const sts = await dbGetByCampaign(campId);
+  for(const s of sts) await dbDeleteStationCascade(s.id);
+  await dbDelete('campaigns', campId);
+}
+
+/* =========================================================
+   MATEMÁTICAS VECTORIALES 3D Y ESTEREOGRAMA
+   ========================================================= */
+const V3 = {
+  cross: (a, b) => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0]
+  ],
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  norm: (v) => {
+    const l = Math.hypot(v[0], v[1], v[2]);
+    return l > 1e-12 ? [v[0] / l, v[1] / l, v[2] / l] : [0, 0, 0];
+  },
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  scale: (v, s) => [v[0] * s, v[1] * s, v[2] * s],
+  toLowerHemi: (v) => (v[2] < 0 ? [-v[0], -v[1], -v[2]] : [v[0], v[1], v[2]])
+};
+
+function trendPlungeToVector(tr, pl) {
+  const trR = toRad(tr), plR = toRad(pl);
+  return [Math.sin(trR) * Math.cos(plR), Math.cos(trR) * Math.cos(plR), Math.sin(plR)];
+}
+
+function vectorToTrendPlunge(v) {
+  const vn = V3.toLowerHemi(v);
+  let tr = norm360(toDeg(Math.atan2(vn[0], vn[1])));
+  let pl = toDeg(Math.asin(clamp(vn[2], -1, 1)));
+  return { trend: roundInt(tr), plunge: roundInt(pl) };
+}
+
+function planeToPoleVector(strike, dip) {
+  const poleTr = norm360(strike - 90);
+  const polePl = 90 - dip;
+  return trendPlungeToVector(poleTr, polePl);
+}
+
+function faultRakeToSlipVector(strike, dip, rake, rakeQuad) {
+  const sR = toRad(strike), dR = toRad(dip), rR = toRad(rake);
+  const strikeVec = [Math.sin(sR), Math.cos(sR), 0];
+  const dipVec = [Math.cos(sR) * Math.cos(dR), -Math.sin(sR) * Math.cos(dR), Math.sin(dR)];
+  const strikeQuad = dipDirQuadrant(strike);
+  let rakeFromStrikeStart = true;
+  if (rakeQuad && rakeQuad !== strikeQuad) rakeFromStrikeStart = false;
+  const sign = rakeFromStrikeStart ? 1 : -1;
+  const slip = V3.add(V3.scale(strikeVec, sign * Math.cos(rR)), V3.scale(dipVec, Math.sin(rR)));
+  return V3.norm(slip);
+}
+
+function computeFaultKinematics(f) {
+  // 1. Actitud del plano (Regla de la Mano Derecha / RHR)
+  const strike = f.strike != null ? f.strike : norm360((f.dipDir || 0) - 90);
+  const dip = f.dip != null ? f.dip : 0;
+  const dipDir = norm360(strike + 90);
+  
+  const sR = toRad(strike);
+  const dR = toRad(dip);
+  const dipDirR = toRad(dipDir);
+
+  // 2. Sistema ortonormal del plano (z positivo = abajo)
+  const eStrike = [Math.sin(sR), Math.cos(sR), 0];
+  const eDipDown = [Math.sin(dipDirR) * Math.cos(dR), Math.cos(dipDirR) * Math.cos(dR), Math.sin(dR)];
+
+  // 3. Polos normalizados (planeToPoleVector apunta al yaciente con z positivo hacia abajo)
+  const nFoot = planeToPoleVector(strike, dip);
+  const nHang = [-nFoot[0], -nFoot[1], -nFoot[2]];
+
+  // 4. Estría y vector de deslizamiento proyectado en el plano
+  let u;
+  if (f.striaeMode === 'trendplunge' && f.trend != null && f.plunge != null) {
+    u = trendPlungeToVector(f.trend, f.plunge);
+  } else if (f.rake != null) {
+    u = faultRakeToSlipVector(strike, dip, f.rake, f.rakeQuadrant);
+  } else {
+    u = [...eDipDown];
+  }
+  u = V3.norm(u);
+
+  // Proyectar sobre el plano para evitar desviaciones numéricas
+  const uPlane = V3.sub(u, V3.scale(nHang, V3.dot(u, nHang)));
+  const uLine = V3.norm(uPlane);
+
+  // 5. Mapeo estricto de sentido cinemático (dipComponent, strikeComponent)
+  const senseMap = {
+    'normal': [1, 0],
+    'n': [1, 0],
+    'inverso': [-1, 0],
+    'thrust': [-1, 0],
+    'tr': [-1, 0],
+    't': [-1, 0],
+    'dextral': [0, 1],
+    'rl': [0, 1],
+    'sinistral': [0, -1],
+    'll': [0, -1],
+    'dextral-normal': [1, 1],
+    'dextral-inverso': [-1, 1],
+    'sinistral-normal': [1, -1],
+    'sinistral-inverso': [-1, -1]
+  };
+
+  const rawSense = String(f.sense || '').toLowerCase().replace(/\s+/g, '');
+  let dipComp = 1, strikeComp = 0; // Default: normal
+
+  if (senseMap.hasOwnProperty(rawSense)) {
+    [dipComp, strikeComp] = senseMap[rawSense];
+  } else if (rawSense) {
+    console.warn('Sentido cinemático no reconocido, usando "normal":', f.sense);
+  }
+
+  // 6. Orientar el movimiento del bloque colgante (uHang)
+  const targetDip = V3.scale(eDipDown, dipComp);
+  const targetStrike = V3.scale(eStrike, -strikeComp); 
+  const target = V3.add(targetDip, targetStrike);
+
+  let uHang;
+  if (V3.dot(uLine, target) >= 0) {
+    uHang = [...uLine];
+  } else {
+    uHang = V3.scale(uLine, -1);
+  }
+
+  // 7. Cálculo de Ejes P y T
+  const P = V3.toLowerHemi(V3.norm(V3.sub(nHang, uHang)));
+  const T = V3.toLowerHemi(V3.norm(V3.add(nHang, uHang)));
+
+  // 8. Eje nulo, plano auxiliar y estructura de retorno intacta
+  const n = nFoot; 
+  const b = V3.norm(V3.cross(n, uLine));
+
+  const auxPole = V3.toLowerHemi(uHang);
+  const auxTP = vectorToTrendPlunge(auxPole);
+  const auxDipDir = norm360(auxTP.trend + 180);
+  const auxDip = 90 - auxTP.plunge;
+
+  return {
+    n: V3.toLowerHemi(n),
+    u: V3.toLowerHemi(uHang),
+    b: V3.toLowerHemi(b),
+    P,
+    T,
+    auxDipDir,
+    auxDip,
+    auxStrike: norm360(auxDipDir - 90),
+    P_tp: vectorToTrendPlunge(P),
+    T_tp: vectorToTrendPlunge(T)
+  };
+}
+
+function calculateMeanOrientation(poles) {
+  if (!poles || poles.length === 0) return null;
+  let sum = [0, 0, 0];
+  poles.forEach(p => { sum = V3.add(sum, p); });
+  const R = Math.hypot(sum[0], sum[1], sum[2]);
+  if (R < 1e-5) return null;
+  const meanVec = V3.toLowerHemi(V3.scale(sum, 1 / R));
+  const tp = vectorToTrendPlunge(meanVec);
+  const dipDir = norm360(tp.trend + 180);
+  const dip = 90 - tp.plunge;
+  const strike = norm360(dipDir - 90);
+  return { meanVec, dipDir, dip, strike, trend: tp.trend, plunge: tp.plunge, count: poles.length };
+}
+
+function project3D(v, type, R) {
+  const vn = V3.toLowerHemi(v);
+  const x = vn[0], y = vn[1], z = vn[2];
+  let rProj = 0;
+  if (type === 'schmidt') {
+    rProj = R * Math.sqrt(Math.max(0, 1 - z));
+  } else {
+    const horiz = Math.hypot(x, y);
+    rProj = (1 + z) > 1e-12 ? R * (horiz / (1 + z)) : 0;
+  }
+  const horizLen = Math.hypot(x, y);
+  if (horizLen < 1e-7) return { x: 0, y: 0 };
+  return { x: (x / horizLen) * rProj, y: -(y / horizLen) * rProj };
+}
+
+function unproject2D(px, py, type, R) {
+  const dist = Math.hypot(px, py);
+  if (dist > R) return null;
+  const normDist = dist / R;
+  let z = (type === 'schmidt') ? 1 - 2 * Math.pow(normDist / Math.SQRT2, 2) : (1 - normDist * normDist) / (1 + normDist * normDist);
+  z = clamp(z, 0, 1);
+  const horiz = Math.sqrt(Math.max(0, 1 - z * z));
+  if (dist < 1e-7) return [0, 0, 1];
+  return [(px / dist) * horiz, -(py / dist) * horiz, z];
+}
+
+/* =========================================================
+   SISTEMA DE COORDENADAS / UTM (WGS84)
+   ========================================================= */
+const UTM_A=6378137.0, UTM_ECC2=0.00669438, UTM_K0=0.9996;
+function llToUTM(lat, lon){
+  const latRad=toRad(lat), lonRad=toRad(lon);
+  const zoneNumber = Math.floor((lon+180)/6)+1;
+  const lonOrigin = (zoneNumber-1)*6-180+3;
+  const lonOriginRad = toRad(lonOrigin);
+  const eccPrime2 = UTM_ECC2/(1-UTM_ECC2);
+  const N = UTM_A/Math.sqrt(1-UTM_ECC2*Math.sin(latRad)*Math.sin(latRad));
+  const T = Math.tan(latRad)*Math.tan(latRad);
+  const C = eccPrime2*Math.cos(latRad)*Math.cos(latRad);
+  const A = Math.cos(latRad)*(lonRad-lonOriginRad);
+  const M = UTM_A*((1-UTM_ECC2/4-3*UTM_ECC2*UTM_ECC2/64-5*Math.pow(UTM_ECC2,3)/256)*latRad
+            - (3*UTM_ECC2/8+3*UTM_ECC2*UTM_ECC2/32+45*Math.pow(UTM_ECC2,3)/1024)*Math.sin(2*latRad)
+            + (15*UTM_ECC2*UTM_ECC2/256+45*Math.pow(UTM_ECC2,3)/1024)*Math.sin(4*latRad)
+            - (35*Math.pow(UTM_ECC2,3)/3072)*Math.sin(6*latRad));
+  let easting = UTM_K0*N*(A+(1-T+C)*Math.pow(A,3)/6
+              + (5-18*T+T*T+72*C-58*eccPrime2)*Math.pow(A,5)/120) + 500000.0;
+  let northing = UTM_K0*(M+N*Math.tan(latRad)*(A*A/2+(5-T+9*C+4*C*C)*Math.pow(A,4)/24
+              + (61-58*T+T*T+600*C-330*eccPrime2)*Math.pow(A,6)/720));
+  const hemisphere = lat<0 ? 'S' : 'N';
+  if(lat<0) northing += 10000000.0;
+  return { zoneNumber, hemisphere, easting: Math.round(easting), northing: Math.round(northing) };
+}
+function utmToLL(easting, northing, zoneNumber, hemisphere){
+  const e1=(1-Math.sqrt(1-UTM_ECC2))/(1+Math.sqrt(1-UTM_ECC2));
+  const x=easting-500000.0;
+  let y=northing;
+  if(hemisphere==='S') y -= 10000000.0;
+  const lonOrigin=(zoneNumber-1)*6-180+3;
+  const eccPrime2=UTM_ECC2/(1-UTM_ECC2);
+  const M=y/UTM_K0;
+  const mu=M/(UTM_A*(1-UTM_ECC2/4-3*UTM_ECC2*UTM_ECC2/64-5*Math.pow(UTM_ECC2,3)/256));
+  const phi1 = mu + (3*e1/2-27*Math.pow(e1,3)/32)*Math.sin(2*mu)
+             + (21*e1*e1/16-55*Math.pow(e1,4)/32)*Math.sin(4*mu)
+             + (151*Math.pow(e1,3)/96)*Math.sin(6*mu)
+             + (1097*Math.pow(e1,4)/512)*Math.sin(8*mu);
+  const N1=UTM_A/Math.sqrt(1-UTM_ECC2*Math.sin(phi1)*Math.sin(phi1));
+  const T1=Math.tan(phi1)*Math.tan(phi1);
+  const C1=eccPrime2*Math.cos(phi1)*Math.cos(phi1);
+  const R1=UTM_A*(1-UTM_ECC2)/Math.pow(1-UTM_ECC2*Math.sin(phi1)*Math.sin(phi1),1.5);
+  const D=x/(N1*UTM_K0);
+  let lat = phi1 - (N1*Math.tan(phi1)/R1)*(D*D/2
+          - (5+3*T1+10*C1-4*C1*C1-9*eccPrime2)*Math.pow(D,4)/24
+          + (61+90*T1+298*C1+45*T1*T1-252*eccPrime2-3*C1*C1)*Math.pow(D,6)/720);
+  let lon = (D-(1+2*T1+C1)*Math.pow(D,3)/6
+          + (5-2*C1+28*T1-3*C1*C1+8*eccPrime2+24*T1*T1)*Math.pow(D,5)/120)/Math.cos(phi1);
+  return { lat: Number(lat.toFixed(6)), lon: Number((lonOrigin+toDeg(lon)).toFixed(6)) };
+}
+function utmLabel(lat, lon){
+  if(lat==null||lon==null||isNaN(lat)||isNaN(lon)) return null;
+  const r=llToUTM(lat,lon);
+  return { text: r.easting+' E, '+r.northing+' N ('+(currentLang==='es'?'Huso ':'Zone ')+r.zoneNumber+r.hemisphere+')', ...r };
+}
+
+/* =========================================================
+   ESTADO GLOBAL Y SENSORES
+   ========================================================= */
+const state={ view:'campaigns', campId:null, stationId:null, measId:null, measType:null };
+const stereoState = {
+  proj: 'schmidt', campId: 'ALL', stationId: 'ALL',
+  showPlanes: true, showPoles: true, showFaults: true, showPT: true, showBeachball: false, interactiveItems: []
+};
+
+/* ESTADO DEL VISOR CARTOGRÁFICO SIG */
+const mapState = {
+  campId: 'ALL',
+  centerLat: -33.45,
+  centerLon: -70.66,
+  zoom: 15, // metros por píxel aprox
+  scale: 1, // factor de zoom en pantalla
+  panX: 0,
+  panY: 0,
+  isDragging: false,
+  lastX: 0,
+  lastY: 0,
+  touchDist: 0,
+  overlayImg: null,
+  overlayMeta: null,
+  filterLayer: 'ALL', // 'ALL', 'planar', 'fault', 'linear', 'vein', 'contact'
+  stationsCache: [],
+  measCache: []
+};
+
+const gpsState={ status:'idle', lat:null, lon:null, alt:null, accuracy:null, errorMsg:'' };
+const sensorState={ available:false, granted:null, status:'idle', errorMsg:'', last:null };
+let dialRAF=false;
+const IS_SECURE = window.isSecureContext === true;
+
+function requestSensorPermission(){
+  if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission().then(resp=>{
+      sensorState.granted = (resp==='granted');
+      if(sensorState.granted){ sensorState.status='pending'; attachOrientationListener(); }
+      render();
+    }).catch(()=>{ sensorState.granted=false; render(); });
+  } else {
+    sensorState.status='pending';
+    attachOrientationListener();
+    toast('Sensores activados');
+  }
+}
+let orientationHandlerAttached=false;
+function attachOrientationListener(){
+  if(orientationHandlerAttached) return;
+  orientationHandlerAttached=true;
+  const handler=(e)=>{
+    if(e.alpha==null && e.beta==null && e.gamma==null) return;
+    let alphaDeg = (typeof e.webkitCompassHeading==='number') ? norm360(360 - e.webkitCompassHeading) : (e.alpha||0);
+    sensorState.available=true;
+    sensorState.status='active';
+    sensorState.last = computeOrientation(alphaDeg, e.beta||0, e.gamma||0);
+    if(!dialRAF){
+      dialRAF=true;
+      requestAnimationFrame(()=>{ dialRAF=false; updateLiveDial(); updateTopbarStatus(); });
+    }
+  };
+  window.addEventListener('deviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation', handler);
+}
+function initSensors(){
+  if(!IS_SECURE || typeof DeviceOrientationEvent==='undefined') return;
+  if(typeof DeviceOrientationEvent.requestPermission!=='function'){ sensorState.status='pending'; attachOrientationListener(); }
+}
+function updateTopbarStatus(){
+  const gDot=document.getElementById('gpsDot');
+  if(gDot) gDot.className='status-dot'+(gpsState.status==='fix'?' ok':gpsState.status==='searching'?' warn':' err');
+  const sDot=document.getElementById('sensorDot');
+  if(sDot) sDot.className='status-dot'+(sensorState.status==='active'?' ok':(sensorState.status==='pending')?' warn':' err');
+}
+function initGPS(){
+  if(!IS_SECURE || !navigator.geolocation) return;
+  gpsState.status='searching';
+  navigator.geolocation.watchPosition(pos=>{
+    gpsState.status='fix';
+    gpsState.lat=pos.coords.latitude;
+    gpsState.lon=pos.coords.longitude;
+    gpsState.alt=pos.coords.altitude ? Math.round(pos.coords.altitude) : null;
+    gpsState.accuracy=pos.coords.accuracy ? Math.round(pos.coords.accuracy) : null;
+    updateTopbarStatus();
+  }, ()=>{ gpsState.status='unavailable'; updateTopbarStatus(); }, { enableHighAccuracy:true, maximumAge:4000, timeout:20000 });
+}
+
+function getDialDiameter(){
+  if(compassScale==='sm') return 90;
+  if(compassScale==='lg') return 160;
+  if(compassScale==='xl') return 210;
+  return 120;
+}
+
+/* =========================================================
+   NAVEGACIÓN / ROUTER
+   ========================================================= */
+const Nav={
+  home(){ state.view='campaigns'; state.campId=null; state.stationId=null; render(); },
+  newCampaign(){ state.view='campForm'; state.campId=null; render(); },
+  editCampaign(id){ state.view='campForm'; state.campId=id; render(); },
+  campaign(id){ state.view='campaignDetail'; state.campId=id; state.stationId=null; render(); },
+  newStation(campId){ state.view='stationForm'; state.campId=campId; state.stationId=null; render(); },
+  editStation(id, campId){ state.view='stationForm'; state.campId=campId; state.stationId=id; render(); },
+  station(id, campId){ state.view='stationDetail'; state.stationId=id; if(campId) state.campId=campId; render(); },
+  newMeasurement(stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=null; render(); },
+  editMeasurement(id, stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=id; render(); },
+  stereonet(campId, stationId){ 
+    state.view='stereonet'; 
+    if(campId) stereoState.campId = campId;
+    if(stationId) stereoState.stationId = stationId;
+    render(); 
+  },
+  mapView(campId){
+    state.view='mapView';
+    if(campId) mapState.campId = campId;
+    render();
+  },
+  exportView(){ state.view='export'; render(); },
+  settings(){ state.view='settings'; render(); },
+  back(){
+    if(state.view==='measForm') Nav.station(state.stationId, state.campId);
+    else if(state.view==='stationForm') { if(state.stationId) Nav.station(state.stationId, state.campId); else Nav.campaign(state.campId); }
+    else if(state.view==='stationDetail') { if(state.campId) Nav.campaign(state.campId); else Nav.home(); }
+    else if(state.view==='stereonet' && state.stationId) Nav.station(state.stationId, state.campId);
+    else if(state.view==='stereonet' && state.campId) Nav.campaign(state.campId);
+    else if(state.view==='mapView' && state.campId) Nav.campaign(state.campId);
+    else Nav.home();
+  }
+};
+
+function setActiveNav(){
+  ['navHome','navMap','navStereo','navExport'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
+  if(['campaigns','campForm','campaignDetail','stationForm','stationDetail','measForm'].includes(state.view)) document.getElementById('navHome')?.classList.add('active');
+  if(state.view==='mapView') document.getElementById('navMap')?.classList.add('active');
+  if(state.view==='stereonet') document.getElementById('navStereo')?.classList.add('active');
+  if(state.view==='export') document.getElementById('navExport')?.classList.add('active');
+
+  document.getElementById('navHomeTxt').textContent = t('campaigns');
+  document.getElementById('navMapTxt').textContent = t('mapView');
+  document.getElementById('navStereoTxt').textContent = t('stereonet');
+  document.getElementById('navExportTxt').textContent = t('export');
+}
+
+async function render(){
+  const app=document.getElementById('app');
+  applyTheme();
+  setActiveNav();
+  app.className = (state.view==='mapView') ? 'no-pad' : '';
+
+  if(state.view==='campaigns') app.innerHTML = await renderCampaigns();
+  else if(state.view==='campForm') app.innerHTML = await renderCampaignForm();
+  else if(state.view==='campaignDetail') app.innerHTML = await renderCampaignDetail();
+  else if(state.view==='stationForm'){ app.innerHTML = await renderStationForm(); utmFromLatLon(); }
+  else if(state.view==='stationDetail') app.innerHTML = await renderStationDetail();
+  else if(state.view==='measForm'){ app.innerHTML = await renderMeasForm(); attachSensorInit(); postRenderMeasForm(); }
+  else if(state.view==='stereonet'){ app.innerHTML = await renderStereonetView(); initStereonetCanvas(); }
+  else if(state.view==='mapView'){ app.innerHTML = renderMapGISView(); initGISMap(); }
+  else if(state.view==='export') app.innerHTML = await renderExport();
+  else if(state.view==='settings') app.innerHTML = renderSettings();
+  
+  if(state.view!=='mapView'){ window.scrollTo(0,0); app.scrollTop=0; }
+}
+
+/* =========================================================
+   MÓDULO MAPA GIS
+   ========================================================= */
+function renderMapGISView(){
+  return `
+  <div id="mapContainer">
+    <div class="map-toolbar">
+      <select id="mapCampSelect" onchange="onMapCampChange(this.value)" style="flex:1;">
+        <option value="ALL">📁 Todas las campañas</option>
+      </select>
+      <select id="mapLayerFilter" onchange="onMapLayerFilter(this.value)" style="flex:1;">
+        <option value="ALL">Capas: Todas</option>
+        <option value="planar">Planos (S0/S1)</option>
+        <option value="fault">Fallas / Estrías</option>
+        <option value="contact">Contactos</option>
+        <option value="vein">Vetas</option>
+        <option value="linear">Lineaciones</option>
+      </select>
+      <button class="icon-btn" onclick="openMapCalibrator()" title="Importar/Calibrar Mapa Base" style="flex:0 0 36px;height:36px;">🗺️</button>
+    </div>
+ 
+    <div class="map-controls">
+      <button class="map-btn" onclick="gisZoom(1.3)" title="Acercar">+</button>
+      <button class="map-btn" onclick="gisZoom(0.7)" title="Alejar">-</button>
+      <button class="map-btn" onclick="gisCenterGPS()" title="Mi Ubicación GPS">📍</button>
+      <button class="map-btn" onclick="gisFitBounds()" title="Ajustar a datos">⛶</button>
+    </div>
+ 
+    <canvas id="gisCanvas"></canvas>
+ 
+    <div id="mapBottomSheet" class="map-bottom-sheet">
+      <div class="sheet-header">
+        <b id="sheetTitle" style="font-size:16px;">Detalle de Estación</b>
+        <button class="icon-sm" onclick="closeMapSheet()">✕</button>
+      </div>
+      <div id="sheetContent"></div>
+    </div>
+  </div>
+ 
+  <!-- MODAL CALIBRADOR MAPA BASE -->
+  <div id="mapCalibModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:60;padding:20px;overflow-y:auto;">
+    <div class="card" style="max-width:440px;margin:30px auto;cursor:default;">
+      <div class="card-title">🗺️ Calibrar Mapa Base Offline</div>
+      <div class="card-sub">Carga una imagen (.jpg/.png) e ingresa su Bounding Box (Límites WGS84)</div>
+ 
+      <label>Archivo de imagen</label>
+      <input type="file" id="calibImgFile" accept="image/*" onchange="onCalibFileSelect(event)">
+ 
+      <label>Latitud Norte (Lat Max)</label>
+      <input type="number" step="0.000001" id="calibLatMax" placeholder="-33.4000">
+ 
+      <label>Latitud Sur (Lat Min)</label>
+      <input type="number" step="0.000001" id="calibLatMin" placeholder="-33.5000">
+ 
+      <label>Longitud Oeste (Lon Min)</label>
+      <input type="number" step="0.000001" id="calibLonMin" placeholder="-70.7500">
+ 
+      <label>Longitud Este (Lon Max)</label>
+      <input type="number" step="0.000001" id="calibLonMax" placeholder="-70.6000">
+ 
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="btn ghost" onclick="closeMapCalibrator()">Cancelar</button>
+        <button class="btn primary" onclick="saveMapOverlay()">Guardar Base</button>
+      </div>
+    </div>
+  </div>
+  `;
+}
+ 
+let gisTouchState = { dragging:false, startX:0, startY:0, lastX:0, lastY:0, pinchDist:0, lastTap:0 };
+ 
+async function initGISMap(){
+  const canvas = document.getElementById('gisCanvas');
+  if(!canvas) return;
+ 
+  const dpr = window.devicePixelRatio || 1;
+  const container = document.getElementById('mapContainer');
+  canvas.width = container.clientWidth * dpr;
+  canvas.height = container.clientHeight * dpr;
+ 
+  // Cargar campañas al selector
+  const camps = await dbGetAll('campaigns');
+  const sel = document.getElementById('mapCampSelect');
+  if(sel){
+    camps.forEach(c=>{
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = '📂 ' + c.name;
+      if(mapState.campId === c.id) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+ 
+  // Cargar mapa base ráster de IndexedDB
+  await loadSavedMapOverlay();
+ 
+  // Cargar datos espaciales
+  await loadMapData();
+ 
+  // Ajustar vista inicial
+  if(mapState.stationsCache.length > 0){
+    gisFitBounds();
+  } else if(gpsState.lat != null){
+    mapState.centerLat = gpsState.lat;
+    mapState.centerLon = gpsState.lon;
+  }
+ 
+  // Eventos táctiles y mouse nativos
+  setupGISMapEvents(canvas);
+  drawGISMap();
+}
+ 
+async function loadMapData(){
+  let stations = await dbGetAll('stations');
+  if(mapState.campId !== 'ALL'){
+    stations = stations.filter(s => s.campaignId === mapState.campId);
+  }
+  stations = stations.filter(s => s.lat != null && s.lon != null && !isNaN(s.lat) && !isNaN(s.lon));
+  const meas = await dbGetAll('measurements');
+  mapState.stationsCache = stations;
+  mapState.measCache = meas;
+}
+ 
+function onMapCampChange(val){
+  mapState.campId = val;
+  loadMapData().then(()=>{ gisFitBounds(); drawGISMap(); });
+}
+function onMapLayerFilter(val){
+  mapState.filterLayer = val;
+  drawGISMap();
+}
+ 
+// Proyección de Coordenadas Geográficas (Lat/Lon) a Coordenadas Pantalla (Canvas)
+function geoToScreen(lat, lon, width, height){
+  // Escala métrica aproximada centrada (1 grado latitud ≈ 111,320m)
+  const latRad = toRad(mapState.centerLat);
+  const metersPerDegLat = 111320;
+  const metersPerDegLon = 111320 * Math.cos(latRad);
+ 
+  const dx = (lon - mapState.centerLon) * metersPerDegLon;
+  const dy = (lat - mapState.centerLat) * metersPerDegLat;
+ 
+  // Factor de escala
+  const pxPerMeter = (1 / mapState.zoom) * mapState.scale;
+  const screenX = (width / 2) + dx * pxPerMeter + mapState.panX;
+  const screenY = (height / 2) - dy * pxPerMeter + mapState.panY;
+ 
+  return { x: screenX, y: screenY };
+}
+ 
+function screenToGeo(sx, sy, width, height){
+  const latRad = toRad(mapState.centerLat);
+  const metersPerDegLat = 111320;
+  const metersPerDegLon = 111320 * Math.cos(latRad);
+  const pxPerMeter = (1 / mapState.zoom) * mapState.scale;
+ 
+  const dx = (sx - (width / 2) - mapState.panX) / pxPerMeter;
+  const dy = ((height / 2) - (sy - mapState.panY)) / pxPerMeter;
+ 
+  const lon = mapState.centerLon + (dx / metersPerDegLon);
+  const lat = mapState.centerLat + (dy / metersPerDegLat);
+  return { lat, lon };
+}
+ 
+/* =========================================================
+   DIBUJADO PRINCIPAL DEL MAPA (CANVAS NATIVO)
+   ========================================================= */
+function drawGISMap(){
+  const canvas = document.getElementById('gisCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width / dpr;
+  const h = canvas.height / dpr;
+ 
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+ 
+  // 1. Fondo de terreno
+  ctx.fillStyle = colorTheme === 'sun' ? '#f4f6f8' : (colorTheme==='earth' ? '#1f1c18' : '#14181c');
+  ctx.fillRect(0, 0, w, h);
+ 
+  // 2. Dibujar Imagen Satelital / Topográfica Calibrada (Ráster)
+  if(mapState.overlayImg && mapState.overlayMeta){
+    const m = mapState.overlayMeta;
+    const nw = geoToScreen(m.latMax, m.lonMin, w, h);
+    const se = geoToScreen(m.latMin, m.lonMax, w, h);
+    const imgW = se.x - nw.x;
+    const imgH = se.y - nw.y;
+    ctx.drawImage(mapState.overlayImg, nw.x, nw.y, imgW, imgH);
+  }
+ 
+  // 3. Dibujar Cuadrícula Geográfica / UTM dinámica
+  drawMapGrid(ctx, w, h);
+ 
+  // 4. Dibujar Símbolos Geológicos Estructurales
+  mapState.stationsCache.forEach(st => {
+    const pt = geoToScreen(st.lat, st.lon, w, h);
+    if(pt.x < -60 || pt.x > w + 60 || pt.y < -60 || pt.y > h + 60) return; // Culling
+ 
+    const stMeas = mapState.measCache.filter(m => m.stationId === st.id);
+ 
+    // Punto base de la estación
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.strokeStyle = '#e8a33d';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+ 
+    // Etiqueta de la estación
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.fillStyle = colorTheme==='sun' ? '#111' : '#eef2f5';
+    ctx.fillText(st.name || st.id, pt.x + 8, pt.y - 6);
+ 
+    // Dibujar cada estructura registrada en la estación
+    if(stMeas.length === 0){
+      // Estación vacía
+    } else {
+      stMeas.forEach((m, idx) => {
+        if(mapState.filterLayer !== 'ALL' && m.type !== mapState.filterLayer) return;
+        drawGeologicalSymbol(ctx, pt.x, pt.y, m);
+      });
+    }
+  });
+ 
+  // 5. Dibujar posición GPS en vivo del usuario
+  if(gpsState.lat != null && gpsState.lon != null){
+    const gpsPt = geoToScreen(gpsState.lat, gpsState.lon, w, h);
+    ctx.beginPath();
+    ctx.arc(gpsPt.x, gpsPt.y, 7, 0, Math.PI*2);
+    ctx.fillStyle = '#38a169';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+ 
+    // Pulso animado
+    ctx.beginPath();
+    ctx.arc(gpsPt.x, gpsPt.y, 14, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(56, 161, 105, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+ 
+  // 6. Elementos cartográficos: Rosa de los vientos y Escala gráfica
+  drawNorthArrow(ctx, w - 35, 95);
+  drawMapScaleBar(ctx, 20, h - 25, w);
+ 
+  ctx.restore();
+}
+ 
+/* =========================================================
+   SIMBOLOGÍA ESTRUCTURAL EN PLANTA NORMALIZADA
+   ========================================================= */
+function drawGeologicalSymbol(ctx, cx, cy, m){
+  const strike = m.strike != null ? m.strike : (m.dipDir != null ? norm360(m.dipDir - 90) : 0);
+  const dip = m.dip || 0;
+  const strikeRad = toRad(strike);
+  const len = 22; // Longitud del rumbo
+ 
+  ctx.save();
+  ctx.translate(cx, cy);
+ 
+  // A. ESTRATIFICACIÓN (S0) Y FOLIACIONES (S1, S2, CLIVAJE)
+  if(m.type === 'planar' || (m.subtype && m.subtype.includes('Estratificación')) || (m.subtype && m.subtype.includes('Foliación'))){
+    const isFoliation = (m.subtype || '').includes('Foliación');
+    ctx.rotate(strikeRad);
+ 
+    // Línea de rumbo
+    ctx.strokeStyle = isFoliation ? '#e8a33d' : '#5fb583';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(-len/2, 0);
+    ctx.lineTo(len/2, 0);
+    ctx.stroke();
+ 
+    // Trazo de buzamiento / manteo perpendicular hacia el bloque techo
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 8);
+    ctx.stroke();
+ 
+    if(isFoliation){
+      // Trazado doble para foliación
+      ctx.beginPath();
+      ctx.moveTo(-len/3, -3);
+      ctx.lineTo(len/3, -3);
+      ctx.stroke();
+    }
+ 
+    // Texto con el valor de manteo
+    ctx.rotate(-strikeRad);
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = isFoliation ? '#e8a33d' : '#5fb583';
+    ctx.fillText(`${dip}°`, 8, 14);
+  }
+ 
+  // B. FALLAS Y CINEMÁTICA EN PLANTA
+  else if(m.type === 'fault'){
+    ctx.rotate(strikeRad);
+    ctx.strokeStyle = '#e0645c';
+    ctx.lineWidth = 2.8;
+ 
+    // Trazo de falla
+    ctx.beginPath();
+    ctx.moveTo(-len/2, 0);
+    ctx.lineTo(len/2, 0);
+    ctx.stroke();
+ 
+    // Diente o línea de manteo
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 7);
+    ctx.stroke();
+ 
+    // Flechas de cizalle según cinemática (Dextral / Sinistral)
+    const sense = (m.sense || '').toLowerCase();
+    if(sense.includes('dextral') || sense.includes('rl')){
+      // Flecha arriba hacia la derecha, abajo hacia la izquierda
+      drawArrowHead(ctx, 6, -4, 0);
+      drawArrowHead(ctx, -6, 4, Math.PI);
+    } else if(sense.includes('sinistral') || sense.includes('ll')){
+      // Flecha arriba hacia la izquierda, abajo hacia la derecha
+      drawArrowHead(ctx, -6, -4, Math.PI);
+      drawArrowHead(ctx, 6, 4, 0);
+    } else if(sense.includes('invers') || sense.includes('thrust')){
+      // Dientes de cabalgamiento
+      ctx.fillStyle = '#e0645c';
+      ctx.beginPath();
+      ctx.moveTo(-6, 0); ctx.lineTo(-2, 6); ctx.lineTo(2, 0);
+      ctx.fill();
+    }
+ 
+    ctx.rotate(-strikeRad);
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = '#e0645c';
+    ctx.fillText(`${dip}°`, 8, 14);
+  }
+ 
+  // C. LINEACIONES Y ESTRÍAS PURAS
+  else if(m.trend != null && m.plunge != null){
+    const trendRad = toRad(m.trend);
+    ctx.rotate(trendRad);
+    ctx.strokeStyle = '#ff6b6b';
+    ctx.fillStyle = '#ff6b6b';
+    ctx.lineWidth = 2;
+ 
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 16);
+    ctx.stroke();
+    drawArrowHead(ctx, 0, 16, Math.PI/2);
+ 
+    ctx.rotate(-trendRad);
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText(`${m.plunge}°`, 6, 12);
+  }
+ 
+  // D. VETAS Y CONTACTOS
+  else if(m.type === 'vein' || m.type === 'contact'){
+    ctx.rotate(strikeRad);
+    ctx.strokeStyle = m.type === 'vein' ? '#5cb3ff' : '#d38aea';
+    ctx.lineWidth = 2;
+    if(m.type === 'contact') ctx.setLineDash([3, 3]);
+ 
+    ctx.beginPath();
+    ctx.moveTo(-len/2, 0);
+    ctx.lineTo(len/2, 0);
+    ctx.stroke();
+ 
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 6);
+    ctx.stroke();
+ 
+    ctx.rotate(-strikeRad);
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = m.type === 'vein' ? '#5cb3ff' : '#d38aea';
+    ctx.fillText(`${dip}°`, 8, 12);
+  }
+ 
+  ctx.restore();
+}
+ 
+function drawArrowHead(ctx, x, y, angRad){
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angRad);
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.beginPath();
+  ctx.moveTo(3, 0);
+  ctx.lineTo(-3, -2.5);
+  ctx.lineTo(-3, 2.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+ 
+// Cuadrícula y coordenadas
+function drawMapGrid(ctx, w, h){
+  ctx.save();
+  ctx.strokeStyle = colorTheme==='sun' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+ 
+  const step = 80;
+  for(let x = 0; x < w; x += step){
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for(let y = 0; y < h; y += step){
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+ 
+  // Ticks con coordenadas en las esquinas
+  const nw = screenToGeo(10, 10, w, h);
+  const se = screenToGeo(w-10, h-10, w, h);
+  ctx.font = '9px monospace';
+  ctx.fillStyle = colorTheme==='sun' ? '#78909c' : '#5c6770';
+  ctx.fillText(`NW: ${nw.lat.toFixed(4)}, ${nw.lon.toFixed(4)}`, 14, 52);
+  ctx.fillText(`SE: ${se.lat.toFixed(4)}, ${se.lon.toFixed(4)}`, w - 160, h - 35);
+  ctx.restore();
+}
+ 
+function drawNorthArrow(ctx, x, y){
+  ctx.save();
+  ctx.translate(x, y);
+ 
+  // Fondo circular tenue
+  ctx.beginPath();
+  ctx.arc(0, 0, 16, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(28,34,39,0.75)';
+  ctx.fill();
+  ctx.strokeStyle = 'var(--border)';
+  ctx.stroke();
+ 
+  // Flecha Norte
+  ctx.beginPath();
+  ctx.moveTo(0, -12);
+  ctx.lineTo(5, 6);
+  ctx.lineTo(0, 2);
+  ctx.fillStyle = '#e0645c';
+  ctx.fill();
+ 
+  ctx.beginPath();
+  ctx.moveTo(0, -12);
+  ctx.lineTo(-5, 6);
+  ctx.lineTo(0, 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+ 
+  ctx.font = 'bold 9px monospace';
+  ctx.fillStyle = '#eef2f5';
+  ctx.textAlign = 'center';
+  ctx.fillText('N', 0, -15);
+  ctx.restore();
+}
+ 
+function drawMapScaleBar(ctx, x, y, maxW){
+  ctx.save();
+  const pxPerMeter = (1 / mapState.zoom) * mapState.scale;
+ 
+  // Determinar longitud ideal de la barra (aprox 80-120px)
+  let targetMeters = 100;
+  if(pxPerMeter < 0.001) targetMeters = 50000;
+  else if(pxPerMeter < 0.01) targetMeters = 10000;
+  else if(pxPerMeter < 0.1) targetMeters = 1000;
+  else if(pxPerMeter < 0.5) targetMeters = 500;
+  else if(pxPerMeter < 2) targetMeters = 100;
+  else targetMeters = 20;
+ 
+  const barPx = targetMeters * pxPerMeter;
+  const label = targetMeters >= 1000 ? `${targetMeters/1000} km` : `${targetMeters} m`;
+ 
+  ctx.fillStyle = 'rgba(28,34,39,0.85)';
+  ctx.fillRect(x - 6, y - 18, barPx + 12, 24);
+  ctx.strokeStyle = 'var(--border)';
+  ctx.strokeRect(x - 6, y - 18, barPx + 12, 24);
+ 
+  ctx.strokeStyle = 'var(--accent)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + barPx, y);
+  ctx.stroke();
+ 
+  ctx.font = 'bold 10px monospace';
+  ctx.fillStyle = '#eef2f5';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, x + barPx/2, y - 5);
+  ctx.restore();
+}
+ 
+/* =========================================================
+   GESTOS TÁCTILES Y HIT-TESTING DEL MAPA
+   ========================================================= */
+function setupGISMapEvents(canvas){
+  canvas.onpointerdown = (e) => {
+    gisTouchState.dragging = true;
+    gisTouchState.startX = e.clientX;
+    gisTouchState.startY = e.clientY;
+    gisTouchState.lastX = e.clientX;
+    gisTouchState.lastY = e.clientY;
+  };
+ 
+  canvas.onpointermove = (e) => {
+    if(!gisTouchState.dragging) return;
+    const dx = e.clientX - gisTouchState.lastX;
+    const dy = e.clientY - gisTouchState.lastY;
+    mapState.panX += dx;
+    mapState.panY += dy;
+    gisTouchState.lastX = e.clientX;
+    gisTouchState.lastY = e.clientY;
+    drawGISMap();
+  };
+ 
+  const endDrag = (e) => {
+    if(!gisTouchState.dragging) return;
+    gisTouchState.dragging = false;
+ 
+    // Detectar si fue un tap (clic) sin arrastre
+    const dist = Math.hypot(e.clientX - gisTouchState.startX, e.clientY - gisTouchState.startY);
+    if(dist < 6){
+      handleMapClick(e.clientX, e.clientY);
+    }
+  };
+  canvas.onpointerup = endDrag;
+  canvas.onpointercancel = endDrag;
+ 
+  // Zoom táctil (Pinch to Zoom)
+  canvas.addEventListener('touchstart', (e)=>{
+    if(e.touches.length === 2){
+      gisTouchState.pinchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  }, {passive:true});
+ 
+  canvas.addEventListener('touchmove', (e)=>{
+    if(e.touches.length === 2){
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if(gisTouchState.pinchDist > 0){
+        const factor = dist / gisTouchState.pinchDist;
+        mapState.scale = clamp(mapState.scale * factor, 0.1, 50);
+        gisTouchState.pinchDist = dist;
+        drawGISMap();
+      }
+    }
+  }, {passive:true});
+ 
+  // Doble toque para centrar
+  canvas.addEventListener('touchend', (e)=>{
+    const now = Date.now();
+    if(now - gisTouchState.lastTap < 300 && e.changedTouches.length === 1){
+      const t = e.changedTouches[0];
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      const geo = screenToGeo(t.clientX - rect.left, t.clientY - rect.top, canvas.width/dpr, canvas.height/dpr);
+      mapState.centerLat = geo.lat;
+      mapState.centerLon = geo.lon;
+      mapState.panX = 0; mapState.panY = 0;
+      mapState.scale *= 1.4;
+      drawGISMap();
+    }
+    gisTouchState.lastTap = now;
+  });
+}
+ 
+function handleMapClick(clientX, clientY){
+  const canvas = document.getElementById('gisCanvas');
+  if(!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const clickX = clientX - rect.left;
+  const clickY = clientY - rect.top;
+ 
+  let clickedStation = null;
+  for(const st of mapState.stationsCache){
+    const pt = geoToScreen(st.lat, st.lon, canvas.width/dpr, canvas.height/dpr);
+    if(Math.hypot(clickX - pt.x, clickY - pt.y) < 22){
+      clickedStation = st;
+      break;
+    }
+  }
+ 
+  if(clickedStation){
+    openMapSheet(clickedStation);
+  } else {
+    closeMapSheet();
+  }
+}
+ 
+function openMapSheet(st){
+  const sheet = document.getElementById('mapBottomSheet');
+  const title = document.getElementById('sheetTitle');
+  const content = document.getElementById('sheetContent');
+  if(!sheet || !content) return;
+ 
+  const stMeas = mapState.measCache.filter(m => m.stationId === st.id);
+  title.textContent = `📍 ${st.name || st.id}`;
+ 
+  const measList = stMeas.map(m=>`
+    <div class="mini-row" style="margin-top:6px;">
+      <div class="ml">
+        <b>${esc(m.subtype || m.type)}</b>
+        <span>${esc(measSub(m))}</span>
+      </div>
+    </div>
+  `).join('') || '<div class="hint">Sin mediciones registradas</div>';
+ 
+  content.innerHTML = `
+    <div style="font-size:12px;color:var(--text-dim);font-family:var(--mono);margin-bottom:8px;">
+      ${st.lat.toFixed(5)}, ${st.lon.toFixed(5)} ${st.alt ? '· ' + st.alt + 'm' : ''}
+    </div>
+    ${st.notes ? `<p style="font-size:13px;margin-bottom:8px;">${esc(st.notes)}</p>` : ''}
+    <div class="section-hdr" style="margin:10px 0 6px;"><h3>Estructuras (${stMeas.length})</h3></div>
+    ${measList}
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn ghost small" onclick="Nav.station('${st.id}','${st.campaignId}')">Abrir Detalle</button>
+      <button class="btn primary small" onclick="Nav.stereonet('${st.campaignId}','${st.id}')">🌐 Ver en Estereograma</button>
+    </div>
+  `;
+ 
+  sheet.classList.add('open');
+}
+ 
+function closeMapSheet(){
+  document.getElementById('mapBottomSheet')?.classList.remove('open');
+}
+ 
+/* =========================================================
+   CONTROLES DE MAPA (ZOOM / PAN / AJUSTE DE EXTENSIÓN)
+   ========================================================= */
+function gisZoom(factor){
+  mapState.scale = clamp(mapState.scale * factor, 0.05, 60);
+  drawGISMap();
+}
+ 
+function gisCenterGPS(){
+  if(gpsState.lat == null){ toast('Sin señal GPS'); return; }
+  mapState.centerLat = gpsState.lat;
+  mapState.centerLon = gpsState.lon;
+  mapState.panX = 0;
+  mapState.panY = 0;
+  drawGISMap();
+  toast('Mapa centrado en tu posición');
+}
+ 
+function gisFitBounds(){
+  if(mapState.stationsCache.length === 0){
+    mapState.panX = 0; mapState.panY = 0; mapState.scale = 1;
+    drawGISMap();
+    return;
+  }
+ 
+  let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+  mapState.stationsCache.forEach(s => {
+    minLat = Math.min(minLat, s.lat);
+    maxLat = Math.max(maxLat, s.lat);
+    minLon = Math.min(minLon, s.lon);
+    maxLon = Math.max(maxLon, s.lon);
+  });
+ 
+  mapState.centerLat = (minLat + maxLat) / 2;
+  mapState.centerLon = (minLon + maxLon) / 2;
+  mapState.panX = 0;
+  mapState.panY = 0;
+ 
+  const latSpan = Math.max(0.002, maxLat - minLat);
+  const lonSpan = Math.max(0.002, maxLon - minLon);
+  const metersSpan = Math.max(latSpan * 111320, lonSpan * 111320 * Math.cos(toRad(mapState.centerLat)));
+ 
+  const canvas = document.getElementById('gisCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const viewSize = canvas ? Math.min(canvas.width/dpr, canvas.height/dpr) - 100 : 300;
+ 
+  mapState.zoom = 1;
+  mapState.scale = viewSize / metersSpan;
+  drawGISMap();
+}
+ 
+/* =========================================================
+   CALIBRADOR Y PERSISTENCIA DE MAPAS BASE OFFLINE
+   ========================================================= */
+let tempCalibDataUrl = null;
+function openMapCalibrator(){
+  document.getElementById('mapCalibModal').style.display = 'block';
+}
+function closeMapCalibrator(){
+  document.getElementById('mapCalibModal').style.display = 'none';
+}
+function onCalibFileSelect(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    tempCalibDataUrl = evt.target.result;
+    toast('Imagen cargada, ingresa coordenadas');
+  };
+  reader.readAsDataURL(file);
+}
+async function saveMapOverlay(){
+  const latMax = parseFloat(document.getElementById('calibLatMax').value);
+  const latMin = parseFloat(document.getElementById('calibLatMin').value);
+  const lonMin = parseFloat(document.getElementById('calibLonMin').value);
+  const lonMax = parseFloat(document.getElementById('calibLonMax').value);
+ 
+  if(!tempCalibDataUrl && !mapState.overlayImg){ toast('Selecciona una imagen'); return; }
+  if(isNaN(latMax) || isNaN(latMin) || isNaN(lonMin) || isNaN(lonMax)){ toast('Completa los 4 límites'); return; }
+ 
+  const overlayObj = {
+    id: 'current_overlay',
+    dataUrl: tempCalibDataUrl || mapState.overlayMeta?.dataUrl,
+    latMax, latMin, lonMin, lonMax,
+    timestamp: nowIso()
+  };
+ 
+  await dbPut('map_overlays', overlayObj);
+  await loadSavedMapOverlay();
+  closeMapCalibrator();
+  drawGISMap();
+  toast('Mapa base guardado y calibrado');
+}
+ 
+async function loadSavedMapOverlay(){
+  const overlay = await dbGet('map_overlays', 'current_overlay');
+  if(overlay && overlay.dataUrl){
+    mapState.overlayMeta = overlay;
+    const img = new Image();
+    img.onload = () => {
+      mapState.overlayImg = img;
+      drawGISMap();
+    };
+    img.src = overlay.dataUrl;
+  }
+}
+
+/* =========================================================
+   PARSERS Y NOTACIÓN
+   ========================================================= */
+function parseQuadrantToStrike(qStr){
+  if(!qStr) return null;
+  const str = qStr.trim().toUpperCase().replace(/\s+/g,'');
+  const m = /^([NS])(\d+)(?:°)?([EOW])$/.exec(str);
+  if(!m) return null;
+  const ns = m[1];
+  const ang = parseFloat(m[2]);
+  const ew = m[3] === 'O' ? 'W' : m[3];
+  if(isNaN(ang)) return null;
+
+  let strike = 0;
+  if(ns==='N' && ew==='E') strike = ang;
+  else if(ns==='N' && ew==='W') strike = 360 - ang;
+  else if(ns==='S' && ew==='E') strike = 180 - ang;
+  else if(ns==='S' && ew==='W') strike = 180 + ang;
+  return roundInt(norm360(strike));
+}
+
+// Constante que contiene los coeficientes del WMM2025 (Grado y Orden 12)
+// Formato: [n, m, g, h, gdot, hdot]
+const WMM2025_COF = [
+  [1, 0, -29351.8, 0.0, 12.0, 0.0],
+  [1, 1, -1410.8, 4545.4, 9.7, -21.5],
+  [2, 0, -2556.6, 0.0, -11.6, 0.0],
+  [2, 1, 2951.1, -3133.6, -5.2, -27.7],
+  [2, 2, 1649.3, -815.1, -8.0, -12.1],
+  [3, 0, 1361.0, 0.0, -1.3, 0.0],
+  [3, 1, -2404.1, -56.6, -4.2, 4.0],
+  [3, 2, 1243.8, 237.5, 0.4, -0.3],
+  [3, 3, 453.6, -549.5, -15.6, -4.1],
+  [4, 0, 895.0, 0.0, -1.6, 0.0],
+  [4, 1, 799.5, 278.6, -2.4, -1.1],
+  [4, 2, 55.7, -133.9, -6.0, 4.1],
+  [4, 3, -281.1, 212.0, 5.6, 1.6],
+  [4, 4, 12.1, -375.6, -7.0, -4.4],
+  [5, 0, -233.2, 0.0, 0.6, 0.0],
+  [5, 1, 368.9, 45.4, 1.4, -0.5],
+  [5, 2, 187.2, 220.2, 0.0, 2.2],
+  [5, 3, -138.7, -122.9, 0.6, 0.4],
+  [5, 4, -142.0, 43.0, 2.2, 1.7],
+  [5, 5, 20.9, 106.1, 0.9, 1.9],
+  [6, 0, 64.4, 0.0, -0.2, 0.0],
+  [6, 1, 63.8, -18.4, -0.4, 0.3],
+  [6, 2, 76.9, 16.8, 0.9, -1.6],
+  [6, 3, -115.7, 48.8, 1.2, -0.4],
+  [6, 4, -40.9, -59.8, -0.9, 0.9],
+  [6, 5, 14.9, 10.9, 0.3, 0.7],
+  [6, 6, -60.7, 72.7, 0.9, 0.9],
+  [7, 0, 79.5, 0.0, -0.0, 0.0],
+  [7, 1, -77.0, -48.9, -0.1, 0.6],
+  [7, 2, -8.8, -14.4, -0.1, 0.5],
+  [7, 3, 59.3, -1.0, 0.5, -0.8],
+  [7, 4, 15.8, 23.4, -0.1, 0.0],
+  [7, 5, 2.5, -7.4, -0.8, -1.0],
+  [7, 6, -11.1, -25.1, -0.8, 0.6],
+  [7, 7, 14.2, -2.3, 0.8, -0.2],
+  [8, 0, 23.2, 0.0, -0.1, 0.0],
+  [8, 1, 10.8, 7.1, 0.2, -0.2],
+  [8, 2, -17.5, -12.6, 0.0, 0.5],
+  [8, 3, 2.0, 11.4, 0.5, -0.4],
+  [8, 4, -21.7, -9.7, -0.1, 0.4],
+  [8, 5, 16.9, 12.7, 0.3, -0.5],
+  [8, 6, 15.0, 0.7, 0.2, -0.6],
+  [8, 7, -16.8, -5.2, -0.0, 0.3],
+  [8, 8, 0.9, 3.9, 0.2, 0.2],
+  [9, 0, 4.6, 0.0, -0.0, 0.0],
+  [9, 1, 7.8, -24.8, -0.1, -0.3],
+  [9, 2, 3.0, 12.2, 0.1, 0.3],
+  [9, 3, -0.2, 8.3, 0.3, -0.3],
+  [9, 4, -2.5, -3.3, -0.3, 0.3],
+  [9, 5, -13.1, -5.2, 0.0, 0.2],
+  [9, 6, 2.4, 7.2, 0.3, -0.1],
+  [9, 7, 8.6, -0.6, -0.1, -0.2],
+  [9, 8, -8.7, 0.8, 0.1, 0.4],
+  [9, 9, -12.9, 10.0, -0.1, 0.1],
+  [10, 0, -1.3, 0.0, 0.1, 0.0],
+  [10, 1, -6.4, 3.3, 0.0, 0.0],
+  [10, 2, 0.2, 0.0, 0.1, -0.0],
+  [10, 3, 2.0, 2.4, 0.1, -0.2],
+  [10, 4, -1.0, 5.3, -0.0, 0.1],
+  [10, 5, -0.6, -9.1, -0.3, -0.1],
+  [10, 6, -0.9, 0.4, 0.0, 0.1],
+  [10, 7, 1.5, -4.2, -0.1, 0.0],
+  [10, 8, 0.9, -3.8, -0.1, -0.1],
+  [10, 9, -2.7, 0.9, -0.0, 0.2],
+  [10, 10, -3.9, -9.1, -0.0, -0.0],
+  [11, 0, 2.9, 0.0, 0.0, 0.0],
+  [11, 1, -1.5, 0.0, -0.0, -0.0],
+  [11, 2, -2.5, 2.9, 0.0, 0.1],
+  [11, 3, 2.4, -0.6, 0.0, -0.0],
+  [11, 4, -0.6, 0.2, 0.0, 0.1],
+  [11, 5, -0.1, 0.5, -0.1, -0.0],
+  [11, 6, -0.6, -0.3, 0.0, -0.0],
+  [11, 7, -0.1, -1.2, -0.0, 0.1],
+  [11, 8, 1.1, -1.7, -0.1, -0.0],
+  [11, 9, -1.0, -2.9, -0.1, 0.0],
+  [11, 10, -0.2, -1.8, -0.1, 0.0],
+  [11, 11, 2.6, -2.3, -0.1, 0.0],
+  [12, 0, -2.0, 0.0, 0.0, 0.0],
+  [12, 1, -0.2, -1.3, 0.0, -0.0],
+  [12, 2, 0.3, 0.7, -0.0, 0.0],
+  [12, 3, 1.2, 1.0, -0.0, -0.1],
+  [12, 4, -1.3, -1.4, -0.0, 0.1],
+  [12, 5, 0.6, -0.0, -0.0, -0.0],
+  [12, 6, 0.6, 0.6, 0.1, -0.0],
+  [12, 7, 0.5, -0.1, -0.0, -0.0],
+  [12, 8, -0.1, 0.8, 0.0, 0.0],
+  [12, 9, -0.4, 0.1, 0.0, -0.0],
+  [12, 10, -0.2, -1.0, -0.1, -0.0],
+  [12, 11, -1.3, 0.1, -0.0, 0.0],
+  [12, 12, -0.7, 0.2, -0.1, -0.1]
+];
+
+function computeDeclinationExact(lat, lon, altKm, decimalYear) {
+  const dt = decimalYear - 2025.0;
+  
+  // Parámetros del elipsoide WGS84 y del WMM
+  const a = 6378.137; 
+  const f = 1 / 298.257223563;
+  const b = a * (1 - f);
+  const e2 = 1 - (b * b) / (a * a);
+  const aRef = 6371.2;
+  
+  const phi = lat * Math.PI / 180;
+  const lambda = lon * Math.PI / 180;
+  const sinPhi = Math.sin(phi);
+  const cosPhi = Math.cos(phi);
+  
+  // Conversión a coordenadas geocéntricas
+  const rc = a / Math.sqrt(1 - e2 * sinPhi * sinPhi);
+  const p = (rc + altKm) * cosPhi;
+  const z = (rc * (1 - e2) + altKm) * sinPhi;
+  const r = Math.sqrt(p * p + z * z);
+  
+  // Ángulos theta (colatitud geocéntrica)
+  const sinT = Math.max(p / r, 1e-10); // Límite de seguridad en los polos
+  const cosT = z / r;
+  
+  // Factores de rotación entre sistema geocéntrico y geodésico
+  const cPsi = (p * cosPhi + z * sinPhi) / r;
+  const sPsi = (z * cosPhi - p * sinPhi) / r;
+
+  // Matrices para polinomios asociados de Legendre (P_n^m) y derivadas (dP_n^m/dtheta)
+  const P = Array.from({length: 13}, () => new Float64Array(13));
+  const dP = Array.from({length: 13}, () => new Float64Array(13));
+  
+  // Inicialización y recurrencia semi-normalizada de Schmidt
+  P[0][0] = 1; dP[0][0] = 0;
+  P[1][0] = cosT; dP[1][0] = -sinT;
+  P[1][1] = sinT; dP[1][1] = cosT;
+  
+  for (let n = 2; n <= 12; n++) {
+    const k = Math.sqrt((2 * n - 1) / (2 * n));
+    P[n][n] = k * sinT * P[n - 1][n - 1];
+    dP[n][n] = k * (cosT * P[n - 1][n - 1] + sinT * dP[n - 1][n - 1]);
+    
+    for (let m = 0; m < n; m++) {
+      const k1 = (2 * n - 1) / Math.sqrt(n * n - m * m);
+      const k2 = Math.sqrt((n - 1) * (n - 1) - m * m) / Math.sqrt(n * n - m * m);
+      
+      P[n][m] = k1 * cosT * P[n - 1][m] - k2 * P[n - 2][m];
+      dP[n][m] = k1 * (-sinT * P[n - 1][m] + cosT * dP[n - 1][m]) - k2 * dP[n - 2][m];
+    }
+  }
+
+  // Sumatoria armónica geocéntrica
+  let X_prime = 0, Y_prime = 0, Z_prime = 0;
+  
+  for (let i = 0; i < WMM2025_COF.length; i++) {
+    const cof = WMM2025_COF[i];
+    const n = cof[0], m = cof[1];
+    const g = cof[2] + cof[4] * dt;
+    const h = cof[3] + cof[5] * dt;
+    
+    const rRatio = Math.pow(aRef / r, n + 2);
+    const cosML = Math.cos(m * lambda);
+    const sinML = Math.sin(m * lambda);
+    
+    const gCos_hSin = g * cosML + h * sinML;
+    const gSin_hCos = g * sinML - h * cosML;
+    
+    X_prime += rRatio * gCos_hSin * dP[n][m];
+    if (m > 0) {
+      Y_prime += (1 / sinT) * rRatio * m * (-gSin_hCos) * P[n][m];
+    }
+    // Z_prime no es necesario para la declinación simple, pero se incluye para integridad cinemática (si usaras campo total)
+    Z_prime -= (n + 1) * rRatio * gCos_hSin * P[n][m];
+  }
+  
+  // Rotación del vector de vuelta al referencial geodésico WGS84
+  const X = X_prime * cPsi + Z_prime * sPsi;
+  const Y = Y_prime;
+  
+  return Math.atan2(Y, X) * 180 / Math.PI;
+}
+
+function estimateDeclination(lat, lon) {
+  if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) return 0;
+
+  // Determinar el año decimal actual rigurosamente
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 1);
+  const diff = now - start;
+  const oneDay = 1000 * 60 * 60 * 24;
+  const dayOfYear = Math.floor(diff / oneDay) + 1;
+  const isLeap = (now.getFullYear() % 4 === 0 && now.getFullYear() % 100 !== 0) || (now.getFullYear() % 400 === 0);
+  const daysInYear = isLeap ? 366 : 365;
+  const decimalYear = now.getFullYear() + (dayOfYear / daysInYear);
+
+  return Math.round(computeDeclinationExact(lat, lon, 0, decimalYear));
+}
+
+function computeOrientation(alphaDeg, betaDeg, gammaDeg){
+  const correctedAlpha = norm360(alphaDeg + magOffset);
+  const a=toRad(correctedAlpha), b=toRad(betaDeg), g=toRad(gammaDeg);
+  const cA=Math.cos(a), sA=Math.sin(a);
+  const cB=Math.cos(b), sB=Math.sin(b);
+  const cG=Math.cos(g), sG=Math.sin(g);
+  const E = cA*sG + cG*sA*sB;
+  const N = sA*sG - cA*cG*sB;
+  const U = cB*cG;
+  const dip = toDeg(Math.acos(clamp(U,-1,1)));
+  const dipDir = norm360(toDeg(Math.atan2(E,N)) + 180);
+  const strike = norm360(dipDir - 90);
+  const Ey = -cB*sA, Ny = cA*cB, Uy = sB;
+  let trend = norm360(toDeg(Math.atan2(Ey,Ny)));
+  let plunge = toDeg(-Math.asin(clamp(Uy,-1,1)));
+  if(plunge<0){ trend=norm360(trend+180); plunge=-plunge; }
+  return { dip: roundInt(dip), dipDir: roundInt(dipDir), strike: roundInt(strike), trend: roundInt(trend), plunge: roundInt(plunge) };
+}
+
+function toQuadrant(strikeAz){
+  if(strikeAz==null||isNaN(strikeAz)) return '—';
+  let s = norm360(strikeAz);
+  const wChar = currentLang==='es'?'O':'W';
+  
+  if(quadrantPref==='N_ONLY'){
+    let half = s % 180;
+    if(half<=90) return `N${Math.round(half)}°E`;
+    return `N${Math.round(180-half)}°${wChar}`;
+  } else {
+    let sNorm = s % 180;
+    let ns, ew, angle;
+    if(sNorm<=90){ ns='N'; ew='E'; angle=sNorm; } else { ns='S'; ew=wChar; angle=180-sNorm; }
+    angle=Math.round(angle);
+    if(angle===0) return 'N-S';
+    if(angle===90) return `E-${wChar}`;
+    return ns+angle+'°'+ew;
+  }
+}
+
+function dipDirQuadrant(dipDirAz){
+  if(dipDirAz==null||isNaN(dipDirAz)) return '—';
+  const az=norm360(dipDirAz);
+  const dirsEs=[['N',0],['NNE',22.5],['NE',45],['ENE',67.5],['E',90],['ESE',112.5],['SE',135],['SSE',157.5],
+                ['S',180],['SSO',202.5],['SO',225],['OSO',247.5],['O',270],['ONO',292.5],['NO',315],['NNO',337.5]];
+  const dirsEn=[['N',0],['NNE',22.5],['NE',45],['ENE',67.5],['E',90],['ESE',112.5],['SE',135],['SSE',157.5],
+                ['S',180],['SSW',202.5],['SW',225],['WSW',247.5],['W',270],['WNW',292.5],['NW',315],['NNW',337.5]];
+  const dirs = currentLang==='en'? dirsEn : dirsEs;
+  let best=dirs[0], bd=999;
+  dirs.forEach(d=>{ let diff=Math.abs(az-d[1]); if(diff>180) diff=360-diff; if(diff<bd){bd=diff; best=d;} });
+  return best[0];
+}
+
+function calculateRakeFromTP(dipDir, dip, trend, plunge){
+  if(dip==null || trend==null || plunge==null || dip===0) return null;
+  const sinR = Math.sin(toRad(plunge)) / Math.sin(toRad(dip));
+  const rakeDeg = roundInt(toDeg(Math.asin(clamp(sinR, -1, 1))));
+  const strike = norm360((dipDir||0) - 90);
+  const strikeOpp = norm360(strike + 180);
+  let diff1 = Math.abs(trend - strike); if(diff1>180) diff1 = 360-diff1;
+  let diff2 = Math.abs(trend - strikeOpp); if(diff2>180) diff2 = 360-diff2;
+  const refAz = diff1 <= diff2 ? strike : strikeOpp;
+  const quad = dipDirQuadrant(refAz);
+  return { rake: rakeDeg, quadrant: quad };
+}
+
+/* =========================================================
+   FORMULARIOS Y ENTRADA DE DATOS
+   ========================================================= */
+function renderPlanarInputBlocks(formKey, strikeVal, dipVal, dipDirVal){
+  const quadVal = strikeVal != null ? toQuadrant(strikeVal) : '';
+  return `
+  <div style="margin-top:10px;">
+    <label style="margin-top:0;">Formato de entrada manual</label>
+    <select id="notSel_${formKey}" onchange="switchInputNotation('${formKey}', this.value)">
+      <option value="dipdir" ${inputNotation==='dipdir'?'selected':''}>Dip Direction / Dip (ej. 135 / 45)</option>
+      <option value="strike" ${inputNotation==='strike'?'selected':''}>Strike RHR / Dip (ej. 045 / 45)</option>
+      <option value="quadrant" ${inputNotation==='quadrant'?'selected':''}>Cuadrante / Dip (ej. N45°E / 45)</option>
+    </select>
+  </div>
+
+  <div id="box_dipdir_${formKey}" style="display:${inputNotation==='dipdir'?'block':'none'};">
+    <div class="numfield-row">
+      <div><label>Dip Direction (0–360°)</label><input type="number" step="1" id="dipDir_${formKey}" min="0" max="360" value="${dipDirVal??''}" oninput="onOrientationInputChange('${formKey}','dipdir')"></div>
+      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="onOrientationInputChange('${formKey}','dipdir')"></div>
+    </div>
+  </div>
+
+  <div id="box_strike_${formKey}" style="display:${inputNotation==='strike'?'block':'none'};">
+    <div class="numfield-row">
+      <div><label>Strike RHR (0–360°)</label><input type="number" step="1" id="strike_${formKey}" min="0" max="360" value="${strikeVal??''}" oninput="onOrientationInputChange('${formKey}','strike')"></div>
+      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip2_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="syncDip('${formKey}', this.value)"></div>
+    </div>
+  </div>
+
+  <div id="box_quad_${formKey}" style="display:${inputNotation==='quadrant'?'block':'none'};">
+    <div class="numfield-row">
+      <div><label>Rumbo Cuadrante (ej. N30E)</label><input type="text" id="quad_${formKey}" value="${quadVal}" placeholder="N30E" oninput="onOrientationInputChange('${formKey}','quadrant')"></div>
+      <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip3_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="syncDip('${formKey}', this.value)"></div>
+    </div>
+  </div>
+
+  <div class="derived" id="derived_${formKey}">Strike RHR: — · Cuadrante: —</div>
+  `;
+}
+
+function switchInputNotation(formKey, mode){
+  ['dipdir','strike','quadrant'].forEach(m=>{
+    const el = document.getElementById(`box_${m==='quadrant'?'quad':m}_${formKey}`);
+    if(el) el.style.display = (m === mode) ? 'block' : 'none';
+  });
+}
+
+function syncDip(formKey, val){
+  setVal('dip_'+formKey, val);
+  setVal('dip2_'+formKey, val);
+  setVal('dip3_'+formKey, val);
+  onOrientationInputChange(formKey, 'dipdir');
+}
+
+function onOrientationInputChange(formKey, fromSource){
+  let dipDir = parseInt(document.getElementById('dipDir_'+formKey)?.value, 10);
+  let dip = parseInt(document.getElementById('dip_'+formKey)?.value, 10);
+  let strike = parseInt(document.getElementById('strike_'+formKey)?.value, 10);
+  let quad = document.getElementById('quad_'+formKey)?.value;
+
+  if(fromSource === 'strike'){
+    if(!isNaN(strike)){
+      dipDir = roundInt(norm360(strike + 90));
+      setVal('dipDir_'+formKey, dipDir);
+      setVal('quad_'+formKey, toQuadrant(strike));
+    }
+  } else if(fromSource === 'quadrant'){
+    const parsedStrike = parseQuadrantToStrike(quad);
+    if(parsedStrike != null){
+      strike = parsedStrike;
+      dipDir = roundInt(norm360(strike + 90));
+      setVal('strike_'+formKey, strike);
+      setVal('dipDir_'+formKey, dipDir);
+    }
+  } else if(fromSource === 'dipdir'){
+    if(!isNaN(dipDir)){
+      strike = roundInt(norm360(dipDir - 90));
+      setVal('strike_'+formKey, strike);
+      setVal('quad_'+formKey, toQuadrant(strike));
+    }
+  }
+
+  const out = document.getElementById('derived_'+formKey);
+  if(!out) return;
+  if(isNaN(dipDir) || isNaN(dip)){ out.textContent='Strike RHR: — · '+t('quadrant')+': —'; return; }
+  out.innerHTML = `${t('strikeRHR')}: <b style="color:var(--accent)">${strike}°</b> &nbsp;·&nbsp; ${t('quadrant')}: <b style="color:var(--accent)">${toQuadrant(strike)}</b> &nbsp;·&nbsp; ${t('dipTowards')}: <b style="color:var(--accent)">${dipDirQuadrant(dipDir)}</b>`;
+}
+
+function setVal(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
+function intOrNull(id){ const v=parseInt(document.getElementById(id)?.value, 10); return isNaN(v)?null:v; }
+
+function pad3(v){ return v==null?'—':String(roundInt(v)).padStart(3,'0'); }
+function pad2(v){ return v==null?'—':String(roundInt(v)).padStart(2,'0'); }
+
+const PLANAR_SUBTYPES = ['Estratificación (S0)','Foliación (S1)','Foliación (S2)','Diaclasa / Fractura','Clivaje','Lineación mineral','Eje de pliegue'];
+const LINEAR_SUBTYPES = ['Lineación mineral','Eje de pliegue'];
+const FAULT_SENSES = ['Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso','TR','LL','RL','N','T'];
+const KIN_QUALITY = ['Definida','Probable','Posible'];
+const KIN_CRITERIA = ['Fibras minerales','Escalones de crecimiento','Estructuras S-C','Estilolitos','Brechas','Estrías simples','Otro'];
+const CONTACT_TYPES = ['Concordante','Discordante angular','Discordante erosiva','Falla','Intrusivo','Transicional'];
+const VEIN_TEXTURES = ['Masiva','Bandeada','Brechosa','Peine (comb)','Coloforme','Otro'];
+const VEIN_MINERALS = ['Cuarzo','Calcita','Pirita','Calcopirita','Turmalina','Especularita','Yeso','Clorita','Epidota'];
+const ALTERATION_TYPES = ['Propilítica','Fílica (sericítica)','Potásica','Argílica intermedia','Argílica avanzada','Silicificación','Skarn','Sin alteración visible'];
+const ALTERATION_INTENSITY = ['Débil','Moderada','Fuerte','Pervasiva'];
+
+function measSub(m){
+  if(m.type==='planar'){
+    if(m.strike!=null) return `${pad3(m.strike)}/${pad2(m.dip)} (RHR) · DipDir ${pad3(m.dipDir)}`;
+    if(m.trend!=null) return `Trend/Plunge ${pad3(m.trend)}/${pad2(m.plunge)}`;
+    return '';
+  }
+  if(m.type==='fault') return `Plano ${pad3(m.strike)}/${pad2(m.dip)} · Rake: ${m.rake??'—'}° (${m.rakeQuadrant||'—'}) · ${m.sense||''}`;
+  if(m.type==='contact') return `${esc(m.lithoTop||'?')} / ${esc(m.lithoBottom||'?')} · e=${m.trueThickness??'?'} m`;
+  if(m.type==='vein') return `${esc(m.structKind||'Veta')}: ${m.veinThickness??'?'} ${m.veinUnit||'cm'} · ${(m.alteration||[]).join(', ')||'Sin alteración'}`;
+  return '';
+}
+
+/* =========================================================
+   VISTAS Y GESTIÓN DE EXPEDICIÓN
+   ========================================================= */
+async function renderCampaigns(){
+  const camps = (await dbGetAll('campaigns')).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+  const allSts = await dbGetAll('stations');
+  document.getElementById('stationCountLabel').textContent = camps.length+' '+(currentLang==='es'?'campañas':'campaigns');
+
+  if(camps.length===0){
+    return `
+    <div class="empty">
+      <div class="big">📁</div>
+      <p>${t('noCampaigns')}</p>
+      <button class="btn primary" style="margin-top:16px;" onclick="Nav.newCampaign()">${t('addCampBtn')}</button>
+    </div>
+    <button class="fab" onclick="Nav.newCampaign()">+</button>`;
+  }
+
+  const cards = camps.map(c=>{
+    const stCount = allSts.filter(s=>s.campaignId===c.id).length;
+    return `
+      <div class="card" onclick="Nav.campaign('${c.id}')">
+        <div class="card-title">📁 ${esc(c.name)}</div>
+        <div class="card-sub">${fmtDate(c.timestamp)} · ${stCount} ${t('stations')}</div>
+        ${c.notes? `<div class="card-sub" style="margin-top:6px;">${esc(c.notes)}</div>`:''}
+      </div>`;
+  }).join('');
+
+  return `<div>${cards}</div><button class="fab" onclick="Nav.newCampaign()">+</button>`;
+}
+
+async function renderCampaignForm(){
+  let c = state.campId ? await dbGet('campaigns', state.campId) : null;
+  const isNew = !c;
+  if(isNew) c = { id: uid(), name: '', timestamp: nowIso(), notes: '' };
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>${isNew? t('newCampaign') : t('editCampaign')}</h2></div>
+  </div>
+  <label>${t('campName')}</label>
+  <input type="text" id="f_campName" value="${esc(c.name)}" placeholder="ej. Expedición Atacama 2026">
+
+  <label>${t('notes')}</label>
+  <textarea id="f_campNotes" placeholder="Objetivo, cuadrángulo, geólogo...">${esc(c.notes||'')}</textarea>
+
+  <div class="btn-row" style="margin-top:22px;">
+    <button class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
+    <button class="btn primary" onclick="saveCampaign('${c.id}', ${isNew})">${t('save')}</button>
+  </div>
+  ${!isNew? `<button class="btn danger" style="margin-top:10px;" onclick="confirmDeleteCampaign('${c.id}')">${t('delete')} ${t('campaign')}</button>`:''}
+  `;
+}
+async function saveCampaign(id, isNew){
+  const name=document.getElementById('f_campName').value.trim() || (currentLang==='es'?'Campaña sin nombre':'Unnamed Campaign');
+  const notes=document.getElementById('f_campNotes').value;
+  await dbPut('campaigns', { id, name, timestamp: nowIso(), notes });
+  toast(currentLang==='es'?'Campaña guardada':'Campaign saved');
+  Nav.campaign(id);
+}
+async function confirmDeleteCampaign(id){
+  if(!confirm(currentLang==='es'?'¿Eliminar esta campaña y todas sus estaciones?':'Delete campaign and stations?')) return;
+  await dbDeleteCampaignCascade(id);
+  Nav.home();
+}
+
+async function renderCampaignDetail(){
+  const camp = await dbGet('campaigns', state.campId);
+  if(!camp){ Nav.home(); return ''; }
+  const stations = (await dbGetByCampaign(camp.id)).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+  const allMeas = await dbGetAll('measurements');
+
+  const cards = stations.map(s=>{
+    const meas = allMeas.filter(m=>m.stationId===s.id);
+    const counts={planar:0, fault:0, contact:0, vein:0};
+    meas.forEach(m=>{ if(counts[m.type]!=null) counts[m.type]++; });
+    const badges = [
+      counts.planar? `<span class="badge accent">${counts.planar} ${t('structural')}</span>`:'',
+      counts.fault? `<span class="badge accent">${counts.fault} ${t('fault')}</span>`:'',
+      counts.contact? `<span class="badge accent">${counts.contact} ${t('contact')}</span>`:'',
+      counts.vein? `<span class="badge accent">${counts.vein} ${t('vein')}</span>`:'',
+      meas.length===0? `<span class="badge">0 datos</span>`:''
+    ].join('');
+    const coords = (s.lat!=null && s.lon!=null) ? `${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}` : 'sin GPS';
+    const utmInfo = utmLabel(s.lat, s.lon);
+    return `
+      <div class="card" onclick="Nav.station('${s.id}','${camp.id}')">
+        <div class="card-title">📍 ${esc(s.name||s.id)}</div>
+        <div class="card-sub">${fmtDate(s.timestamp)} · <span style="font-family:var(--mono)">${coords}</span></div>
+        ${utmInfo? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>`:''}
+        <div class="badge-row">${badges}</div>
+      </div>`;
+  }).join('');
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.home()">←</button>
+    <div><h2>📁 ${esc(camp.name)}</h2><div class="sub">${stations.length} ${t('stations')}</div></div>
+  </div>
+  <div class="card" style="cursor:default;">
+    <div class="card-sub">${fmtDate(camp.timestamp)}</div>
+    ${camp.notes? `<p style="margin-top:6px;font-size:13px;">${esc(camp.notes)}</p>`:''}
+    <div class="btn-row" style="margin-top:10px; flex-wrap:wrap;">
+      <button class="btn ghost small" onclick="Nav.editCampaign('${camp.id}')">✎ ${t('editCampaign')}</button>
+      <button class="btn primary small" onclick="Nav.mapView('${camp.id}')">🗺️ Ver en Mapa</button>
+      <button class="btn primary small" onclick="Nav.stereonet('${camp.id}', 'ALL')">🌐 Estereograma</button>
+      <button class="btn primary small" onclick="Nav.newStation('${camp.id}')">${t('addStationBtn')}</button>
+    </div>
+  </div>
+  <div class="section-hdr"><h3>${t('stationsInCamp')}</h3></div>
+  ${stations.length===0 ? `<div class="empty"><p>${t('noStations')}</p><button class="btn primary" style="margin-top:10px;" onclick="Nav.newStation('${camp.id}')">${t('addStationBtn')}</button></div>` : cards}
+  <button class="fab" onclick="Nav.newStation('${camp.id}')">+</button>
+  `;
+}
+
+async function nextStationName(campId){
+  const stations=await dbGetByCampaign(campId);
+  let max=0;
+  stations.forEach(s=>{ const m=/EST-(\d+)/.exec(s.name||''); if(m) max=Math.max(max,parseInt(m[1],10)); });
+  return 'EST-'+String(max+1).padStart(2,'0');
+}
+
+async function renderStationForm(){
+  let st = state.stationId ? await dbGet('stations', state.stationId) : null;
+  const isNew = !st;
+  if(isNew){
+    st = { id: uid(), campaignId: state.campId, name: await nextStationName(state.campId), timestamp: nowIso(),
+           lat: gpsState.lat, lon: gpsState.lon, alt: gpsState.alt ? Math.round(gpsState.alt) : null, notes:'' };
+  }
+  const localDt = new Date(st.timestamp || Date.now());
+  const localDtVal = new Date(localDt.getTime() - localDt.getTimezoneOffset()*60000).toISOString().slice(0,16);
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>${isNew? t('newStation') : t('editStation')}</h2></div>
+  </div>
+  <label>ID / ${t('station')}</label>
+  <input type="text" id="f_name" value="${esc(st.name)}">
+
+  <label>${currentLang==='es'?'Fecha y hora':'Date & Time'}</label>
+  <input type="datetime-local" id="f_dt" value="${localDtVal}">
+
+  <div class="grid3">
+    <div><label>${t('lat')}</label><input type="number" step="0.000001" id="f_lat" value="${st.lat??''}" oninput="utmFromLatLon()"></div>
+    <div><label>${t('lon')}</label><input type="number" step="0.000001" id="f_lon" value="${st.lon??''}" oninput="utmFromLatLon()"></div>
+    <div><label>${t('alt')}</label><input type="number" step="1" id="f_alt" value="${st.alt??''}"></div>
+  </div>
+  <button type="button" class="btn ghost small" style="width:100%;margin-top:8px;" onclick="captureGpsIntoStation()">${t('useGps')}</button>
+
+  <div class="section-hdr"><h3>Coordenadas UTM (WGS84)</h3></div>
+  <div class="grid2">
+    <div><label>${currentLang==='es'?'Huso':'Zone'}</label><input type="number" id="f_utmZone" min="1" max="60" value=""></div>
+    <div><label>${currentLang==='es'?'Hemisferio':'Hemisphere'}</label>
+      <select id="f_utmHemi"><option value="S">S</option><option value="N">N</option></select>
+    </div>
+  </div>
+  <div class="grid2">
+    <div><label>${currentLang==='es'?'Este (m)':'Easting (m)'}</label><input type="number" step="1" id="f_utmEast" value=""></div>
+    <div><label>${currentLang==='es'?'Norte (m)':'Northing (m)'}</label><input type="number" step="1" id="f_utmNorth" value=""></div>
+  </div>
+  <div class="btn-row" style="margin-top:6px;">
+    <button type="button" class="btn ghost small" onclick="utmFromLatLon()">↻ Lat/Lon → UTM</button>
+    <button type="button" class="btn ghost small" onclick="latLonFromUtm()">↻ UTM → Lat/Lon</button>
+  </div>
+
+  <label>${t('notes')}</label>
+  <textarea id="f_notes" placeholder="Afloramiento, litología...">${esc(st.notes||'')}</textarea>
+
+  <div class="btn-row" style="margin-top:22px;">
+    <button class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
+    <button class="btn primary" onclick="saveStation('${st.id}', ${isNew})">${t('save')}</button>
+  </div>
+  ${!isNew? `<button class="btn danger" style="margin-top:10px;" onclick="confirmDeleteStation('${st.id}')">${t('delete')} ${t('station')}</button>`:''}
+  `;
+}
+function utmFromLatLon(){
+  const lat=parseFloat(document.getElementById('f_lat')?.value);
+  const lon=parseFloat(document.getElementById('f_lon')?.value);
+  if(isNaN(lat)||isNaN(lon)) return;
+  const r=llToUTM(lat,lon);
+  setVal('f_utmZone', r.zoneNumber);
+  const hemiEl=document.getElementById('f_utmHemi'); if(hemiEl) hemiEl.value=r.hemisphere;
+  setVal('f_utmEast', r.easting);
+  setVal('f_utmNorth', r.northing);
+}
+function latLonFromUtm(){
+  const zone=parseInt(document.getElementById('f_utmZone')?.value,10);
+  const hemi=document.getElementById('f_utmHemi')?.value||'S';
+  const east=parseInt(document.getElementById('f_utmEast')?.value, 10);
+  const north=parseInt(document.getElementById('f_utmNorth')?.value, 10);
+  if(isNaN(zone)||isNaN(east)||isNaN(north)){ toast('Completa UTM'); return; }
+  const r=utmToLL(east, north, zone, hemi);
+  setVal('f_lat', r.lat);
+  setVal('f_lon', r.lon);
+}
+function captureGpsIntoStation(){
+  if(gpsState.lat==null){ toast('Sin señal GPS'); return; }
+  setVal('f_lat', gpsState.lat.toFixed(6));
+  setVal('f_lon', gpsState.lon.toFixed(6));
+  if(gpsState.alt!=null) setVal('f_alt', Math.round(gpsState.alt));
+  utmFromLatLon();
+}
+async function saveStation(id, isNew){
+  const name=document.getElementById('f_name').value.trim() || id;
+  const dt=document.getElementById('f_dt').value;
+  const lat=parseFloat(document.getElementById('f_lat').value);
+  const lon=parseFloat(document.getElementById('f_lon').value);
+  const alt=parseInt(document.getElementById('f_alt').value, 10);
+  const notes=document.getElementById('f_notes').value;
+  const obj={ id, campaignId: state.campId, name, timestamp: dt? new Date(dt).toISOString(): nowIso(),
+              lat: isNaN(lat)?null:lat, lon: isNaN(lon)?null:lon, alt: isNaN(alt)?null:alt, notes };
+  await dbPut('stations', obj);
+  toast(currentLang==='es'?'Estación guardada':'Station saved');
+  Nav.station(id, state.campId);
+}
+async function confirmDeleteStation(id){
+  if(!confirm(currentLang==='es'?'¿Eliminar esta estación?':'Delete station?')) return;
+  await dbDeleteStationCascade(id);
+  Nav.campaign(state.campId);
+}
+
+const CATS = [
+  { key:'planar', title:'Estructuras planares / lineares', titleEn:'Planar / Linear Structures', icon:'📐' },
+  { key:'fault',  title:'Fallas y cinemática', titleEn:'Faults & Kinematics', icon:'⚡' },
+  { key:'contact',title:'Contactos litológicos', titleEn:'Lithological Contacts', icon:'🪨' },
+  { key:'vein',   title:'Vetas, vetillas y alteración', titleEn:'Veins & Alteration', icon:'💠' },
+];
+
+async function renderStationDetail(){
+  const st = await dbGet('stations', state.stationId);
+  if(!st){ Nav.home(); return ''; }
+  const meas = await dbGetByStation(st.id);
+  const coords = (st.lat!=null&&st.lon!=null) ? `${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}${st.alt!=null?' · '+st.alt+' m':''}` : 'Sin GPS';
+  const utmInfo = utmLabel(st.lat, st.lon);
+
+  const cats = CATS.map(c=>{
+    const items = meas.filter(m=>m.type===c.key).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+    const rows = items.map(m=>`
+      <div class="mini-row">
+        <div class="ml"><b>${esc(m.structKind ? (m.structKind+' - '+(m.texture||'')) : (m.subtype||c.title))}</b><span>${esc(measSub(m))}</span></div>
+        <div class="mini-actions">
+          <button class="icon-sm" onclick="event.stopPropagation();Nav.editMeasurement('${m.id}','${st.id}','${m.type}')">✎</button>
+          <button class="icon-sm" onclick="event.stopPropagation();deleteMeasurement('${m.id}')">🗑</button>
+        </div>
+      </div>`).join('') || `<div class="hint" style="margin-top:8px;">${currentLang==='es'?'Sin registros aún':'No records yet'}</div>`;
+    const title = currentLang==='en'? c.titleEn : c.title;
+    return `
+    <details class="accordion" open>
+      <summary><span class="sum-l">${c.icon} ${title} <span class="badge">${items.length}</span></span><span class="chev">›</span></summary>
+      <div class="accordion-body">
+        ${rows}
+        <button class="btn primary small" style="width:100%;margin-top:10px;" onclick="Nav.newMeasurement('${st.id}','${c.key}')">+ Añadir ${title.toLowerCase()}</button>
+      </div>
+    </details>`;
+  }).join('');
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.campaign('${st.campaignId}')">←</button>
+    <div><h2>📍 ${esc(st.name)}</h2><div class="sub">${fmtDate(st.timestamp)}</div></div>
+  </div>
+  <div class="card" style="cursor:default;">
+    <div class="card-sub" style="font-family:var(--mono);font-size:12px;">${coords}</div>
+    ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>` : ''}
+    ${st.notes? `<p style="margin-top:6px;font-size:13px;">${esc(st.notes)}</p>`:''}
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn ghost small" onclick="Nav.editStation('${st.id}','${st.campaignId}')">✎ ${t('editStation')}</button>
+      <button class="btn primary small" onclick="Nav.stereonet('${st.campaignId}','${st.id}')">🌐 Estereograma</button>
+    </div>
+  </div>
+  <div class="section-hdr"><h3>Toma de datos geológicos</h3></div>
+  ${cats}
+  `;
+}
+async function deleteMeasurement(id){
+  if(!confirm('¿Eliminar registro?')) return;
+  await dbDelete('measurements', id);
+  render();
+}
+
+/* =========================================================
+   FORMULARIOS DE MEDIDAS
+   ========================================================= */
+async function renderMeasForm(){
+  const isNew = !state.measId;
+  const m = isNew ? { id:uid(), stationId:state.stationId, type:state.measType, timestamp: nowIso() }
+                  : await dbGet('measurements', state.measId);
+  let fields='';
+  if(m.type==='planar') fields=renderPlanarFields(m);
+  else if(m.type==='fault') fields=renderFaultFields(m);
+  else if(m.type==='contact') fields=renderContactFields(m);
+  else if(m.type==='vein') fields=renderVeinFields(m);
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>${isNew?'Nuevo registro':'Editar registro'}</h2><div class="sub">${m.type}</div></div>
+  </div>
+  <form id="measForm" onsubmit="event.preventDefault(); saveMeasurement('${m.id}', ${isNew});">
+    ${fields}
+    <label>${t('notes')}</label>
+    <textarea id="f_notes">${esc(m.notes||'')}</textarea>
+    <div class="btn-row" style="margin-top:22px;">
+      <button type="button" class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
+      <button type="submit" class="btn primary">${t('save')}</button>
+    </div>
+  </form>
+  `;
+}
+
+function renderPlanarFields(m){
+  const isLinear = LINEAR_SUBTYPES.includes(m.subtype);
+  return `
+  <label>Tipo de estructura</label>
+  <select id="f_subtype" onchange="onPlanarSubtypeChange()">
+    ${PLANAR_SUBTYPES.map(s=>`<option ${m.subtype===s?'selected':''}>${s}</option>`).join('')}
+  </select>
+
+  <div id="planarBlock" style="display:${isLinear?'none':''}">
+    ${renderSensorPanel('planar','p1')}
+    ${renderPlanarInputBlocks('p1', m.strike, m.dip, m.dipDir)}
+  </div>
+  <div id="linearBlock" style="display:${isLinear?'':'none'}">
+    ${renderSensorPanel('linear','l1')}
+    <div class="numfield-row">
+      <div><label>Trend (0–360°)</label><input type="number" step="1" id="trend_l1" min="0" max="360" value="${m.trend??''}"></div>
+      <div><label>Plunge (0–90°)</label><input type="number" step="1" id="plunge_l1" min="0" max="90" value="${m.plunge??''}"></div>
+    </div>
+  </div>
+  `;
+}
+function onPlanarSubtypeChange(){
+  const sel=document.getElementById('f_subtype').value;
+  const isLinear = LINEAR_SUBTYPES.includes(sel);
+  document.getElementById('planarBlock').style.display = isLinear?'none':'';
+  document.getElementById('linearBlock').style.display = isLinear?'':'none';
+}
+
+function renderFaultFields(m){
+  const rakeMode = m.striaeMode!=='trendplunge';
+  return `
+  <label>Plano de falla</label>
+  ${renderSensorPanel('planar','fp')}
+  ${renderPlanarInputBlocks('fp', m.strike, m.dip, m.dipDir)}
+
+  <label>Lineación de estría — Modo de captura</label>
+  <div class="radio-row">
+    <label class="opt ${rakeMode?'on':''}"><input type="radio" name="striaeMode" value="rake" ${rakeMode?'checked':''} onchange="onStriaeModeChange(this)">Rake / Pitch directo</label>
+    <label class="opt ${!rakeMode?'on':''}"><input type="radio" name="striaeMode" value="trendplunge" ${!rakeMode?'checked':''} onchange="onStriaeModeChange(this)">Trend / Plunge (Sensor)</label>
+  </div>
+  
+  <div id="rakeBlock" style="display:${rakeMode?'':'none'}">
+    <div class="numfield-row">
+      <div><label>Rake (0–90°)</label><input type="number" step="1" id="f_rake" min="0" max="90" value="${m.rake??''}"></div>
+      <div><label>Cuadrante de referencia</label>
+        <select id="f_rakeQuad">${['N','NE','E','SE','S','SO','O','NO'].map(q=>`<option ${m.rakeQuadrant===q?'selected':''}>${q}</option>`).join('')}</select>
+      </div>
+    </div>
+  </div>
+
+  <div id="tpBlock" style="display:${!rakeMode?'':'none'}">
+    ${renderSensorPanel('linear','fl')}
+    <div class="numfield-row">
+      <div><label>Trend estría (0–360°)</label><input type="number" step="1" id="trend_fl" min="0" max="360" value="${m.trend??''}" oninput="autoCalcRakeIfReady()"></div>
+      <div><label>Plunge estría (0–90°)</label><input type="number" step="1" id="plunge_fl" min="0" max="90" value="${m.plunge??''}" oninput="autoCalcRakeIfReady()"></div>
+    </div>
+    <div class="derived" id="rakeCalculatedOut">Rake calculado: —</div>
+  </div>
+
+  <label>Sentido de movimiento</label>
+  <select id="f_sense">${FAULT_SENSES.map(s=>`<option ${m.sense===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Calidad cinemática</label>
+  <select id="f_senseQuality">${KIN_QUALITY.map(s=>`<option ${m.senseQuality===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Criterio cinemático observado</label>
+  <div class="check-grid">
+    ${KIN_CRITERIA.map(c=>`<label class="check-item"><input type="checkbox" value="${c}" ${((m.criteria||[]).includes(c))?'checked':''} class="crit-chk">${c}</label>`).join('')}
+  </div>
+  `;
+}
+function onStriaeModeChange(inputEl){
+  const mode=inputEl.value;
+  const row=inputEl.closest('.radio-row');
+  row.querySelectorAll('label.opt').forEach(l=>l.classList.remove('on'));
+  inputEl.closest('label').classList.add('on');
+  document.getElementById('rakeBlock').style.display = mode==='rake'?'':'none';
+  document.getElementById('tpBlock').style.display = mode==='trendplunge'?'':'none';
+  if(mode==='trendplunge') autoCalcRakeIfReady();
+}
+function autoCalcRakeIfReady(){
+  const dipDir = parseInt(document.getElementById('dipDir_fp')?.value, 10);
+  const dip = parseInt(document.getElementById('dip_fp')?.value, 10);
+  const trend = parseInt(document.getElementById('trend_fl')?.value, 10);
+  const plunge = parseInt(document.getElementById('plunge_fl')?.value, 10);
+  const out = document.getElementById('rakeCalculatedOut');
+  if(isNaN(dip)||isNaN(trend)||isNaN(plunge)){ if(out) out.textContent='Rake calculado: —'; return; }
+  const res = calculateRakeFromTP(dipDir||0, dip, trend, plunge);
+  if(res && out){
+    out.innerHTML = `Rake geométrico: <b style="color:var(--accent)">${res.rake}°</b> (desde el extremo <b style="color:var(--accent)">${res.quadrant}</b>)`;
+    setVal('f_rake', res.rake);
+    const qEl=document.getElementById('f_rakeQuad'); if(qEl) qEl.value=res.quadrant;
+  }
+}
+
+function renderContactFields(m){
+  return `
+  <label>Tipo de contacto</label>
+  <select id="f_contactType">${CONTACT_TYPES.map(s=>`<option ${m.contactType===s?'selected':''}>${s}</option>`).join('')}</select>
+  ${renderSensorPanel('planar','c1')}
+  ${renderPlanarInputBlocks('c1', m.strike, m.dip, m.dipDir)}
+
+  <div class="grid2">
+    <div><label>Litología techo</label><input type="text" id="f_lithoTop" value="${esc(m.lithoTop||'')}"></div>
+    <div><label>Litología piso</label><input type="text" id="f_lithoBottom" value="${esc(m.lithoBottom||'')}"></div>
+  </div>
+
+  <div class="grid2">
+    <div><label>Espesor aparente (m)</label><input type="number" step="1" id="f_appThickness" value="${m.appThickness??''}" oninput="calcThickness()"></div>
+    <div><label>Manteo capa (°)</label><input type="number" step="1" id="f_bedDip" value="${m.bedDip ?? m.dip ?? ''}" oninput="calcThickness()"></div>
+  </div>
+  <div class="grid2">
+    <div><label>Pendiente suelo (°)</label><input type="number" step="1" id="f_slope" value="${m.slope??0}" oninput="calcThickness()"></div>
+    <div><label>Sentido</label>
+      <select id="f_slopeSense" onchange="calcThickness()">
+        <option value="opp" ${m.slopeSense==='opp'?'selected':''}>Opuesto</option>
+        <option value="same" ${m.slopeSense==='same'?'selected':''}>Mismo sentido</option>
+        <option value="flat" ${m.slopeSense==='flat'?'selected':''}>Plano</option>
+      </select>
+    </div>
+  </div>
+  <div class="derived" id="thicknessOut">${t('trueThick')}: — m</div>
+  `;
+}
+function calcThickness(){
+  const ta=parseFloat(document.getElementById('f_appThickness').value);
+  const dip=parseFloat(document.getElementById('f_bedDip').value);
+  const slope=parseFloat(document.getElementById('f_slope').value)||0;
+  const sense=document.getElementById('f_slopeSense').value;
+  const out=document.getElementById('thicknessOut');
+  if(isNaN(ta)||isNaN(dip)){ out.textContent=t('trueThick')+': — m'; return null; }
+  let angle = sense==='flat'? dip : sense==='same'? (dip-slope) : (dip+slope);
+  const val = roundInt(Math.abs(ta*Math.sin(toRad(angle))));
+  out.textContent = t('trueThick')+' ≈ '+val+' m';
+  return val;
+}
+
+function renderVeinFields(m){
+  const kind = m.structKind || 'Veta';
+  return `
+  <label>Tipo de estructura</label>
+  <div class="radio-row">
+    <label class="opt ${kind==='Veta'?'on':''}"><input type="radio" name="structKind" value="Veta" ${kind==='Veta'?'checked':''} onchange="onKindChange(this)">Veta</label>
+    <label class="opt ${kind==='Vetilla'?'on':''}"><input type="radio" name="structKind" value="Vetilla" ${kind==='Vetilla'?'checked':''} onchange="onKindChange(this)">Vetilla</label>
+  </div>
+
+  <label>Actitud del plano</label>
+  ${renderSensorPanel('planar','v1')}
+  ${renderPlanarInputBlocks('v1', m.strike, m.dip, m.dipDir)}
+
+  <div class="grid2">
+    <div><label>Espesor</label><input type="number" step="1" id="f_veinThick" value="${m.veinThickness??''}"></div>
+    <div><label>Unidad</label><select id="f_veinUnit"><option ${(!m.veinUnit||m.veinUnit==='cm')?'selected':''}>cm</option><option ${m.veinUnit==='mm'?'selected':''}>mm</option></select></div>
+  </div>
+  <label>Densidad de vetillas (vetillas/metro)</label>
+  <input type="number" step="1" id="f_veinDensity" value="${m.veinDensity??''}">
+
+  <label>Mineralogía de relleno</label>
+  <div class="check-grid">
+    ${VEIN_MINERALS.map(mn=>`<label class="check-item"><input type="checkbox" value="${mn}" ${((m.mineralogy||[]).includes(mn))?'checked':''} class="min-chk">${mn}</label>`).join('')}
+  </div>
+  <input type="text" id="f_mineralOther" placeholder="Otro mineral (opcional)" value="${esc(m.mineralOther||'')}" style="margin-top:8px;">
+
+  <label>Textura</label>
+  <select id="f_texture">${VEIN_TEXTURES.map(s=>`<option ${m.texture===s?'selected':''}>${s}</option>`).join('')}</select>
+
+  <label>Ensamble de alteración hidrotermal</label>
+  <div class="check-grid">
+    ${ALTERATION_TYPES.map(a=>`<label class="check-item"><input type="checkbox" value="${a}" ${((m.alteration||[]).includes(a))?'checked':''} class="alt-chk">${a}</label>`).join('')}
+  </div>
+
+  <label>Intensidad de alteración</label>
+  <select id="f_intensity">${ALTERATION_INTENSITY.map(s=>`<option ${m.intensity===s?'selected':''}>${s}</option>`).join('')}</select>
+  `;
+}
+function onKindChange(el){
+  const row=el.closest('.radio-row');
+  row.querySelectorAll('label.opt').forEach(l=>l.classList.remove('on'));
+  el.closest('label').classList.add('on');
+}
+
+async function saveMeasurement(id, isNew){
+  const type=state.measType;
+  const obj={ id, stationId:state.stationId, type, timestamp: nowIso(), notes: document.getElementById('f_notes').value };
+
+  if(type==='planar'){
+    obj.subtype=document.getElementById('f_subtype').value;
+    if(LINEAR_SUBTYPES.includes(obj.subtype)){
+      obj.trend=intOrNull('trend_l1'); obj.plunge=intOrNull('plunge_l1');
+    } else {
+      obj.dipDir=intOrNull('dipDir_p1'); obj.dip=intOrNull('dip_p1');
+      obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    }
+  } else if(type==='fault'){
+    obj.dipDir=intOrNull('dipDir_fp'); obj.dip=intOrNull('dip_fp');
+    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    obj.striaeMode=document.querySelector('input[name=striaeMode]:checked')?.value || 'rake';
+    if(obj.striaeMode==='trendplunge'){
+      obj.trend=intOrNull('trend_fl'); obj.plunge=intOrNull('plunge_fl');
+    }
+    obj.rake=intOrNull('f_rake');
+    obj.rakeQuadrant=document.getElementById('f_rakeQuad')?.value || null;
+    obj.sense=document.getElementById('f_sense').value;
+    obj.senseQuality=document.getElementById('f_senseQuality').value;
+    obj.criteria=[...document.querySelectorAll('.crit-chk:checked')].map(c=>c.value);
+  } else if(type==='contact'){
+    obj.contactType=document.getElementById('f_contactType').value;
+    obj.dipDir=intOrNull('dipDir_c1'); obj.dip=intOrNull('dip_c1');
+    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    obj.lithoTop=document.getElementById('f_lithoTop').value;
+    obj.lithoBottom=document.getElementById('f_lithoBottom').value;
+    obj.appThickness=intOrNull('f_appThickness');
+    obj.bedDip=intOrNull('f_bedDip');
+    obj.slope=intOrNull('f_slope');
+    obj.slopeSense=document.getElementById('f_slopeSense').value;
+    obj.trueThickness=calcThickness();
+  } else if(type==='vein'){
+    obj.structKind=document.querySelector('input[name=structKind]:checked')?.value || 'Veta';
+    obj.dipDir=intOrNull('dipDir_v1'); obj.dip=intOrNull('dip_v1');
+    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+    obj.veinThickness=intOrNull('f_veinThick');
+    obj.veinUnit=document.getElementById('f_veinUnit').value;
+    obj.veinDensity=intOrNull('f_veinDensity');
+    obj.mineralogy=[...document.querySelectorAll('.min-chk:checked')].map(c=>c.value);
+    obj.mineralOther=document.getElementById('f_mineralOther').value;
+    obj.texture=document.getElementById('f_texture').value;
+    obj.alteration=[...document.querySelectorAll('.alt-chk:checked')].map(c=>c.value);
+    obj.intensity=document.getElementById('f_intensity').value;
+  }
+  await dbPut('measurements', obj);
+  toast(currentLang==='es'?'Guardado':'Saved');
+  Nav.station(state.stationId, state.campId);
+}
+
+function renderSensorPanel(mode, formKey){
+  const label = mode==='planar' 
+    ? (currentLang==='es'?'Modo plano (apoyar reverso del teléfono)':'Planar mode (back of phone on plane)')
+    : (currentLang==='es'?'Modo lineación (alinear borde)':'Linear mode (align edge)');
+  const dSize = getDialDiameter();
+  return `
+  <div class="sensor-box scale-${boxScale}" data-mode="${mode}" data-formkey="${formKey}">
+    <div class="sensor-head"><b>📡 ${currentLang==='es'?'Captura con sensores':'Sensor Capture'}</b>
+      <div class="switch-row" style="margin:0; padding:4px 8px;">
+        <span style="font-size:11px;color:var(--text-dim);">${t('auto')}</span>
+        <label class="switch"><input type="checkbox" id="manualToggle_${formKey}" onchange="onManualToggle('${formKey}')"><span class="track"><span class="thumb"></span></span></label>
+        <span style="font-size:11px;color:var(--text-dim);">${t('manual')}</span>
+      </div>
+    </div>
+    <div class="hint">${label}</div>
+    <div id="autoBlock_${formKey}">
+      <div class="dial-wrap" style="flex-wrap:wrap; justify-content:center;">
+        <svg id="dial_${formKey}" viewBox="0 0 140 140" width="${dSize}" height="${dSize}"></svg>
+        <div class="dial-readout" style="min-width:140px;">
+          <div class="readout-line"><span>Dip Dir.</span><b id="live_dipdir_${formKey}">—</b></div>
+          <div class="readout-line"><span>${currentLang==='es'?'Manteo':'Dip'}</span><b id="live_dip_${formKey}">—</b></div>
+          <div class="readout-line"><span>Trend</span><b id="live_trend_${formKey}">—</b></div>
+          <div class="readout-line"><span>Plunge</span><b id="live_plunge_${formKey}">—</b></div>
+        </div>
+      </div>
+      <button type="button" class="btn primary" style="margin-top:10px;" onclick="captureSensorReading('${formKey}','${mode}')">${t('captureSensor')}</button>
+    </div>
+  </div>`;
+}
+
+function onManualToggle(formKey){
+  const isManual = document.getElementById('manualToggle_'+formKey).checked;
+  const block = document.getElementById('autoBlock_'+formKey);
+  if(block) block.style.display = isManual ? 'none' : '';
+}
+
+function updateLiveDial(){
+  document.querySelectorAll('[id^="dial_"]').forEach(svg=>{
+    const formKey=svg.id.replace('dial_','');
+    const mode=svg.closest('.sensor-box')?.dataset.mode||'planar';
+    drawDial(svg, mode);
+    const r=sensorState.last;
+    const dd=document.getElementById('live_dipdir_'+formKey);
+    const dp=document.getElementById('live_dip_'+formKey);
+    const tr=document.getElementById('live_trend_'+formKey);
+    const pl=document.getElementById('live_plunge_'+formKey);
+    if(r && dd) dd.textContent = roundInt(r.dipDir)+'°';
+    if(r && dp) dp.textContent = roundInt(r.dip)+'°';
+    if(r && tr) tr.textContent = roundInt(r.trend)+'°';
+    if(r && pl) pl.textContent = roundInt(r.plunge)+'°';
+  });
+}
+
+function drawDial(svg, mode){
+  const r=sensorState.last;
+  let heading = 0;
+  if(r){
+    if(mode==='planar'){
+      heading = (needleMode==='strike') ? r.strike : r.dipDir;
+    } else {
+      heading = r.trend;
+    }
+  }
+  const mag = r ? (mode==='planar'? r.dip : r.plunge) : 0;
+  let ticks='';
+  for(let i=0;i<36;i++){
+    const ang=i*10, len = (i%3===0)?12:6;
+    const rad=toRad(ang);
+    const x1=70+58*Math.sin(rad), y1=70-58*Math.cos(rad);
+    const x2=70+(58-len)*Math.sin(rad), y2=70-(58-len)*Math.cos(rad);
+    ticks+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--border)" stroke-width="${i%9===0?2:1}"/>`;
+  }
+  const needleRad=toRad(heading);
+  const nx=70+46*Math.sin(needleRad), ny=70-46*Math.cos(needleRad);
+  const barW = clamp(mag/90,0,1)*100;
+  svg.innerHTML = `
+    <circle cx="70" cy="70" r="62" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1.5"/>
+    ${ticks}
+    <text x="70" y="16" text-anchor="middle" fill="var(--text-dim)" font-size="9">N</text>
+    <text x="124" y="74" text-anchor="middle" fill="var(--text-dim)" font-size="9">E</text>
+    <text x="70" y="130" text-anchor="middle" fill="var(--text-dim)" font-size="9">S</text>
+    <text x="16" y="74" text-anchor="middle" fill="var(--text-dim)" font-size="9">${currentLang==='es'?'O':'W'}</text>
+    <line x1="70" y1="70" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="70" cy="70" r="4" fill="var(--accent)"/>
+    <rect x="20" y="118" width="100" height="6" rx="3" fill="var(--surface)" stroke="var(--border)" />
+    <rect x="20" y="118" width="${barW}" height="6" rx="3" fill="var(--accent)" />
+  `;
+}
+
+function captureSensorReading(formKey, mode){
+  if(!sensorState.last){ toast(currentLang==='es'?'Sin datos de sensor':'No sensor data yet'); return; }
+  const r=sensorState.last;
+  if(mode==='planar'){
+    setVal('dipDir_'+formKey, roundInt(r.dipDir));
+    setVal('dip_'+formKey, roundInt(r.dip));
+    setVal('strike_'+formKey, roundInt(r.strike));
+    setVal('quad_'+formKey, toQuadrant(r.strike));
+    onOrientationInputChange(formKey, 'dipdir');
+  } else {
+    setVal('trend_'+formKey, roundInt(r.trend));
+    setVal('plunge_'+formKey, roundInt(r.plunge));
+  }
+  if(formKey==='fl' || formKey==='fp') autoCalcRakeIfReady();
+  toast(currentLang==='es'?'Lectura capturada':'Reading captured');
+}
+
+function attachSensorInit(){
+  document.querySelectorAll('[id^="dial_"]').forEach(svg=>{
+    const mode=svg.closest('.sensor-box')?.dataset.mode||'planar';
+    drawDial(svg, mode);
+  });
+}
+function postRenderMeasForm(){
+  const type=state.measType;
+  if(type==='planar') onOrientationInputChange('p1', 'dipdir');
+  else if(type==='fault'){ onOrientationInputChange('fp', 'dipdir'); autoCalcRakeIfReady(); }
+  else if(type==='contact'){ onOrientationInputChange('c1', 'dipdir'); calcThickness(); }
+  else if(type==='vein') onOrientationInputChange('v1', 'dipdir');
+}
+
+/* =========================================================
+   VISTAS DE ESTEREOGRAMA Y EXPORTACIÓN
+   ========================================================= */
+async function renderStereonetView(){
+  const camps = await dbGetAll('campaigns');
+  let stations = [];
+  if(stereoState.campId !== 'ALL'){
+    stations = await dbGetByCampaign(stereoState.campId);
+  } else {
+    stations = await dbGetAll('stations');
+  }
+
+  return `
+  <div class="topline">
+    <button class="back-btn" onclick="Nav.back()">←</button>
+    <div><h2>🌐 Estereograma & FaultKin</h2><div class="sub">Análisis Estructural & Mecanismos Focales</div></div>
+  </div>
+
+  <div class="card" style="cursor:default; padding:10px 14px;">
+    <div class="grid2">
+      <div>
+        <label style="margin-top:0;">Campaña</label>
+        <select id="stereoCampSel" onchange="onStereoCampChange(this.value)">
+          <option value="ALL">Todas las campañas</option>
+          ${camps.map(c=>`<option value="${c.id}" ${stereoState.campId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label style="margin-top:0;">Estación</label>
+        <select id="stereoStationSel" onchange="onStereoStationChange(this.value)">
+          <option value="ALL">Todas las estaciones</option>
+          ${stations.map(s=>`<option value="${s.id}" ${stereoState.stationId===s.id?'selected':''}>${esc(s.name||s.id)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:8px;">
+      <div>
+        <label style="margin-top:0;">Proyección</label>
+        <select id="stereoProjSel" onchange="onStereoProjChange(this.value)">
+          <option value="schmidt" ${stereoState.proj==='schmidt'?'selected':''}>${t('projSchmidt')}</option>
+          <option value="wulff" ${stereoState.proj==='wulff'?'selected':''}>${t('projWulff')}</option>
+        </select>
+      </div>
+      <div>
+        <label style="margin-top:0;">Beachball (Falla)</label>
+        <select id="stereoBeachballSel" onchange="onStereoBeachballChange(this.value)">
+          <option value="off" ${!stereoState.showBeachball?'selected':''}>Desactivado</option>
+          <option value="on" ${stereoState.showBeachball?'selected':''}>Activado (Cuadrantes)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="check-grid" style="margin-top:10px;">
+      <label class="check-item"><input type="checkbox" id="chkPlanes" ${stereoState.showPlanes?'checked':''} onchange="stereoState.showPlanes=this.checked; drawStereonet();">Ciclográficas</label>
+      <label class="check-item"><input type="checkbox" id="chkPoles" ${stereoState.showPoles?'checked':''} onchange="stereoState.showPoles=this.checked; drawStereonet();">Polos de planos</label>
+      <label class="check-item"><input type="checkbox" id="chkFaults" ${stereoState.showFaults?'checked':''} onchange="stereoState.showFaults=this.checked; drawStereonet();">Fallas y Estrías</label>
+      <label class="check-item"><input type="checkbox" id="chkPT" ${stereoState.showPT?'checked':''} onchange="stereoState.showPT=this.checked; drawStereonet();">Ejes P / T</label>
+    </div>
+  </div>
+
+  <div class="canvas-wrapper">
+    <canvas id="stereoCanvas"></canvas>
+    <div id="stereoTooltip" class="stereo-tooltip"></div>
+  </div>
+
+  <div class="card" style="margin-top:14px; cursor:default;">
+    <div class="card-title">📊 Estadísticas del Grupo</div>
+    <div id="stereoStats" style="font-family:var(--mono); font-size:12px; margin-top:6px; color:var(--text-dim); line-height:1.5;">Calculando...</div>
+    <button class="btn primary small" style="width:100%; margin-top:12px;" onclick="exportStereoImage()">${t('exportPng')}</button>
+  </div>
+  `;
+}
+
+function onStereoCampChange(campId){ stereoState.campId = campId; stereoState.stationId = 'ALL'; render(); }
+function onStereoStationChange(stId){ stereoState.stationId = stId; drawStereonet(); }
+function onStereoProjChange(p){ stereoState.proj = p; drawStereonet(); }
+function onStereoBeachballChange(v){ stereoState.showBeachball = (v === 'on'); drawStereonet(); }
+
+async function initStereonetCanvas(){
+  const canvas = document.getElementById('stereoCanvas');
+  if(!canvas) return;
+  const size = Math.min(window.innerWidth - 32, 440);
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  canvas.onpointerdown = handleCanvasTouch;
+  await drawStereonet();
+}
+
+async function drawStereonet(){
+  const canvas = document.getElementById('stereoCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const size = canvas.width / dpr;
+  const R = (size / 2) - 22;
+  const cx = size / 2, cy = size / 2;
+
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, size, size);
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = colorTheme === 'sun' ? '#ffffff' : '#171c21';
+  ctx.fill();
+
+  const allSts = await dbGetAll('stations');
+  const allMeas = await dbGetAll('measurements');
+  
+  let validStations = allSts;
+  if(stereoState.campId !== 'ALL') validStations = validStations.filter(s => s.campaignId === stereoState.campId);
+  if(stereoState.stationId !== 'ALL') validStations = validStations.filter(s => s.id === stereoState.stationId);
+  const stIds = new Set(validStations.map(s => s.id));
+  const meas = allMeas.filter(m => stIds.has(m.stationId));
+
+  stereoState.interactiveItems = [];
+  const polesForMean = [];
+  const faultRecords = [];
+
+  if(stereoState.showBeachball){
+    meas.filter(m => m.type === 'fault' && (m.strike != null || m.dipDir != null)).forEach(f => {
+      const kin = computeFaultKinematics(f);
+      drawBeachballQuadrants(ctx, cx, cy, R, stereoState.proj, kin);
+    });
+  }
+
+  drawStereoGrid(ctx, cx, cy, R);
+
+  meas.forEach(m => {
+    let strike = m.strike;
+    if(strike == null && m.dipDir != null) strike = norm360(m.dipDir - 90);
+    const dip = m.dip;
+
+    if(m.type !== 'fault' && strike != null && dip != null){
+      const poleVec = planeToPoleVector(strike, dip);
+      polesForMean.push(poleVec);
+      const polePt = project3D(poleVec, stereoState.proj, R);
+      const px = cx + polePt.x, py = cy + polePt.y;
+
+      let color = '#5fb583';
+      if((m.subtype||'').includes('Foliación')) color = '#e8a33d';
+      if(m.type === 'vein') color = '#5cb3ff';
+      if(m.type === 'contact') color = '#d38aea';
+
+      if(stereoState.showPlanes) drawGreatCircle(ctx, cx, cy, R, stereoState.proj, strike, dip, color, 1.4, false);
+      if(stereoState.showPoles){
+        ctx.beginPath();
+        ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = '#14181c';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        stereoState.interactiveItems.push({
+          x: px, y: py, radius: 12, data: m, label: `${m.subtype||m.type}: ${pad3(strike)}/${pad2(dip)}`
+        });
+      }
+    }
+
+    if(m.trend != null && m.plunge != null && m.type !== 'fault'){
+      const linVec = trendPlungeToVector(m.trend, m.plunge);
+      const pt = project3D(linVec, stereoState.proj, R);
+      const lx = cx + pt.x, ly = cy + pt.y;
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillRect(lx - 4, ly - 4, 8, 8);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(lx - 4, ly - 4, 8, 8);
+      stereoState.interactiveItems.push({ x: lx, y: ly, radius: 12, data: m, label: `Lineación: ${pad3(m.trend)}/${pad2(m.plunge)}` });
+    }
+
+    if(m.type === 'fault' && (strike != null || m.dipDir != null)){
+      faultRecords.push(m);
+      const kin = computeFaultKinematics(m);
+
+      if(stereoState.showFaults){
+        drawGreatCircle(ctx, cx, cy, R, stereoState.proj, strike, dip, '#e0645c', 2, false);
+        drawGreatCircle(ctx, cx, cy, R, stereoState.proj, kin.auxStrike, kin.auxDip, 'rgba(224,100,92,0.4)', 1, true);
+
+        const stPt = project3D(kin.u, stereoState.proj, R);
+        const sx = cx + stPt.x, sy = cy + stPt.y;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.strokeStyle = '#e0645c';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        drawKinematicArrow(ctx, cx, cy, R, stereoState.proj, strike, dip, kin);
+        stereoState.interactiveItems.push({
+          x: sx, y: sy, radius: 14, data: m,
+          label: `Falla ${m.sense||''}: ${pad3(strike)}/${pad2(dip)} | Rake: ${m.rake??'—'}°`
+        });
+      }
+
+      if(stereoState.showPT){
+        const pPt = project3D(kin.P, stereoState.proj, R);
+        const pX = cx + pPt.x, pY = cy + pPt.y;
+        ctx.beginPath();
+        ctx.arc(pX, pY, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#e0645c';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        const tPt = project3D(kin.T, stereoState.proj, R);
+        const tX = cx + tPt.x, tY = cy + tPt.y;
+        ctx.beginPath();
+        ctx.rect(tX - 4.5, tY - 4.5, 9, 9);
+        ctx.fillStyle = '#5cb3ff';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        stereoState.interactiveItems.push({ x: pX, y: pY, radius: 10, data: m, label: `Eje P: ${pad3(kin.P_tp.trend)}/${pad2(kin.P_tp.plunge)}` });
+        stereoState.interactiveItems.push({ x: tX, y: tY, radius: 10, data: m, label: `Eje T: ${pad3(kin.T_tp.trend)}/${pad2(kin.T_tp.plunge)}` });
+      }
+    }
+  });
+
+  const mean = calculateMeanOrientation(polesForMean);
+  if(mean && stereoState.showPlanes){
+    drawGreatCircle(ctx, cx, cy, R, stereoState.proj, mean.strike, mean.dip, '#ffffff', 2.2, true);
+    const mPt = project3D(mean.meanVec, stereoState.proj, R);
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(cx + mPt.x, cy + mPt.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  updateStereoStats(mean, faultRecords, meas.length);
+  ctx.restore();
+}
+
+function drawStereoGrid(ctx, cx, cy, R){
+  ctx.save();
+  ctx.strokeStyle = colorTheme === 'sun' ? '#b0bec5' : '#333c44';
+  ctx.lineWidth = 1;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
+  ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy);
+  ctx.stroke();
+
+  for(let deg = 0; deg < 360; deg += 2){
+    const rad = toRad(deg);
+    const isMajor = (deg % 10 === 0);
+    const isCardinal = (deg % 90 === 0);
+    const len = isCardinal ? 9 : (isMajor ? 6 : 3);
+    const x1 = cx + R * Math.sin(rad), y1 = cy - R * Math.cos(rad);
+    const x2 = cx + (R - len) * Math.sin(rad), y2 = cy - (R - len) * Math.cos(rad);
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.strokeStyle = isMajor ? (colorTheme==='sun'?'#37474f':'#8a97a3') : (colorTheme==='sun'?'#cfd8dc':'#333c44');
+    ctx.lineWidth = isMajor ? 1.2 : 0.8;
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = colorTheme === 'sun' ? '#d87a00' : '#e8a33d';
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('N', cx, cy - R + 14);
+  ctx.fillText('S', cx, cy + R - 14);
+  ctx.fillText('E', cx + R - 14, cy);
+  ctx.fillText(currentLang === 'es' ? 'O' : 'W', cx - R + 14, cy);
+  ctx.restore();
+}
+
+function drawGreatCircle(ctx, cx, cy, R, projType, strike, dip, color, lineWidth, dashed){
+  ctx.save();
+  ctx.beginPath();
+  if(dashed) ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+
+  const sR = toRad(strike), dR = toRad(dip);
+  const strikeVec = [Math.sin(sR), Math.cos(sR), 0];
+  const dipVec = [Math.cos(sR) * Math.sin(dR), -Math.sin(sR) * Math.sin(dR), Math.cos(dR)];
+
+  let first = true;
+  for(let alpha = 0; alpha <= 180; alpha += 2){
+    const aR = toRad(alpha);
+    const v = V3.add(V3.scale(strikeVec, Math.cos(aR)), V3.scale(dipVec, Math.sin(aR)));
+    const pt = project3D(v, projType, R);
+    const x = cx + pt.x, y = cy + pt.y;
+    if(first){ ctx.moveTo(x, y); first = false; } else { ctx.lineTo(x, y); }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawKinematicArrow(ctx, cx, cy, R, projType, strike, dip, kin){
+  const pt = project3D(kin.u, projType, R);
+  const px = cx + pt.x, py = cy + pt.y;
+  const moveDir = V3.norm(V3.cross(kin.n, kin.b));
+  const arrowHead = V3.add(kin.u, V3.scale(moveDir, 0.12));
+  const ptH = project3D(arrowHead, projType, R);
+  const dx = (cx + ptH.x) - px, dy = (cy + ptH.y) - py;
+  const ang = Math.atan2(dy, dx);
+
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.rotate(ang);
+  ctx.fillStyle = '#e8a33d';
+  ctx.beginPath();
+  ctx.moveTo(6, 0); ctx.lineTo(-6, -4); ctx.lineTo(-6, 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawBeachballQuadrants(ctx, cx, cy, R, projType, kin){
+  ctx.save();
+  const step = 6;
+  for(let y = -R; y <= R; y += step){
+    for(let x = -R; x <= R; x += step){
+      if(Math.hypot(x, y) <= R){
+        const v = unproject2D(x, y, projType, R);
+        if(v){
+          if(V3.dot(kin.n, v) * V3.dot(kin.u, v) > 0){
+            ctx.fillStyle = 'rgba(224, 100, 92, 0.18)';
+            ctx.fillRect(cx + x - step/2, cy + y - step/2, step, step);
+          }
+        }
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function handleCanvasTouch(e){
+  const canvas = document.getElementById('stereoCanvas');
+  const tooltip = document.getElementById('stereoTooltip');
+  if(!canvas || !tooltip) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+  const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+  const touchX = clientX - rect.left, touchY = clientY - rect.top;
+
+  let found = null;
+  for(const item of stereoState.interactiveItems){
+    if(Math.hypot(touchX - item.x, touchY - item.y) <= item.radius){
+      found = item; break;
+    }
+  }
+
+  if(found){
+    tooltip.style.display = 'block';
+    tooltip.style.left = Math.min(touchX + 12, rect.width - 200) + 'px';
+    tooltip.style.top = Math.max(touchY - 40, 10) + 'px';
+    tooltip.innerHTML = `<b>${esc(found.label)}</b><br><span style="color:var(--text-dim);font-size:10.5px;">ID: ${esc(found.data.id)}</span>`;
+  } else {
+    tooltip.style.display = 'none';
+  }
+}
+
+function updateStereoStats(mean, faults, totalMeas){
+  const el = document.getElementById('stereoStats');
+  if(!el) return;
+  let html = `Total de datos proyectados: <b>${totalMeas}</b><br>`;
+  if(mean){
+    html += `Polo medio (N=${mean.count}): <b>Trend/Plunge ${pad3(mean.trend)}/${pad2(mean.plunge)}</b><br>`;
+    html += `Plano medio equivalente: <b>${pad3(mean.strike)}/${pad2(mean.dip)} (RHR)</b> · DipDir <b>${pad3(mean.dipDir)}</b><br>`;
+  }
+  if(faults.length > 0){
+    html += `Fallas cinemáticas activas: <b>${faults.length}</b> (FaultKin P/T calculado)`;
+  }
+  el.innerHTML = html;
+}
+
+function exportStereoImage(){
+  const canvas = document.getElementById('stereoCanvas');
+  if(!canvas){ toast('Canvas no disponible'); return; }
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = `Estereograma_${stereoState.proj}_${dateStamp()}.png`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('Estereograma exportado como PNG');
+}
+
+/* =========================================================
+   IMPORTADOR Y EXPORTADOR DE ARCHIVOS
+   ========================================================= */
+async function renderExport(){
+  const camps = await dbGetAll('campaigns');
+  return `
+  <div class="topline"><div><h2>${t('export')}</h2></div></div>
+  
+  <div class="card" style="cursor:default;">
+    <div class="card-title">📥 Importar Archivos (.txt / .csv / FaultKin)</div>
+    <div class="card-sub">Carga archivos tabulados de FaultKin, Stereonet o CSV estructurados</div>
+    <input type="file" id="importFileInput" accept=".txt,.csv,.tsv" style="margin-top:10px; display:none;" onchange="handleFileImport(event)">
+    <button class="btn primary" style="margin-top:10px;" onclick="document.getElementById('importFileInput').click()">📂 Seleccionar y subir archivo</button>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <label style="margin-top:0;">${t('exportScope')}</label>
+    <select id="exportCampSelect">
+      <option value="ALL">📁 ${t('exportAll')}</option>
+      ${camps.map(c=>`<option value="${c.id}">📂 ${esc(c.name)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="card" style="cursor:default;">
+    <div class="card-title">CSV (Excel / FaultKin / Stereonet)</div>
+    <button class="btn primary" style="margin-top:12px;" onclick="exportCSV()">${t('exportCsv')}</button>
+  </div>
+  <div class="card" style="cursor:default;">
+    <div class="card-title">GeoJSON (QGIS / ArcGIS)</div>
+    <button class="btn primary" style="margin-top:12px;" onclick="exportGeoJSON()">${t('exportGeoJson')}</button>
+  </div>
+  `;
+}
+
+function csvEsc(v){ v=String(v??''); if(/[",\n]/.test(v)){ v='"'+v.replace(/"/g,'""')+'"'; } return v; }
+
+async function getFilteredData(){
+  const scope = document.getElementById('exportCampSelect')?.value || 'ALL';
+  let stations = await dbGetAll('stations');
+  let camps = await dbGetAll('campaigns');
+  const campMap={}; camps.forEach(c=>campMap[c.id]=c);
+
+  if(scope !== 'ALL'){
+    stations = stations.filter(s=>s.campaignId === scope);
+  }
+  const stMap={}; stations.forEach(s=>stMap[s.id]=s);
+  const allMeas = await dbGetAll('measurements');
+  const measurements = allMeas.filter(m=>stMap[m.stationId]);
+  return { stations, measurements, stMap, campMap };
+}
+
+async function exportCSV(){
+  const { measurements, stMap, campMap } = await getFilteredData();
+  const headers=['Campaign','Station_ID','Timestamp','Lat','Lon','Alt','UTM_Zone','UTM_Hemisphere','UTM_Easting','UTM_Northing','Struct_Type','Kind','Strike','Dip','DipDir','Trend','Plunge','Rake','Rake_Quad','Sense','True_Thickness','Vein_Thick','Vein_Unit','Alteration','Notes'];
+  const rows=[headers.join(',')];
+  measurements.forEach(m=>{
+    const st=stMap[m.stationId]||{};
+    const camp=campMap[st.campaignId]||{};
+    const u = utmLabel(st.lat, st.lon);
+    rows.push([
+      csvEsc(camp.name||''), csvEsc(st.name||st.id||''), csvEsc(m.timestamp||st.timestamp||''),
+      st.lat??'', st.lon??'', st.alt??'',
+      u? u.zoneNumber:'', u? u.hemisphere:'', u? u.easting:'', u? u.northing:'',
+      csvEsc(m.subtype||m.type), csvEsc(m.structKind||''),
+      m.strike!=null?roundInt(m.strike):'', m.dip!=null?roundInt(m.dip):'', m.dipDir!=null?roundInt(m.dipDir):'',
+      m.trend!=null?roundInt(m.trend):'', m.plunge!=null?roundInt(m.plunge):'', m.rake!=null?roundInt(m.rake):'', csvEsc(m.rakeQuadrant||''),
+      csvEsc(m.sense||''), m.trueThickness!=null?roundInt(m.trueThickness):'', m.veinThickness!=null?roundInt(m.veinThickness):'', csvEsc(m.veinUnit||''),
+      csvEsc((m.alteration||[]).join('; ')), csvEsc(m.notes||'')
+    ].join(','));
+  });
+  downloadFile('\uFEFF'+rows.join('\r\n'), 'GeoFieldCore_'+dateStamp()+'.csv', 'text/csv;charset=utf-8');
+  toast('CSV exportado');
+}
+
+async function exportGeoJSON(){
+  const { measurements, stMap, campMap } = await getFilteredData();
+  const features=measurements.filter(m=>{ const s=stMap[m.stationId]; return s && s.lat!=null && s.lon!=null; }).map(m=>{
+    const st=stMap[m.stationId];
+    const camp=campMap[st.campaignId]||{};
+    const u = utmLabel(st.lat, st.lon);
+    return {
+      type:'Feature',
+      geometry:{ type:'Point', coordinates:[Number(st.lon), Number(st.lat), st.alt!=null?Number(st.alt):0] },
+      properties:{
+        Campaign: camp.name||null, Station_ID: st.name||st.id, Timestamp: m.timestamp||st.timestamp,
+        UTM_Zone: u? u.zoneNumber:null, UTM_Hemisphere: u? u.hemisphere:null,
+        UTM_Easting: u? u.easting:null, UTM_Northing: u? u.northing:null,
+        Struct_Type: m.subtype||m.type, Kind: m.structKind||null,
+        Strike: m.strike!=null?roundInt(m.strike):null, Dip: m.dip!=null?roundInt(m.dip):null, DipDir: m.dipDir!=null?roundInt(m.dipDir):null,
+        Trend: m.trend!=null?roundInt(m.trend):null, Plunge: m.plunge!=null?roundInt(m.plunge):null, Rake: m.rake!=null?roundInt(m.rake):null, Rake_Quad: m.rakeQuadrant||null,
+        Sense: m.sense||null, True_Thickness: m.trueThickness!=null?roundInt(m.trueThickness):null,
+        Vein_Thick: m.veinThickness!=null?roundInt(m.veinThickness):null, Vein_Unit: m.veinUnit||null,
+        Alteration: (m.alteration||[]).join('; ')||null, Notes: m.notes||null
+      }
+    };
+  });
+  downloadFile(JSON.stringify({ type:'FeatureCollection', features },null,2), 'GeoFieldCore_'+dateStamp()+'.geojson', 'application/geo+json');
+  toast('GeoJSON exportado');
+}
+
+async function handleFileImport(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const text = await file.text();
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if(lines.length < 2){ toast('Archivo vacío o sin datos'); return; }
+
+  const campName = 'Importación_' + file.name.replace(/\.[^/.]+$/, "");
+  const campId = uid();
+  await dbPut('campaigns', { id: campId, name: campName, timestamp: nowIso(), notes: `Importado desde ${file.name}` });
+
+  const headerLine = lines[0];
+  const delim = headerLine.includes('\t') ? '\t' : (headerLine.includes(';') ? ';' : ',');
+  const rawHeaders = headerLine.split(delim).map(h => h.trim().toLowerCase());
+
+  const getIdx = (patterns) => rawHeaders.findIndex(h => patterns.some(p => h.includes(p)));
+  const iStrike = getIdx(['fault strike','strike']);
+  const iDip = getIdx(['fault dip','dip']);
+  const iTrend = getIdx(['striae trend','trend']);
+  const iPlunge = getIdx(['striae plunge','plunge']);
+  const iSense = getIdx(['sense of slip','sense']);
+  const iFieldNo = getIdx(['field no.','station_id','station','estacion','name']);
+  const iLat = getIdx(['latitude','lat']);
+  const iLon = getIdx(['longitude','lon','long']);
+  const iAlt = getIdx(['elevation','alt']);
+  const iNotes = getIdx(['notes','nota']);
+
+  let count = 0;
+  const stationsCreated = {};
+
+  for(let i = 1; i < lines.length; i++){
+    const cols = lines[i].split(delim).map(c => c.trim());
+    if(cols.length < 2) continue;
+
+    const stName = (iFieldNo >= 0 && cols[iFieldNo]) ? cols[iFieldNo] : `EST-${String(count+1).padStart(2,'0')}`;
+    let stId = stationsCreated[stName];
+
+    const latVal = (iLat >= 0 && cols[iLat]) ? parseFloat(cols[iLat]) : null;
+    const lonVal = (iLon >= 0 && cols[iLon]) ? parseFloat(cols[iLon]) : null;
+    const altVal = (iAlt >= 0 && cols[iAlt]) ? roundInt(parseFloat(cols[iAlt])) : null;
+
+    if(!stId){
+      stId = uid();
+      stationsCreated[stName] = stId;
+      await dbPut('stations', {
+        id: stId, campaignId: campId, name: stName, timestamp: nowIso(),
+        lat: isNaN(latVal) ? null : latVal, lon: isNaN(lonVal) ? null : lonVal, alt: isNaN(altVal) ? null : altVal,
+        notes: 'Importado de FaultKin/Texto'
+      });
+    }
+
+    const strikeVal = (iStrike >= 0 && cols[iStrike]) ? roundInt(parseFloat(cols[iStrike])) : null;
+    const dipVal = (iDip >= 0 && cols[iDip]) ? roundInt(parseFloat(cols[iDip])) : null;
+    const trendVal = (iTrend >= 0 && cols[iTrend]) ? roundInt(parseFloat(cols[iTrend])) : null;
+    const plungeVal = (iPlunge >= 0 && cols[iPlunge]) ? roundInt(parseFloat(cols[iPlunge])) : null;
+    const senseVal = (iSense >= 0 && cols[iSense]) ? cols[iSense] : '';
+    const noteVal = (iNotes >= 0 && cols[iNotes]) ? cols[iNotes] : '';
+
+    if(strikeVal != null && dipVal != null){
+      const dipDirVal = roundInt(norm360(strikeVal + 90));
+      const measObj = {
+        id: uid(), stationId: stId,
+        type: (trendVal != null || senseVal) ? 'fault' : 'planar',
+        subtype: 'Importado', timestamp: nowIso(),
+        strike: strikeVal, dip: dipVal, dipDir: dipDirVal,
+        trend: trendVal, plunge: plungeVal, striaeMode: 'trendplunge',
+        sense: senseVal || 'Normal', notes: noteVal
+      };
+
+      if(trendVal != null && plungeVal != null){
+        const rk = calculateRakeFromTP(dipDirVal, dipVal, trendVal, plungeVal);
+        if(rk){ measObj.rake = rk.rake; measObj.rakeQuadrant = rk.quadrant; }
+      }
+      await dbPut('measurements', measObj);
+      count++;
+    }
+  }
+
+  toast(`Importados ${count} registros`);
+  Nav.campaign(campId);
+}
+
+/* =========================================================
+   VISTA: AJUSTES
+   ========================================================= */
+function renderSettings(){
+  return `
+  <div class="topline"><div><h2>${t('settings')}</h2></div></div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">🎨 ${t('colorTheme')}</div>
+    <div class="card-sub">Selecciona una paleta de alto contraste para luz solar</div>
+    <select onchange="changeColorTheme(this.value)" style="margin-top:8px;">
+      <option value="sun" ${colorTheme==='sun'?'selected':''}>☀️ Sol Directo (Blanco / Alto Contraste)</option>
+      <option value="dark" ${colorTheme==='dark'?'selected':''}>🌙 Noche / Campamento (Dark Slate)</option>
+      <option value="earth" ${colorTheme==='earth'?'selected':''}>🏜️ Geológico Tierra / Ocre</option>
+      <option value="forest" ${colorTheme==='forest'?'selected':''}>🌲 Bosque / Oliva</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">⌨️ ${t('inputNotation')}</div>
+    <select onchange="changeInputNotation(this.value)" style="margin-top:8px;">
+      <option value="dipdir" ${inputNotation==='dipdir'?'selected':''}>Dip Direction / Dip (ej. 135 / 45)</option>
+      <option value="strike" ${inputNotation==='strike'?'selected':''}>Strike RHR / Dip (ej. 045 / 45)</option>
+      <option value="quadrant" ${inputNotation==='quadrant'?'selected':''}>Cuadrante / Dip (ej. N45°E / 45)</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('lang')} / Language</div>
+    <select onchange="changeLanguage(this.value)" style="margin-top:8px;">
+      <option value="es" ${currentLang==='es'?'selected':''}>Español</option>
+      <option value="en" ${currentLang==='en'?'selected':''}>English</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('quadrantMode')}</div>
+    <select onchange="changeQuadrantPref(this.value)" style="margin-top:8px;">
+      <option value="NS" ${quadrantPref==='NS'?'selected':''}>Norte y Sur (ej. N30°E y S45°O)</option>
+      <option value="N_ONLY" ${quadrantPref==='N_ONLY'?'selected':''}>Solo Norte (ej. N30°E y N135°O)</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('needleTarget')}</div>
+    <select onchange="changeNeedleMode(this.value)" style="margin-top:8px;">
+      <option value="dipdir" ${needleMode==='dipdir'?'selected':''}>Dirección de Manteo (Dip Direction)</option>
+      <option value="strike" ${needleMode==='strike'?'selected':''}>Rumbo / Strike (Regla mano derecha)</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('calibration')}</div>
+    <input type="number" step="1" value="${magOffset}" id="magOffsetInput" onchange="changeMagOffset(this.value)" style="margin-top:8px;" placeholder="ej. -5 o 8">
+    <button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="autoEstimateDeclination()">📍 Calcular declinación desde GPS actual</button>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('compassSize')}</div>
+    <select onchange="changeCompassScale(this.value)" style="margin-top:8px;">
+      <option value="sm" ${compassScale==='sm'?'selected':''}>Pequeño / Small</option>
+      <option value="md" ${compassScale==='md'?'selected':''}>Medio / Medium</option>
+      <option value="lg" ${compassScale==='lg'?'selected':''}>Grande / Large</option>
+      <option value="xl" ${compassScale==='xl'?'selected':''}>Extra Grande / Extra Large</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('sensorBoxSize')}</div>
+    <select onchange="changeBoxScale(this.value)" style="margin-top:8px;">
+      <option value="md" ${boxScale==='md'?'selected':''}>Normal</option>
+      <option value="lg" ${boxScale==='lg'?'selected':''}>Grande (Recomendado)</option>
+      <option value="xl" ${boxScale==='xl'?'selected':''}>Extra grande</option>
+    </select>
+  </div>
+
+  <div class="card" style="cursor:default;">
+    <div class="card-title">Sensores / Permisos</div>
+    <button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar / Re-calibrar Sensores</button>
+  </div>
+  `;
+}
+
+function autoEstimateDeclination(){
+  if(gpsState.lat==null || gpsState.lon==null){ toast('Requiere señal GPS'); return; }
+  const est = estimateDeclination(gpsState.lat, gpsState.lon);
+  changeMagOffset(est);
+  const input = document.getElementById('magOffsetInput');
+  if(input) input.value = est;
+  toast(`Declinación estimada: ${est}° aplicada`);
+}
+
+function changeColorTheme(theme){ colorTheme=theme; localStorage.setItem('geo_theme', theme); render(); }
+function changeInputNotation(not){ inputNotation=not; localStorage.setItem('geo_input_notation', not); render(); }
+function changeLanguage(lang){ currentLang=lang; localStorage.setItem('geo_lang', lang); render(); }
+function changeCompassScale(scale){ compassScale=scale; localStorage.setItem('geo_compass_scale', scale); render(); }
+function changeBoxScale(scale){ boxScale=scale; localStorage.setItem('geo_box_scale', scale); render(); }
+function changeQuadrantPref(val){ quadrantPref=val; localStorage.setItem('geo_quadrant_pref', val); render(); }
+function changeNeedleMode(val){ needleMode=val; localStorage.setItem('geo_needle_mode', val); render(); }
+function changeMagOffset(val){ magOffset=parseFloat(val)||0; localStorage.setItem('geo_mag_offset', magOffset); render(); }
+
+(async function init(){
+  await openDB();
+  initGPS();
+  initSensors();
+  updateTopbarStatus();
+  setInterval(updateTopbarStatus, 3000);
+  render();
+})();
+
+// --- Funcionamiento sin conexión (service worker) ---
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(err => console.warn('Service worker no registrado:', err));
+  });
+}
+
+</script>
+</body>
+</html>
