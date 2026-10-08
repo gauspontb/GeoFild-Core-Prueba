@@ -1,6 +1,6 @@
 /* GeoField Core: service worker (funcionamiento sin internet)
    Para publicar una versión nueva de index.html: cambia VERSION (v1 -> v2...). */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'geofield-core-' + VERSION;
 const SHELL = [
   './',

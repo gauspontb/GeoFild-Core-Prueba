@@ -3114,21 +3114,319 @@ function exportStereoImage(){
   toast('Estereograma exportado como PNG');
 }
 
+// ===== FASE 4: RESPALDO Y RESTAURACIÓN =====
+ 
+async function requestPersistentStorage() {
+  if (navigator.storage && navigator.storage.persist) {
+    const isPersisted = await navigator.storage.persisted();
+    if (!isPersisted) {
+      await navigator.storage.persist();
+    }
+  }
+}
+ 
+function injectBackupTranslations() {
+  Object.assign(I18N.es, {
+    backupRestore: 'Respaldo y restauración',
+    statsCamp: 'Campañas',
+    statsStat: 'Estaciones',
+    statsMeas: 'Mediciones',
+    lastBackup: 'Último respaldo',
+    never: 'Nunca',
+    persistentStorage: 'Almacenamiento persistente',
+    includeMapTiles: 'Incluir imágenes base del mapa',
+    downloadFullBackup: 'Descargar respaldo completo (.json)',
+    restoreMode: 'Modo de restauración',
+    merge: 'Combinar (añade faltantes)',
+    replace: 'Reemplazar (borra TODO)',
+    overwriteExisting: 'Sobrescribir existentes',
+    restoreData: 'Restaurar'
+  });
+  Object.assign(I18N.en, {
+    backupRestore: 'Backup and Restore',
+    statsCamp: 'Campaigns',
+    statsStat: 'Stations',
+    statsMeas: 'Measurements',
+    lastBackup: 'Last backup',
+    never: 'Never',
+    persistentStorage: 'Persistent storage',
+    includeMapTiles: 'Include map base images',
+    downloadFullBackup: 'Download full backup (.json)',
+    restoreMode: 'Restore mode',
+    merge: 'Merge (add missing)',
+    replace: 'Replace (delete ALL)',
+    overwriteExisting: 'Overwrite existing',
+    restoreData: 'Restore'
+  });
+}
+ 
+async function buildBackupObject(includeOverlays) {
+  const stores = Array.from(DB.objectStoreNames);
+  const data = {};
+  const counts = {};
+  for (const store of stores) {
+    // Sin imágenes base: se omite el almacén (así "Reemplazar" no borra las imágenes actuales)
+    if (!includeOverlays && store === 'map_overlays') continue;
+    const records = await dbGetAll(store);
+    data[store] = records;
+    counts[store] = records.length;
+  }
+  const settings = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('geo_') && key !== 'geo_last_backup') {
+      settings[key] = localStorage.getItem(key);
+    }
+  }
+  return {
+    app: 'GeoField Core',
+    format_version: 1,
+    db_version: DB.version,
+    exported_at: nowIso(),
+    counts,
+    settings,
+    data
+  };
+}
+ 
+async function exportFullBackup() {
+  try {
+    const includeOverlays = document.getElementById('chkIncludeOverlays')?.checked ?? true;
+    const obj = await buildBackupObject(includeOverlays);
+    const jsonStr = JSON.stringify(obj);
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const filename = `geofield_respaldo_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+    downloadFile(jsonStr, filename, 'application/json');
+    localStorage.setItem('geo_last_backup', obj.exported_at);
+    const sizeKb = (new Blob([jsonStr]).size / 1024).toFixed(1);
+    toast(`Respaldo creado: ${obj.counts.measurements || 0} mediciones, ${sizeKb} KB`);
+    render();
+  } catch (err) {
+    alert("Error al exportar el respaldo: " + err.message);
+  }
+}
+ 
+function validateBackupObject(obj) {
+  const res = { ok: true, errors: [], warnings: [], summary: {} };
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    res.errors.push("El archivo no es un objeto JSON válido.");
+    res.ok = false;
+    return res;
+  }
+  if (obj.app !== 'GeoField Core') {
+    res.errors.push("La firma de la aplicación (app) no coincide con 'GeoField Core'.");
+    res.ok = false;
+  }
+  if (!Number.isInteger(obj.format_version) || obj.format_version > 1) {
+    res.errors.push("La versión del formato no es válida o es superior a la soportada (1).");
+    res.ok = false;
+  }
+  if (!obj.data || typeof obj.data !== 'object') {
+    res.errors.push("El objeto carece de la propiedad principal 'data'.");
+    res.ok = false;
+    return res;
+  }
+  // Todo almacén presente en el archivo debe ser un arreglo
+  for (const key of Object.keys(obj.data)) {
+    if (!Array.isArray(obj.data[key])) {
+      res.errors.push(`El almacén de datos '${key}' no es un arreglo válido.`);
+      res.ok = false;
+    }
+  }
+  if (!res.ok) return res;
+ 
+  const campIds = new Set();
+  const statIds = new Set();
+  for (const store in obj.data) {
+    res.summary[store] = obj.data[store].length;
+    for (const record of obj.data[store]) {
+      if (!record || typeof record !== 'object' || !record.id) {
+        res.errors.push(`Se encontró un registro sin 'id' en el almacén '${store}'.`);
+        res.ok = false;
+      } else {
+        if (store === 'campaigns') campIds.add(record.id);
+        if (store === 'stations') statIds.add(record.id);
+      }
+    }
+  }
+  if (obj.data.stations) {
+    for (const s of obj.data.stations) {
+      if (s && s.campaignId && !campIds.has(s.campaignId)) {
+        res.warnings.push(`La estación ${s.id} referencia a una campaña inexistente en este respaldo.`);
+      }
+    }
+  }
+  if (obj.data.measurements) {
+    for (const m of obj.data.measurements) {
+      if (m && m.stationId && !statIds.has(m.stationId)) {
+        res.warnings.push(`La medición ${m.id} referencia a una estación inexistente en este respaldo.`);
+      }
+    }
+  }
+  return res;
+}
+ 
+async function importFullBackup(file, mode, overwrite) {
+  try {
+    const text = await file.text();
+    let obj;
+    try {
+      obj = JSON.parse(text);
+    } catch (e) {
+      alert("El archivo seleccionado no tiene un formato JSON válido.");
+      return;
+    }
+    const validation = validateBackupObject(obj);
+    if (!validation.ok) {
+      alert("Error de validación del respaldo:\n\n- " + validation.errors.join('\n- '));
+      return;
+    }
+    if (validation.warnings.length > 0) {
+      console.warn("Advertencias durante la validación:", validation.warnings);
+    }
+ 
+    const dbStores = Array.from(DB.objectStoreNames);
+    const storesInFile = Object.keys(obj.data);
+    const validStores = storesInFile.filter(s => dbStores.includes(s) && Array.isArray(obj.data[s]));
+    storesInFile.filter(s => !validStores.includes(s)).forEach(s => console.warn(`Almacén ignorado (no existe en DB): ${s}`));
+    if (validStores.length === 0) {
+      alert("El respaldo no contiene almacenes compatibles con esta versión.");
+      return;
+    }
+ 
+    if (mode === 'replace') {
+      const confirmText = prompt("Escribe REEMPLAZAR para confirmar que deseas borrar toda tu base de datos actual y cargar la del archivo.");
+      if (confirmText !== 'REEMPLAZAR') {
+        toast("Restauración cancelada.");
+        return;
+      }
+      const currentData = await buildBackupObject(true);
+      downloadFile(JSON.stringify(currentData), `geofield_antes_de_restaurar_${dateStamp()}.json`, 'application/json');
+      toast("Copia de seguridad previa descargada.");
+    }
+ 
+    const transaction = DB.transaction(validStores, 'readwrite');
+    let added = 0, updated = 0, skipped = 0;
+    const txPromise = new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error || new Error("Transacción abortada."));
+    });
+ 
+    try {
+      for (const storeName of validStores) {
+        const store = transaction.objectStore(storeName);
+        if (mode === 'replace') store.clear();
+        for (const record of obj.data[storeName]) {
+          if (mode === 'replace') {
+            store.put(record);
+            added++;
+          } else {
+            const req = store.get(record.id);
+            req.onsuccess = (e) => {
+              if (e.target.result) {
+                if (overwrite) { store.put(record); updated++; } else { skipped++; }
+              } else {
+                store.put(record); added++;
+              }
+            };
+            req.onerror = () => { transaction.abort(); };
+          }
+        }
+      }
+    } catch (loopErr) {
+      try { transaction.abort(); } catch (_) {}
+      await txPromise.catch(() => {});
+      throw loopErr;
+    }
+ 
+    await txPromise;
+ 
+    // Los ajustes se restauran SOLO si la base de datos se escribió completa
+    let settingsRestored = false;
+    if (mode === 'replace' && obj.settings && typeof obj.settings === 'object') {
+      for (const [k, v] of Object.entries(obj.settings)) {
+        if (k.startsWith('geo_')) localStorage.setItem(k, v);
+      }
+      settingsRestored = true;
+    }
+ 
+    alert(`Restauración completada con éxito.\nResumen de operaciones:\nAgregados: ${added}\nActualizados: ${updated}\nOmitidos: ${skipped}`);
+    if (settingsRestored) {
+      location.reload();
+    } else {
+      render();
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Error durante la importación (no se modificó ningún dato): " + err.message);
+  }
+}
+ 
+async function handleRestoreFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const mode = document.getElementById('restoreMode')?.value || 'merge';
+  const overwrite = document.getElementById('restoreOverwrite')?.checked || false;
+  await importFullBackup(file, mode, overwrite);
+  e.target.value = '';
+}
+
 /* =========================================================
    IMPORTADOR Y EXPORTADOR DE ARCHIVOS
    ========================================================= */
 async function renderExport(){
   const camps = await dbGetAll('campaigns');
+  const stations = await dbGetAll('stations');
+  const meas = await dbGetAll('measurements');
+ 
+  const lastBackup = localStorage.getItem('geo_last_backup');
+  const lastBackupStr = lastBackup ? fmtDate(lastBackup) : t('never');
+ 
+  let persistMsg = 'Desconocido';
+  if (navigator.storage && navigator.storage.persisted) {
+    const isPersisted = await navigator.storage.persisted();
+    persistMsg = isPersisted ? '✅ Seguro (Activado)' : '❌ Volátil (Podría limpiarse)';
+  }
+ 
   return `
   <div class="topline"><div><h2>${t('export')}</h2></div></div>
-  
+ 
   <div class="card" style="cursor:default;">
     <div class="card-title">📥 Importar Archivos (.txt / .csv / FaultKin)</div>
     <div class="card-sub">Carga archivos tabulados de FaultKin, Stereonet o CSV estructurados</div>
     <input type="file" id="importFileInput" accept=".txt,.csv,.tsv" style="margin-top:10px; display:none;" onchange="handleFileImport(event)">
     <button class="btn primary" style="margin-top:10px;" onclick="document.getElementById('importFileInput').click()">📂 Seleccionar y subir archivo</button>
   </div>
-
+ 
+  <div class="card" style="cursor:default;">
+    <div class="card-title">💾 ${t('backupRestore')}</div>
+    <div class="card-sub">${t('statsCamp')}: ${camps.length} | ${t('statsStat')}: ${stations.length} | ${t('statsMeas')}: ${meas.length}</div>
+    <div class="card-sub" style="margin-top:4px;">${t('lastBackup')}: <b>${lastBackupStr}</b></div>
+    <div class="card-sub">${t('persistentStorage')}: ${persistMsg}</div>
+ 
+    <label class="check-item" style="margin-top:10px;">
+      <input type="checkbox" id="chkIncludeOverlays" checked> ${t('includeMapTiles')}
+    </label>
+    <button class="btn primary" style="margin-top:10px;" onclick="exportFullBackup()">${t('downloadFullBackup')}</button>
+ 
+    <div style="border-top:1px solid var(--border-soft); margin-top:16px; padding-top:10px;">
+      <label style="margin-top:0;">${t('restoreMode')}</label>
+      <select id="restoreMode" onchange="document.getElementById('overwriteBlock').style.display = this.value==='merge'?'block':'none'">
+        <option value="merge">${t('merge')}</option>
+        <option value="replace">${t('replace')}</option>
+      </select>
+      <div id="overwriteBlock" style="margin-top:8px;">
+        <label class="check-item">
+          <input type="checkbox" id="restoreOverwrite"> ${t('overwriteExisting')}
+        </label>
+      </div>
+      <input type="file" id="restoreFileInput" accept=".json" style="display:none;" onchange="handleRestoreFileSelect(event)">
+      <button class="btn primary" style="margin-top:12px; background:var(--accent-dim); color:var(--text);" onclick="document.getElementById('restoreFileInput').click()">🔄 ${t('restoreData')}</button>
+    </div>
+  </div>
+ 
   <div class="card" style="cursor:default;">
     <label style="margin-top:0;">${t('exportScope')}</label>
     <select id="exportCampSelect">
@@ -3138,6 +3436,7 @@ async function renderExport(){
   </div>
   <div class="card" style="cursor:default;">
     <div class="card-title">CSV (Excel / FaultKin / Stereonet)</div>
+    <div class="card-sub">${currentLang==='es'?'Valores numéricos redondeados a enteros':'Integer values ready for GIS/Excel'}</div>
     <button class="btn primary" style="margin-top:12px;" onclick="exportCSV()">${t('exportCsv')}</button>
   </div>
   <div class="card" style="cursor:default;">
@@ -3398,6 +3697,8 @@ function changeMagOffset(val){ magOffset=parseFloat(val)||0; localStorage.setIte
 
 (async function init(){
   await openDB();
+  injectBackupTranslations();
+  requestPersistentStorage().catch(()=>{});
   initGPS();
   initSensors();
   updateTopbarStatus();
