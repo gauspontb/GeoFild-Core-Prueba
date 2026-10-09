@@ -460,6 +460,115 @@ function downloadFile(content, filename, mime){
   setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
 
+const MAP_ONLINE_LAYERS = [
+  // OSM = uso ligero y atribución obligatoria
+  { id:'online_osm', name:'Predeterminado (OpenStreetMap)', kind:'default',
+    url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', minZoom:0, maxZoom:19,
+    attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors' },
+  // EOX = SOLO uso no comercial
+  { id:'online_eox_s2', name:'Satelital (Sentinel-2, EOX)', kind:'satellite',
+    url:'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg',
+    minZoom:0, maxZoom:14,
+    attribution:'Sentinel-2 cloudless - <a href="https://s2maps.eu" target="_blank" rel="noopener">https://s2maps.eu</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2024)' },
+  // openmaps.fr = volumen moderado
+  { id:'online_opentopo', name:'Relieve (OpenTopoMap)', kind:'relief',
+    url:'https://tile.openmaps.fr/opentopomap/{z}/{x}/{y}.png', minZoom:0, maxZoom:17,
+    attribution:'<a href="https://github.com/sletuffe/OpenTopoMap" target="_blank" rel="noopener">© OpenTopoMap-R</a> <a href="https://openmaps.fr/donate" target="_blank" rel="noopener">❤️ Donation</a> <a href="http://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a>' }
+];
+
+const MAP_GUIDE = {
+  es: `<h3>Cómo crear un mapa sin conexión de tu zona de trabajo (QGIS)</h3>
+<p>Hazlo una sola vez, con internet y en un computador, antes de salir a terreno. QGIS es gratuito (qgis.org).</p>
+<ol>
+  <li>Define el sistema de coordenadas del proyecto: Proyecto > Propiedades > SRC > EPSG:4326 (WGS 84). En este sistema la imagen se ve estirada en QGIS; es normal y es lo que la app necesita.</li>
+  <li>Reúne las capas de tu zona (elige las que necesites):
+    <ul>
+      <li>Satelital: una imagen Sentinel-2 en color real de tu zona, descargada del portal de Copernicus (gratuito).</li>
+      <li>Relieve: un modelo de elevación libre (Copernicus DEM o SRTM). En QGIS: Ráster > Análisis > Sombreado (Hillshade).</li>
+      <li>Predeterminado (calles y localidades): datos de OpenStreetMap con el complemento QuickOSM; dales el estilo que prefieras.</li>
+    </ul>
+    Importante: no uses complementos que descargan teselas de Google, Esri u otros servicios en línea. Sus términos de uso no permiten guardarlas para uso sin conexión.
+  </li>
+  <li>Encuadra tu zona de trabajo en la pantalla de QGIS. Conviene que sea menor a 20 x 20 km para que la imagen sea nítida.</li>
+  <li>Exporta: Proyecto > Importar/Exportar > Exportar mapa como imagen. Usa la extensión del mapa en pantalla, formato JPG, y una resolución tal que el lado mayor no pase de unos 4000 píxeles.</li>
+  <li>Anota los 4 límites: en esa ventana, la extensión muestra X mín y X máx (longitud mínima y máxima) e Y mín e Y máx (latitud mínima y máxima), en grados. Si cambias la resolución, el cuadro de extensión puede ajustarse: copia los valores finales justo antes de exportar.</li>
+  <li>Cárgala aquí: Mapa > Gestionar capas > agregar capa. Elige la imagen, escribe un nombre y el tipo, ingresa los 4 límites y la atribución, y guarda.</li>
+  <li>Compruébala: con el GPS o con una estación conocida, verifica que los puntos caen donde corresponde. Haz la prueba también en modo avión.</li>
+</ol>
+<p>Atribuciones sugeridas: Sentinel-2: "Contiene datos modificados de Copernicus Sentinel (año)". OpenStreetMap: "© colaboradores de OpenStreetMap". Modelo de elevación: indica la fuente que usaste.</p>
+<p>Consejo: las capas ocupan espacio en el teléfono y en el respaldo JSON; guarda solo las zonas que vayas a usar.</p>`,
+  en: `<h3>How to create an offline map of your working area (QGIS)</h3>
+<p>Do this once, with internet access and on a computer, before heading to the field. QGIS is free (qgis.org).</p>
+<ol>
+  <li>Set project coordinate system: Project > Properties > CRS > EPSG:4326 (WGS 84). The image will look stretched in QGIS; this is normal and what the app requires.</li>
+  <li>Gather layers for your area (choose what you need):
+    <ul>
+      <li>Satellite: a Sentinel-2 true-color image, downloaded from the Copernicus portal (free).</li>
+      <li>Relief: a free elevation model (Copernicus DEM or SRTM). In QGIS: Raster > Analysis > Hillshade.</li>
+      <li>Default (streets & places): OpenStreetMap data via the QuickOSM plugin; style as you prefer.</li>
+    </ul>
+    Important: do not use plugins that download Google, Esri, or other online tiles. Their terms of use do not allow saving for offline use.
+  </li>
+  <li>Frame your working area on the QGIS canvas. It's best to keep it under 20 x 20 km for a sharp image.</li>
+  <li>Export: Project > Import/Export > Export Map to Image. Use the canvas extent, JPG format, and a resolution where the largest side does not exceed ~4000 pixels.</li>
+  <li>Note the 4 bounds: in that window, the extent shows X min and X max (min and max longitude) and Y min and Y max (min and max latitude), in degrees. If you change the resolution, the extent box might adjust: copy the final values right before exporting.</li>
+  <li>Load it here: Map > Manage layers > add layer. Choose the image, type a name and kind, enter the 4 bounds and attribution, and save.</li>
+  <li>Test it: using GPS or a known station, verify that points fall where they should. Also test in airplane mode.</li>
+</ol>
+<p>Suggested attributions: Sentinel-2: "Contains modified Copernicus Sentinel data (year)". OpenStreetMap: "© OpenStreetMap contributors". Elevation model: state your source.</p>
+<p>Tip: layers take up space on your phone and in JSON backups; only save the areas you plan to use.</p>`
+};
+
+function injectOnlineLayerTranslations() {
+  Object.assign(I18N.es, {
+    onlineWarningText: 'Las capas en línea no funcionan sin conexión. Para terreno, usa una capa sin conexión',
+    tilesFailed: 'No se pudieron cargar teselas',
+    offlineRequired: 'Sin conexión: elige una capa sin conexión'
+  });
+  Object.assign(I18N.en, {
+    onlineWarningText: 'Online layers do not work offline. For field terrain, use an offline layer',
+    tilesFailed: 'Could not load tiles',
+    offlineRequired: 'Offline: please choose an offline layer'
+  });
+}
+
+function injectMapLayerTranslations() {
+  Object.assign(I18N.es, {
+    baseLayer: 'Capa base',
+    noLayer: 'Sin capa',
+    offlineLayers: 'Sin conexión',
+    onlineLayers: 'Con conexión',
+    manageLayers: 'Gestionar capas',
+    layerGuideBtn: 'Ver guía',
+    noLayersMsg: 'Puedes incorporar un mapa offline de tu zona de trabajo a través de QGIS',
+    calibName: 'Nombre de la capa',
+    calibKind: 'Tipo de capa',
+    calibAttr: 'Atribución (fuente)',
+    layerOther: 'Otra',
+    layerDefault: 'Predeterminado',
+    layerSatellite: 'Satelital',
+    layerRelief: 'Relieve',
+    addLayer: 'Añadir capa'
+  });
+  Object.assign(I18N.en, {
+    baseLayer: 'Base layer',
+    noLayer: 'No layer',
+    offlineLayers: 'Offline',
+    onlineLayers: 'Online',
+    manageLayers: 'Manage layers',
+    layerGuideBtn: 'View guide',
+    noLayersMsg: 'You can add an offline map of your working area using QGIS',
+    calibName: 'Layer name',
+    calibKind: 'Layer type',
+    calibAttr: 'Attribution (source)',
+    layerOther: 'Other',
+    layerDefault: 'Default',
+    layerSatellite: 'Satellite',
+    layerRelief: 'Relief',
+    addLayer: 'Add layer'
+  });
+}
+
 /* =========================================================
    BASE DE DATOS INDEXEDDB (INCLUYE RASTERS OFFLINE)
    ========================================================= */
@@ -924,7 +1033,7 @@ function renderMapGISView(){
       <select id="mapCampSelect" onchange="onMapCampChange(this.value)" style="flex:1;">
         <option value="ALL">📁 Todas las campañas</option>
       </select>
-      <select id="mapLayerFilter" onchange="onMapLayerFilter(this.value)" style="flex:1;">
+      <select id="mapLayerFilter" onchange="onMapLayerFilter(this.value)" style="flex:1; display:none;">
         <option value="ALL">Capas: Todas</option>
         <option value="planar">Planos (S0/S1)</option>
         <option value="fault">Fallas / Estrías</option>
@@ -932,10 +1041,16 @@ function renderMapGISView(){
         <option value="vein">Vetas</option>
         <option value="linear">Lineaciones</option>
       </select>
-      <button class="icon-btn" onclick="openMapCalibrator()" title="Importar/Calibrar Mapa Base" style="flex:0 0 36px;height:36px;">🗺️</button>
+    </div>
+    
+    <div class="map-toolbar" style="top:56px;">
+      <select id="mapBaseLayerSel" onchange="onMapLayerSelectChange(this.value)" style="flex:1;">
+        <option value="">${t('noLayer')}</option>
+      </select>
+      <button class="btn ghost small" onclick="openManageLayers()" style="flex:0 0 auto; height:36px;">⚙️ ${t('manageLayers')}</button>
     </div>
  
-    <div class="map-controls">
+    <div class="map-controls" style="top:110px;">
       <button class="map-btn" onclick="gisZoom(1.3)" title="Acercar">+</button>
       <button class="map-btn" onclick="gisZoom(0.7)" title="Alejar">-</button>
       <button class="map-btn" onclick="gisCenterGPS()" title="Mi Ubicación GPS">📍</button>
@@ -943,6 +1058,8 @@ function renderMapGISView(){
     </div>
  
     <canvas id="gisCanvas"></canvas>
+    
+    <div id="mapAttribution" style="position:absolute; bottom:0; right:0; background:rgba(20,24,28,0.75); color:#eef2f5; font-size:10px; padding:3px 8px; z-index:5; display:none; border-top-left-radius:6px; max-width:80%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
  
     <div id="mapBottomSheet" class="map-bottom-sheet">
       <div class="sheet-header">
@@ -956,28 +1073,70 @@ function renderMapGISView(){
   <!-- MODAL CALIBRADOR MAPA BASE -->
   <div id="mapCalibModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:60;padding:20px;overflow-y:auto;">
     <div class="card" style="max-width:440px;margin:30px auto;cursor:default;">
-      <div class="card-title">🗺️ Calibrar Mapa Base Offline</div>
+      <div class="card-title">🗺️ ${t('addLayer')}</div>
       <div class="card-sub">Carga una imagen (.jpg/.png) e ingresa su Bounding Box (Límites WGS84)</div>
  
       <label>Archivo de imagen</label>
       <input type="file" id="calibImgFile" accept="image/*" onchange="onCalibFileSelect(event)">
+      
+      <label>${t('calibName')}</label>
+      <input type="text" id="calibName" placeholder="ej. Satélite 2026">
+      
+      <div class="grid2">
+        <div>
+          <label>${t('calibKind')}</label>
+          <select id="calibKind">
+            <option value="satellite">${t('layerSatellite')}</option>
+            <option value="relief">${t('layerRelief')}</option>
+            <option value="default">${t('layerDefault')}</option>
+            <option value="other">${t('layerOther')}</option>
+          </select>
+        </div>
+        <div>
+          <label>${t('calibAttr')}</label>
+          <input type="text" id="calibAttribution" placeholder="ej. Copernicus">
+        </div>
+      </div>
  
-      <label>Latitud Norte (Lat Max)</label>
-      <input type="number" step="0.000001" id="calibLatMax" placeholder="-33.4000">
- 
-      <label>Latitud Sur (Lat Min)</label>
-      <input type="number" step="0.000001" id="calibLatMin" placeholder="-33.5000">
- 
-      <label>Longitud Oeste (Lon Min)</label>
-      <input type="number" step="0.000001" id="calibLonMin" placeholder="-70.7500">
- 
-      <label>Longitud Este (Lon Max)</label>
-      <input type="number" step="0.000001" id="calibLonMax" placeholder="-70.6000">
+      <div class="grid2">
+        <div><label>Latitud Norte (Lat Max)</label><input type="number" step="0.000001" id="calibLatMax" placeholder="-33.4000"></div>
+        <div><label>Latitud Sur (Lat Min)</label><input type="number" step="0.000001" id="calibLatMin" placeholder="-33.5000"></div>
+      </div>
+      <div class="grid2">
+        <div><label>Longitud Oeste (Lon Min)</label><input type="number" step="0.000001" id="calibLonMin" placeholder="-70.7500"></div>
+        <div><label>Longitud Este (Lon Max)</label><input type="number" step="0.000001" id="calibLonMax" placeholder="-70.6000"></div>
+      </div>
  
       <div class="btn-row" style="margin-top:16px;">
-        <button class="btn ghost" onclick="closeMapCalibrator()">Cancelar</button>
-        <button class="btn primary" onclick="saveMapOverlay()">Guardar Base</button>
+        <button class="btn ghost" onclick="closeMapCalibrator()">${t('cancel')}</button>
+        <button class="btn primary" onclick="saveMapOverlay()">${t('save')}</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL GESTOR DE CAPAS -->
+  <div id="manageLayersModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:60;padding:20px;overflow-y:auto;">
+    <div class="card" style="max-width:440px;margin:30px auto;cursor:default;">
+      <div class="sheet-header">
+        <b style="font-size:16px;" id="mlTitle">${t('manageLayers')}</b>
+        <button class="icon-sm" onclick="closeManageLayers()">✕</button>
+      </div>
+      <div id="manageLayersContent"></div>
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="btn ghost" onclick="openOfflineMapGuide()">${t('layerGuideBtn')}</button>
+        <button class="btn primary" onclick="closeManageLayers(); openMapCalibrator();">${t('addLayer')}</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL GUÍA -->
+  <div id="guideModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:70;padding:20px;overflow-y:auto;">
+    <div class="card" style="max-width:500px;margin:30px auto;cursor:default;">
+      <div class="sheet-header">
+        <b style="font-size:16px;">Guía QGIS</b>
+        <button class="icon-sm" onclick="closeOfflineMapGuide()">✕</button>
+      </div>
+      <div id="guideContent" style="font-size:13px; line-height:1.5; color:var(--text);"></div>
     </div>
   </div>
   `;
@@ -994,7 +1153,6 @@ async function initGISMap(){
   canvas.width = container.clientWidth * dpr;
   canvas.height = container.clientHeight * dpr;
  
-  // Cargar campañas al selector
   const camps = await dbGetAll('campaigns');
   const sel = document.getElementById('mapCampSelect');
   if(sel){
@@ -1006,14 +1164,60 @@ async function initGISMap(){
       sel.appendChild(opt);
     });
   }
+
+  // Poblar selector de capas base
+  const layerSel = document.getElementById('mapBaseLayerSel');
+  if(layerSel) {
+    layerSel.innerHTML = `<option value="">${t('noLayer')}</option>`;
+    const layers = await listMapLayers();
+    if(layers.length === 0) {
+      layerSel.innerHTML = `<option value="">${t('noLayersMsg')}</option>`;
+    } else {
+      const offGrp = document.createElement('optgroup');
+      offGrp.label = t('offlineLayers');
+      layers.forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        opt.textContent = l.name || 'Capa';
+        offGrp.appendChild(opt);
+      });
+      layerSel.appendChild(offGrp);
+    }
+    
+    if(MAP_ONLINE_LAYERS.length > 0) {
+      const onGrp = document.createElement('optgroup');
+      onGrp.label = t('onlineLayers');
+      MAP_ONLINE_LAYERS.forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        opt.textContent = l.name;
+        onGrp.appendChild(opt);
+      });
+      layerSel.appendChild(onGrp);
+      
+      if(!document.getElementById('onlineLayerWarning')) {
+        layerSel.parentElement.style.flexWrap = 'wrap';
+        const warnDiv = document.createElement('div');
+        warnDiv.id = 'onlineLayerWarning';
+        warnDiv.style.display = 'none';
+        warnDiv.style.width = '100%';
+        warnDiv.style.fontSize = '10px';
+        warnDiv.style.color = 'var(--text-dim)';
+        warnDiv.style.marginTop = '2px';
+        warnDiv.style.padding = '0 4px';
+        warnDiv.innerHTML = `<span>${t('onlineWarningText')}</span> <a href="#" onclick="event.preventDefault(); openOfflineMapGuide();" style="color:var(--accent); text-decoration:none;">${t('layerGuideBtn')}</a>`;
+        layerSel.parentElement.appendChild(warnDiv);
+      }
+    }
+  }
  
-  // Cargar mapa base ráster de IndexedDB
   await loadSavedMapOverlay();
+  if(layerSel && mapState.overlayMeta) {
+    layerSel.value = mapState.overlayMeta.id;
+  }
  
-  // Cargar datos espaciales
   await loadMapData();
  
-  // Ajustar vista inicial
   if(mapState.stationsCache.length > 0){
     gisFitBounds();
   } else if(gpsState.lat != null){
@@ -1021,7 +1225,6 @@ async function initGISMap(){
     mapState.centerLon = gpsState.lon;
   }
  
-  // Eventos táctiles y mouse nativos
   setupGISMapEvents(canvas);
   drawGISMap();
 }
@@ -1077,7 +1280,133 @@ function screenToGeo(sx, sy, width, height){
   const lat = mapState.centerLat + (dy / metersPerDegLat);
   return { lat, lon };
 }
- 
+
+function latLonToTile(lat, lon, z) {
+  const latRad = lat * Math.PI / 180;
+  const x = Math.floor((lon + 180) / 360 * Math.pow(2, z));
+  const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * Math.pow(2, z));
+  return { x, y };
+}
+
+function tileToBounds(z, x, y) {
+  const n = Math.pow(2, z);
+  const lonMin = x / n * 360 - 180;
+  const lonMax = (x + 1) / n * 360 - 180;
+  const latMaxRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)));
+  const latMinRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y + 1) / n)));
+  return { north: latMaxRad * 180 / Math.PI, south: latMinRad * 180 / Math.PI, west: lonMin, east: lonMax };
+}
+
+function buildTileUrl(layer, z, x, y) {
+  return layer.url.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+}
+
+function zoomForResolution(lat, mpp) {
+  return Math.round(Math.log2(156543.03 * Math.cos(lat * Math.PI / 180) / mpp));
+}
+
+const tileCache = new Map();
+const failedTiles = new Map();
+let activeTileDownloads = 0;
+let consecutiveTileErrors = 0;
+let drawTileRaf = null;
+
+function drawOnlineBaseTiles(ctx, width, height) {
+  if (!mapState.onlineLayer) return;
+  
+  let mpp = mapState.zoom / mapState.scale;
+  let z = zoomForResolution(mapState.centerLat, mpp);
+  const layer = mapState.onlineLayer;
+  z = clamp(z, layer.minZoom, layer.maxZoom);
+
+  const nw = screenToGeo(0, 0, width, height);
+  const se = screenToGeo(width, height, width, height);
+  
+  let startTile = latLonToTile(nw.lat, nw.lon, z);
+  let endTile = latLonToTile(se.lat, se.lon, z);
+  
+  let minX = Math.min(startTile.x, endTile.x);
+  let maxX = Math.max(startTile.x, endTile.x);
+  let minY = Math.min(startTile.y, endTile.y);
+  let maxY = Math.max(startTile.y, endTile.y);
+  
+  let totalTiles = (maxX - minX + 1) * (maxY - minY + 1);
+  if (totalTiles > 80 && z > layer.minZoom) {
+    z -= 1;
+    startTile = latLonToTile(nw.lat, nw.lon, z);
+    endTile = latLonToTile(se.lat, se.lon, z);
+    minX = Math.min(startTile.x, endTile.x);
+    maxX = Math.max(startTile.x, endTile.x);
+    minY = Math.min(startTile.y, endTile.y);
+    maxY = Math.max(startTile.y, endTile.y);
+  }
+
+  const now = Date.now();
+  let anyLoaded = false;
+  
+  for (let x = Math.max(0, minX); x <= Math.min(maxX, Math.pow(2, z) - 1); x++) {
+    for (let y = Math.max(0, minY); y <= Math.min(maxY, Math.pow(2, z) - 1); y++) {
+      const key = `${layer.id}/${z}/${x}/${y}`;
+      const bounds = tileToBounds(z, x, y);
+      const pNW = geoToScreen(bounds.north, bounds.west, width, height);
+      const pSE = geoToScreen(bounds.south, bounds.east, width, height);
+      
+      const dx = pNW.x - 0.5;
+      const dy = pNW.y - 0.5;
+      const dw = (pSE.x - pNW.x) + 1.0;
+      const dh = (pSE.y - pNW.y) + 1.0;
+
+      if (tileCache.has(key)) {
+        anyLoaded = true;
+        ctx.drawImage(tileCache.get(key), dx, dy, dw, dh);
+      } else {
+        let drawnParent = false;
+        for (let dz = 1; dz <= 2 && z - dz >= 0; dz++) {
+          const pz = z - dz;
+          const px = Math.floor(x / Math.pow(2, dz));
+          const py = Math.floor(y / Math.pow(2, dz));
+          const pKey = `${layer.id}/${pz}/${px}/${py}`;
+          if (tileCache.has(pKey)) {
+            const pBounds = tileToBounds(pz, px, py);
+            const pImg = tileCache.get(pKey);
+            const pNW_geo = geoToScreen(pBounds.north, pBounds.west, width, height);
+            const pSE_geo = geoToScreen(pBounds.south, pBounds.east, width, height);
+            ctx.drawImage(pImg, pNW_geo.x - 0.5, pNW_geo.y - 0.5, (pSE_geo.x - pNW_geo.x) + 1.0, (pSE_geo.y - pNW_geo.y) + 1.0);
+            drawnParent = true;
+            break;
+          }
+        }
+        
+        if (activeTileDownloads < 16) {
+          const failTime = failedTiles.get(key);
+          if (!failTime || now - failTime > 10000) {
+            activeTileDownloads++;
+            failedTiles.set(key, now); // Marcar intento preventivamente
+            const img = new Image();
+            img.onload = () => {
+              activeTileDownloads--;
+              consecutiveTileErrors = 0;
+              if (tileCache.size >= 400) tileCache.delete(tileCache.keys().next().value);
+              tileCache.set(key, img);
+              if (!drawTileRaf) drawTileRaf = requestAnimationFrame(() => { drawTileRaf = null; drawGISMap(); });
+            };
+            img.onerror = () => {
+              activeTileDownloads--;
+              consecutiveTileErrors++;
+              failedTiles.set(key, Date.now());
+              if (consecutiveTileErrors >= 8 && !anyLoaded) {
+                toast(t('tilesFailed'));
+                consecutiveTileErrors = 0;
+              }
+            };
+            img.src = buildTileUrl(layer, z, x, y);
+          }
+        }
+      }
+    }
+  }
+}
+
 /* =========================================================
    DIBUJADO PRINCIPAL DEL MAPA (CANVAS NATIVO)
    ========================================================= */
@@ -1097,7 +1426,8 @@ function drawGISMap(){
   ctx.fillStyle = colorTheme === 'sun' ? '#f4f6f8' : (colorTheme==='earth' ? '#1f1c18' : '#14181c');
   ctx.fillRect(0, 0, w, h);
  
-  // 2. Dibujar Imagen Satelital / Topográfica Calibrada (Ráster)
+  // 2. Dibujar Imagen Satelital / Topográfica Calibrada (Ráster) o Mapas Online
+  drawOnlineBaseTiles(ctx, w, h);
   if(mapState.overlayImg && mapState.overlayMeta){
     const m = mapState.overlayMeta;
     const nw = geoToScreen(m.latMax, m.lonMin, w, h);
@@ -1604,8 +1934,153 @@ function gisFitBounds(){
    CALIBRADOR Y PERSISTENCIA DE MAPAS BASE OFFLINE
    ========================================================= */
 let tempCalibDataUrl = null;
+
+async function listMapLayers() {
+  const records = await dbGetAll('map_overlays');
+  const layers = records.map(r => {
+    if (r.id === 'current_overlay') {
+      return { ...r, name: r.name || 'Imagen base', kind: r.kind || 'other' };
+    }
+    return r;
+  });
+  return layers.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+}
+
+async function setActiveMapLayer(id) {
+  const warnDiv = document.getElementById('onlineLayerWarning');
+  const attrDiv = document.getElementById('mapAttribution');
+  
+  if (!id) {
+    localStorage.setItem('geo_map_layer', '');
+    mapState.onlineLayer = null;
+    mapState.overlayImg = null;
+    mapState.overlayMeta = null;
+    if (attrDiv) attrDiv.style.display = 'none';
+    if (warnDiv) warnDiv.style.display = 'none';
+    drawGISMap();
+    return;
+  }
+
+  if (id.startsWith('online_')) {
+    if (!navigator.onLine) {
+      toast(t('offlineRequired'));
+      const layerSel = document.getElementById('mapBaseLayerSel');
+      if (layerSel) layerSel.value = mapState.onlineLayer ? mapState.onlineLayer.id : (mapState.overlayMeta ? mapState.overlayMeta.id : '');
+      return;
+    }
+    const oLayer = MAP_ONLINE_LAYERS.find(l => l.id === id);
+    if (oLayer) {
+      mapState.onlineLayer = oLayer;
+      mapState.overlayImg = null;
+      mapState.overlayMeta = null;
+      localStorage.setItem('geo_map_layer', id);
+      if (attrDiv) {
+        attrDiv.innerHTML = oLayer.attribution || '';
+        attrDiv.style.display = oLayer.attribution ? 'block' : 'none';
+      }
+      if (warnDiv) warnDiv.style.display = 'block';
+      drawGISMap();
+    }
+    return;
+  }
+  
+  const layer = await dbGet('map_overlays', id);
+  if (layer && layer.dataUrl) {
+    localStorage.setItem('geo_map_layer', id);
+    localStorage.setItem('geo_map_last_offline', id);
+    mapState.onlineLayer = null;
+    mapState.overlayMeta = layer;
+    if (warnDiv) warnDiv.style.display = 'none';
+    const img = new Image();
+    img.onload = () => {
+      mapState.overlayImg = img;
+      if (attrDiv) {
+        attrDiv.textContent = layer.attribution || '';
+        attrDiv.style.display = layer.attribution ? 'block' : 'none';
+      }
+      drawGISMap();
+    };
+    img.src = layer.dataUrl;
+  }
+}
+
+async function deleteMapLayer(id) {
+  if (!confirm(currentLang === 'es' ? '¿Borrar esta capa?' : 'Delete this layer?')) return;
+  await dbDelete('map_overlays', id);
+  if (localStorage.getItem('geo_map_layer') === id) {
+    await setActiveMapLayer('');
+  }
+  renderLayerList();
+  initGISMap();
+}
+
+async function renameMapLayer(id) {
+  const layer = await dbGet('map_overlays', id);
+  if (!layer) return;
+  const newName = prompt(currentLang === 'es' ? 'Nuevo nombre:' : 'New name:', layer.name || '');
+  if (newName && newName.trim() !== '') {
+    layer.name = newName.trim();
+    await dbPut('map_overlays', layer);
+    renderLayerList();
+    initGISMap();
+  }
+}
+
+function onMapLayerSelectChange(val) {
+  setActiveMapLayer(val);
+}
+
+function openManageLayers() {
+  document.getElementById('manageLayersModal').style.display = 'block';
+  renderLayerList();
+}
+
+function closeManageLayers() {
+  document.getElementById('manageLayersModal').style.display = 'none';
+}
+
+async function renderLayerList() {
+  const listEl = document.getElementById('manageLayersContent');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  const layers = await listMapLayers();
+  
+  if (layers.length === 0) {
+    content.innerHTML = `<div class="empty"><p>${t('noLayersMsg')}</p></div>`;
+    return;
+  }
+  
+  content.innerHTML = layers.map(l => {
+    const sizeMB = ((l.dataUrl?.length || 0) * 0.75 / (1024 * 1024)).toFixed(1);
+    return `
+      <div class="mini-row">
+        <div class="ml">
+          <b>${esc(l.name)}</b>
+          <span>${esc(l.kind)} · ~${sizeMB} MB</span>
+        </div>
+        <div class="mini-actions">
+          <button class="icon-sm" onclick="renameMapLayer('${l.id}')">✎</button>
+          <button class="icon-sm" onclick="deleteMapLayer('${l.id}')">🗑</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openOfflineMapGuide() {
+  document.getElementById('guideModal').style.display = 'block';
+  document.getElementById('guideContent').innerHTML = MAP_GUIDE[currentLang] || MAP_GUIDE.es;
+}
+
+function closeOfflineMapGuide() {
+  document.getElementById('guideModal').style.display = 'none';
+}
+
 function openMapCalibrator(){
   document.getElementById('mapCalibModal').style.display = 'block';
+  setVal('calibName', '');
+  setVal('calibAttribution', '');
+  tempCalibDataUrl = null;
 }
 function closeMapCalibrator(){
   document.getElementById('mapCalibModal').style.display = 'none';
@@ -1620,41 +2095,100 @@ function onCalibFileSelect(e){
   };
   reader.readAsDataURL(file);
 }
+
+function downscaleImage(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > 4096 || h > 4096) {
+        const ratio = Math.min(4096 / w, 4096 / h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+        const cvs = document.createElement('canvas');
+        cvs.width = w; cvs.height = h;
+        const ctx = cvs.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(cvs.toDataURL('image/jpeg', 0.85));
+      } else {
+        resolve(dataUrl);
+      }
+    };
+    img.src = dataUrl;
+  });
+}
+
 async function saveMapOverlay(){
   const latMax = parseFloat(document.getElementById('calibLatMax').value);
   const latMin = parseFloat(document.getElementById('calibLatMin').value);
   const lonMin = parseFloat(document.getElementById('calibLonMin').value);
   const lonMax = parseFloat(document.getElementById('calibLonMax').value);
+  const name = document.getElementById('calibName').value.trim() || 'Capa ' + new Date().toLocaleTimeString();
+  const kind = document.getElementById('calibKind').value;
+  const attribution = document.getElementById('calibAttribution').value.trim();
  
   if(!tempCalibDataUrl && !mapState.overlayImg){ toast('Selecciona una imagen'); return; }
   if(isNaN(latMax) || isNaN(latMin) || isNaN(lonMin) || isNaN(lonMax)){ toast('Completa los 4 límites'); return; }
- 
+  if(latMin >= latMax){ toast('Lat Min debe ser menor que Lat Max'); return; }
+  if(lonMin >= lonMax){ toast('Lon Min debe ser menor que Lon Max'); return; }
+  if(latMax > 90 || latMin < -90) { toast('Latitud debe estar entre -90 y 90'); return; }
+  if(lonMax > 180 || lonMin < -180) { toast('Longitud debe estar entre -180 y 180'); return; }
+
+  const sourceDataUrl = tempCalibDataUrl || mapState.overlayMeta?.dataUrl;
+  const finalDataUrl = await downscaleImage(sourceDataUrl);
+  const sizeMB = (finalDataUrl.length * 0.75 / (1024 * 1024)).toFixed(2);
+  
+  if (parseFloat(sizeMB) > 12) {
+    toast(`Aviso: La capa ocupará ${sizeMB} MB en memoria`);
+  } else {
+    toast(`Procesando capa (~${sizeMB} MB)`);
+  }
+
+  const layerId = 'layer_' + Date.now();
   const overlayObj = {
-    id: 'current_overlay',
-    dataUrl: tempCalibDataUrl || mapState.overlayMeta?.dataUrl,
+    id: layerId,
+    name, kind, attribution,
+    dataUrl: finalDataUrl,
     latMax, latMin, lonMin, lonMax,
     timestamp: nowIso()
   };
  
   await dbPut('map_overlays', overlayObj);
-  await loadSavedMapOverlay();
+  await setActiveMapLayer(layerId);
+  initGISMap();
   closeMapCalibrator();
-  drawGISMap();
-  toast('Mapa base guardado y calibrado');
+  toast('Mapa base guardado y activo');
 }
  
 async function loadSavedMapOverlay(){
-  const overlay = await dbGet('map_overlays', 'current_overlay');
-  if(overlay && overlay.dataUrl){
-    mapState.overlayMeta = overlay;
-    const img = new Image();
-    img.onload = () => {
-      mapState.overlayImg = img;
-      drawGISMap();
-    };
-    img.src = overlay.dataUrl;
+  let activeId = localStorage.getItem('geo_map_layer');
+  
+  if (activeId !== null && activeId.startsWith('online_') && !navigator.onLine) {
+    toast(t('offlineRequired'));
+    activeId = localStorage.getItem('geo_map_last_offline');
+  }
+
+  if (activeId !== null && activeId !== '') {
+    await setActiveMapLayer(activeId);
+  } else {
+    // Fallback: Si no hay capa activa explícitamente pero existe current_overlay
+    const legacy = await dbGet('map_overlays', 'current_overlay');
+    if (legacy) {
+      await setActiveMapLayer('current_overlay');
+    }
   }
 }
+
+window.addEventListener('offline', () => {
+  if (mapState.onlineLayer) {
+    toast(t('offlineRequired'));
+    const fallback = localStorage.getItem('geo_map_last_offline') || '';
+    setActiveMapLayer(fallback).then(() => {
+      const layerSel = document.getElementById('mapBaseLayerSel');
+      if (layerSel) layerSel.value = fallback;
+    });
+  }
+});
 
 /* =========================================================
    PARSERS Y NOTACIÓN
@@ -3698,6 +4232,8 @@ function changeMagOffset(val){ magOffset=parseFloat(val)||0; localStorage.setIte
 (async function init(){
   await openDB();
   injectBackupTranslations();
+  injectMapLayerTranslations();
+  injectOnlineLayerTranslations();
   requestPersistentStorage().catch(()=>{});
   initGPS();
   initSensors();
