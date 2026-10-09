@@ -569,6 +569,19 @@ function injectOnlineLayerTranslations() {
   });
 }
 
+function injectOnlineLayerTranslations() {
+  Object.assign(I18N.es, {
+    onlineWarningText: 'Las capas en línea no funcionan sin conexión. Para terreno, usa una capa sin conexión',
+    tilesFailed: 'No se pudieron cargar teselas',
+    offlineRequired: 'Sin conexión: elige una capa sin conexión'
+  });
+  Object.assign(I18N.en, {
+    onlineWarningText: 'Online layers do not work offline. For field terrain, use an offline layer',
+    tilesFailed: 'Could not load tiles',
+    offlineRequired: 'Offline: please choose an offline layer'
+  });
+}
+
 function injectMapLayerTranslations() {
   Object.assign(I18N.es, {
     baseLayer: 'Capa base',
@@ -585,7 +598,9 @@ function injectMapLayerTranslations() {
     layerDefault: 'Predeterminado',
     layerSatellite: 'Satelital',
     layerRelief: 'Relieve',
-    addLayer: 'Añadir capa'
+    addLayer: 'Añadir capa',
+    deleteLayerConfirm: '¿Borrar esta capa?',
+    deleteLayerError: 'Error al eliminar la capa'
   });
   Object.assign(I18N.en, {
     baseLayer: 'Base layer',
@@ -602,7 +617,9 @@ function injectMapLayerTranslations() {
     layerDefault: 'Default',
     layerSatellite: 'Satellite',
     layerRelief: 'Relief',
-    addLayer: 'Add layer'
+    addLayer: 'Add layer',
+    deleteLayerConfirm: 'Delete this layer?',
+    deleteLayerError: 'Error deleting layer'
   });
 }
 
@@ -2308,14 +2325,39 @@ async function setActiveMapLayer(id) {
   }
 }
 
-async function deleteMapLayer(id) {
-  if (!confirm(currentLang === 'es' ? '¿Borrar esta capa?' : 'Delete this layer?')) return;
-  await dbDelete('map_overlays', id);
-  if (localStorage.getItem('geo_map_layer') === id) {
-    await setActiveMapLayer('');
+async function setActiveMapLayer(id) {
+  // ... (código previo sin tocar)
+  if (layer && layer.dataUrl) {
+    localStorage.setItem('geo_map_layer', id);
+    localStorage.setItem('geo_map_last_offline', id);
+    mapState.onlineLayer = null;
+    mapState.overlayMeta = layer;
+    if (warnDiv) warnDiv.style.display = 'none';
+    const img = new Image();
+    img.onload = () => {
+      mapState.overlayImg = img;
+      if (attrDiv) {
+        attrDiv.textContent = layer.attribution || '';
+        attrDiv.style.display = layer.attribution ? 'block' : 'none';
+      }
+      drawGISMap();
+    };
+    img.src = layer.dataUrl;
   }
-  renderLayerList();
-  initGISMap();
+}
+
+async function deleteMapLayer(id, skipConfirm = false) {
+  try {
+    if (!skipConfirm && !confirm(t('deleteLayerConfirm'))) return;
+    await dbDelete('map_overlays', id);
+    if (localStorage.getItem('geo_map_layer') === id) {
+      await setActiveMapLayer('');
+    }
+    await renderLayerList();
+    initGISMap();
+  } catch (err) {
+    toast(t('deleteLayerError'));
+  }
 }
 
 async function renameMapLayer(id) {
@@ -2343,6 +2385,10 @@ function closeManageLayers() {
   document.getElementById('manageLayersModal').style.display = 'none';
 }
 
+function closeManageLayers() {
+  document.getElementById('manageLayersModal').style.display = 'none';
+}
+
 async function renderLayerList() {
   const listEl = document.getElementById('manageLayersContent');
   if (!listEl) return;
@@ -2350,11 +2396,11 @@ async function renderLayerList() {
   const layers = await listMapLayers();
   
   if (layers.length === 0) {
-    content.innerHTML = `<div class="empty"><p>${t('noLayersMsg')}</p></div>`;
+    listEl.innerHTML = `<div class="empty"><p>${t('noLayersMsg')}</p></div>`;
     return;
   }
   
-  content.innerHTML = layers.map(l => {
+  listEl.innerHTML = layers.map(l => {
     const sizeMB = ((l.dataUrl?.length || 0) * 0.75 / (1024 * 1024)).toFixed(1);
     return `
       <div class="mini-row">
@@ -2363,8 +2409,8 @@ async function renderLayerList() {
           <span>${esc(l.kind)} · ~${sizeMB} MB</span>
         </div>
         <div class="mini-actions">
-          <button class="icon-sm" onclick="renameMapLayer('${l.id}')">✎</button>
-          <button class="icon-sm" onclick="deleteMapLayer('${l.id}')">🗑</button>
+          <button class="icon-sm" style="min-width:44px; min-height:44px;" onclick="renameMapLayer('${l.id}')">✎</button>
+          <button class="icon-sm" style="min-width:44px; min-height:44px; color:var(--danger); border-color:var(--danger-dim);" onclick="deleteMapLayer('${l.id}')">🗑</button>
         </div>
       </div>
     `;
