@@ -460,6 +460,16 @@ function downloadFile(content, filename, mime){
   setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
 
+const MAP_MIN_MPP = 0.5;
+const MAP_MAX_MPP = 1500;
+
+function clampMapResolution(mpp) {
+  if (typeof mpp !== 'number' || !isFinite(mpp) || mpp <= 0) {
+    return Math.sqrt(MAP_MIN_MPP * MAP_MAX_MPP);
+  }
+  return Math.max(MAP_MIN_MPP, Math.min(MAP_MAX_MPP, mpp));
+}
+
 const MAP_ONLINE_LAYERS = [
   // OSM = uso ligero y atribución obligatoria
   { id:'online_osm', name:'Predeterminado (OpenStreetMap)', kind:'default',
@@ -518,6 +528,33 @@ const MAP_GUIDE = {
 <p>Suggested attributions: Sentinel-2: "Contains modified Copernicus Sentinel data (year)". OpenStreetMap: "© OpenStreetMap contributors". Elevation model: state your source.</p>
 <p>Tip: layers take up space on your phone and in JSON backups; only save the areas you plan to use.</p>`
 };
+
+function injectMapNavTranslations() {
+  Object.assign(I18N.es, {
+    noOfflineLayer: 'No hay una capa sin conexión cargada',
+    onlineLayerFull: 'Las capas en línea cubren todo el mundo',
+    invalidCoords: 'Coordenadas no válidas',
+    insecureLocation: 'Ubicación en vivo requiere HTTPS',
+    locErrorPerm: 'Error de permiso de ubicación',
+    locErrorUnavail: 'Ubicación no disponible',
+    locErrorTimeout: 'Tiempo de espera de ubicación agotado',
+    clearMarker: 'Borrar marcador',
+    searchGo: 'Ir',
+    searchHelp: 'Ej: -33.44, -70.66 o 19S 344847 6297700'
+  });
+  Object.assign(I18N.en, {
+    noOfflineLayer: 'No offline layer loaded',
+    onlineLayerFull: 'Online layers cover the whole world',
+    invalidCoords: 'Invalid coordinates',
+    insecureLocation: 'Live location requires HTTPS',
+    locErrorPerm: 'Location permission denied',
+    locErrorUnavail: 'Location unavailable',
+    locErrorTimeout: 'Location timeout',
+    clearMarker: 'Clear marker',
+    searchGo: 'Go',
+    searchHelp: 'Ex: -33.44, -70.66 or 19S 344847 6297700'
+  });
+}
 
 function injectOnlineLayerTranslations() {
   Object.assign(I18N.es, {
@@ -1004,6 +1041,9 @@ function setActiveNav(){
 }
 
 async function render(){
+  if (state.view !== 'mapView' && typeof stopLiveLocation === 'function' && liveLocState.active) {
+    stopLiveLocation();
+  }
   const app=document.getElementById('app');
   applyTheme();
   setActiveNav();
@@ -1055,6 +1095,22 @@ function renderMapGISView(){
       <button class="map-btn" onclick="gisZoom(0.7)" title="Alejar">-</button>
       <button class="map-btn" onclick="gisCenterGPS()" title="Mi Ubicación GPS">📍</button>
       <button class="map-btn" onclick="gisFitBounds()" title="Ajustar a datos">⛶</button>
+      <button class="map-btn" onclick="gisGoToLayer()" title="Ir a capa cargada">🗺️</button>
+      <button class="map-btn" onclick="toggleNavSearchPanel()" title="Buscar coordenadas">🔍</button>
+      <button class="map-btn" id="btnLiveLoc" onclick="toggleLiveLocation()" title="Ubicación en vivo">📡</button>
+    </div>
+
+    <div id="mapSearchPanel" style="display:none; position:absolute; right:64px; top:110px; z-index:15; background:var(--surface); padding:10px; border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.4); width:250px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <b style="font-size:13px;" id="navSearchTitle">Buscar coordenadas</b>
+        <button class="icon-sm" onclick="toggleNavSearchPanel()" style="width:24px; height:24px; font-size:12px;">✕</button>
+      </div>
+      <input type="text" id="navSearchInput" style="width:100%; min-height:36px; padding:6px; font-size:13px; margin-bottom:4px;">
+      <div style="font-size:10.5px; color:var(--text-faint); margin-bottom:8px;" id="navSearchHelp"></div>
+      <div style="display:flex; gap:6px;">
+        <button class="btn primary small" style="flex:1;" onclick="executeNavSearch()" id="navSearchBtnGo"></button>
+        <button class="btn ghost small" onclick="clearNavSearchMarker()" id="navSearchBtnClear"></button>
+      </div>
     </div>
  
     <canvas id="gisCanvas"></canvas>
@@ -1410,6 +1466,241 @@ function drawOnlineBaseTiles(ctx, width, height) {
 /* =========================================================
    DIBUJADO PRINCIPAL DEL MAPA (CANVAS NATIVO)
    ========================================================= */
+
+let navSearchMarker = null;
+let liveLocWatchId = null;
+let liveLocState = { active: false, lat: null, lon: null, accuracy: null, firstFix: false };
+
+function computeFitView(bounds, width, height, paddingPx) {
+  const lat = (bounds.north + bounds.south) / 2;
+  const lon = (bounds.west + bounds.east) / 2;
+  const latSpan = Math.abs(bounds.north - bounds.south);
+  const lonSpan = Math.abs(bounds.east - bounds.west);
+  const metersSpanY = latSpan * 111320;
+  const metersSpanX = lonSpan * 111320 * Math.cos(lat * Math.PI / 180);
+  
+  const wSafe = Math.max(1, width - paddingPx * 2);
+  const hSafe = Math.max(1, height - paddingPx * 2);
+  const rawMpp = Math.max(metersSpanX / wSafe, metersSpanY / hSafe);
+  
+  return { lat, lon, mpp: clampMapResolution(rawMpp) };
+}
+
+function gisGoToLayer() {
+  if (mapState.onlineLayer) {
+    toast(t('onlineLayerFull'));
+    return;
+  }
+  if (!mapState.overlayMeta || mapState.overlayMeta.latMax == null) {
+    toast(t('noOfflineLayer'));
+    return;
+  }
+  const canvas = document.getElementById('gisCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas ? canvas.width / dpr : 300;
+  const h = canvas ? canvas.height / dpr : 300;
+  
+  const m = mapState.overlayMeta;
+  const bounds = { north: m.latMax, south: m.latMin, west: m.lonMin, east: m.lonMax };
+  
+  const fit = computeFitView(bounds, w, h, 20);
+  mapState.centerLat = fit.lat;
+  mapState.centerLon = fit.lon;
+  mapState.panX = 0;
+  mapState.panY = 0;
+  mapState.zoom = 1;
+  mapState.scale = mapState.zoom / fit.mpp;
+  drawGISMap();
+}
+
+function parseCoordinateInput(text) {
+  if (!text || typeof text !== 'string') return null;
+  let str = text.trim();
+  if (!str) return null;
+
+  const utmRegex = /^(\d{1,2})\s*([C-HJ-NP-X])\s+(\d+(?:\.\d+)?)\s*[Ee]?\s+(\d+(?:\.\d+)?)\s*[Nn]?$/i;
+  const utmMatch = str.match(utmRegex);
+  if (utmMatch) {
+    const zone = parseInt(utmMatch[1], 10);
+    if (zone < 1 || zone > 60) return null;
+    const letter = utmMatch[2].toUpperCase();
+    const easting = parseFloat(utmMatch[3]);
+    const northing = parseFloat(utmMatch[4]);
+    const hemi = letter >= 'N' ? 'N' : 'S';
+    const ll = utmToLL(easting, northing, zone, hemi);
+    if (isNaN(ll.lat) || isNaN(ll.lon)) return null;
+    return { lat: ll.lat, lon: ll.lon, source: 'utm' };
+  }
+
+  const decRegex = /^\s*([+-]?\d+(?:[.,]\d+)?)\s*([NnSs])?\s*[,; \t]+\s*([+-]?\d+(?:[.,]\d+)?)\s*([EeWwOo])?\s*$/;
+  const decMatch = str.match(decRegex);
+  if (decMatch) {
+    let lat = parseFloat(decMatch[1].replace(',', '.'));
+    let latDir = decMatch[2]?.toUpperCase();
+    let lon = parseFloat(decMatch[3].replace(',', '.'));
+    let lonDir = decMatch[4]?.toUpperCase();
+
+    if (latDir === 'S') lat = -Math.abs(lat);
+    if (latDir === 'N') lat = Math.abs(lat);
+    if (lonDir === 'W' || lonDir === 'O') lon = -Math.abs(lon);
+    if (lonDir === 'E') lon = Math.abs(lon);
+
+    if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+      return { lat, lon, source: 'decimal' };
+    }
+  }
+  return null;
+}
+
+function toggleNavSearchPanel() {
+  const panel = document.getElementById('mapSearchPanel');
+  if (panel) {
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    if (panel.style.display === 'block') {
+      document.getElementById('navSearchHelp').textContent = t('searchHelp');
+      document.getElementById('navSearchBtnGo').textContent = t('searchGo');
+      document.getElementById('navSearchBtnClear').textContent = t('clearMarker');
+      document.getElementById('navSearchTitle').textContent = t('searchGo'); 
+    }
+  }
+}
+
+function executeNavSearch() {
+  const input = document.getElementById('navSearchInput');
+  if (!input) return;
+  const parsed = parseCoordinateInput(input.value);
+  if (!parsed) {
+    toast(t('invalidCoords'));
+    return;
+  }
+  mapState.centerLat = parsed.lat;
+  mapState.centerLon = parsed.lon;
+  mapState.panX = 0;
+  mapState.panY = 0;
+  mapState.zoom = 1;
+  mapState.scale = mapState.zoom / clampMapResolution(5);
+  navSearchMarker = { lat: parsed.lat, lon: parsed.lon };
+  drawGISMap();
+}
+
+function clearNavSearchMarker() {
+  navSearchMarker = null;
+  drawGISMap();
+}
+
+function accuracyToPixels(accuracyM, mpp) {
+  if (isNaN(accuracyM) || isNaN(mpp) || mpp <= 0) return 0;
+  return Math.max(0, accuracyM / mpp);
+}
+
+function toggleLiveLocation() {
+  if (!window.isSecureContext) {
+    toast(t('insecureLocation'));
+    return;
+  }
+  const btn = document.getElementById('btnLiveLoc');
+  
+  if (liveLocState.active) {
+    stopLiveLocation();
+  } else {
+    liveLocState.active = true;
+    liveLocState.firstFix = true;
+    if (btn) btn.style.background = 'var(--accent)';
+    liveLocWatchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        liveLocState.lat = pos.coords.latitude;
+        liveLocState.lon = pos.coords.longitude;
+        liveLocState.accuracy = pos.coords.accuracy;
+        if (liveLocState.firstFix) {
+          const canvas = document.getElementById('gisCanvas');
+          const w = canvas ? canvas.width / (window.devicePixelRatio||1) : 300;
+          const h = canvas ? canvas.height / (window.devicePixelRatio||1) : 300;
+          const sc = geoToScreen(liveLocState.lat, liveLocState.lon, w, h);
+          if (sc.x < 0 || sc.x > w || sc.y < 0 || sc.y > h) {
+            mapState.centerLat = liveLocState.lat;
+            mapState.centerLon = liveLocState.lon;
+            mapState.panX = 0; mapState.panY = 0;
+          }
+          liveLocState.firstFix = false;
+        }
+        drawGISMap();
+      },
+      (err) => {
+        if (err.code === 1) toast(t('locErrorPerm'));
+        else if (err.code === 2) toast(t('locErrorUnavail'));
+        else if (err.code === 3) toast(t('locErrorTimeout'));
+        stopLiveLocation();
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
+  }
+}
+
+function stopLiveLocation() {
+  if (liveLocWatchId !== null) {
+    navigator.geolocation.clearWatch(liveLocWatchId);
+    liveLocWatchId = null;
+  }
+  liveLocState.active = false;
+  liveLocState.lat = null;
+  liveLocState.lon = null;
+  liveLocState.accuracy = null;
+  const btn = document.getElementById('btnLiveLoc');
+  if (btn) btn.style.background = '';
+  drawGISMap();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && liveLocState.active) {
+    stopLiveLocation();
+  }
+});
+
+function drawMapNavMarkers(ctx, width, height) {
+  try {
+    const mpp = mapState.zoom / mapState.scale;
+    if (navSearchMarker && navSearchMarker.lat != null && navSearchMarker.lon != null) {
+      const pt = geoToScreen(navSearchMarker.lat, navSearchMarker.lon, width, height);
+      ctx.save();
+      ctx.translate(pt.x, pt.y);
+      ctx.strokeStyle = '#e8a33d';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-10, 0); ctx.lineTo(10, 0);
+      ctx.moveTo(0, -10); ctx.lineTo(0, 10);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (liveLocState.active && liveLocState.lat != null && liveLocState.lon != null) {
+      const pt = geoToScreen(liveLocState.lat, liveLocState.lon, width, height);
+      const accPx = accuracyToPixels(liveLocState.accuracy, mpp);
+      
+      ctx.save();
+      if (accPx > 0) {
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, accPx, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(92, 179, 255, 0.2)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(92, 179, 255, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#5cb3ff';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+  } catch (e) {
+    console.warn('Error rendering nav markers', e);
+  }
+}
+
 function drawGISMap(){
   const canvas = document.getElementById('gisCanvas');
   if(!canvas) return;
@@ -1490,6 +1781,8 @@ function drawGISMap(){
     ctx.lineWidth = 2;
     ctx.stroke();
   }
+ 
+  drawMapNavMarkers(ctx, w, h);
  
   // 6. Elementos cartográficos: Rosa de los vientos y Escala gráfica
   drawNorthArrow(ctx, w - 35, 95);
@@ -1764,8 +2057,6 @@ function setupGISMapEvents(canvas){
   const endDrag = (e) => {
     if(!gisTouchState.dragging) return;
     gisTouchState.dragging = false;
- 
-    // Detectar si fue un tap (clic) sin arrastre
     const dist = Math.hypot(e.clientX - gisTouchState.startX, e.clientY - gisTouchState.startY);
     if(dist < 6){
       handleMapClick(e.clientX, e.clientY);
@@ -1774,7 +2065,6 @@ function setupGISMapEvents(canvas){
   canvas.onpointerup = endDrag;
   canvas.onpointercancel = endDrag;
  
-  // Zoom táctil (Pinch to Zoom)
   canvas.addEventListener('touchstart', (e)=>{
     if(e.touches.length === 2){
       gisTouchState.pinchDist = Math.hypot(
@@ -1792,14 +2082,14 @@ function setupGISMapEvents(canvas){
       );
       if(gisTouchState.pinchDist > 0){
         const factor = dist / gisTouchState.pinchDist;
-        mapState.scale = clamp(mapState.scale * factor, 0.1, 50);
+        const currentMpp = mapState.zoom / mapState.scale;
+        mapState.scale = mapState.zoom / clampMapResolution(currentMpp / factor);
         gisTouchState.pinchDist = dist;
         drawGISMap();
       }
     }
   }, {passive:true});
  
-  // Doble toque para centrar
   canvas.addEventListener('touchend', (e)=>{
     const now = Date.now();
     if(now - gisTouchState.lastTap < 300 && e.changedTouches.length === 1){
@@ -1810,11 +2100,20 @@ function setupGISMapEvents(canvas){
       mapState.centerLat = geo.lat;
       mapState.centerLon = geo.lon;
       mapState.panX = 0; mapState.panY = 0;
-      mapState.scale *= 1.4;
+      const currentMpp = mapState.zoom / mapState.scale;
+      mapState.scale = mapState.zoom / clampMapResolution(currentMpp / 1.4);
       drawGISMap();
     }
     gisTouchState.lastTap = now;
   });
+
+  canvas.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    const currentMpp = mapState.zoom / mapState.scale;
+    mapState.scale = mapState.zoom / clampMapResolution(currentMpp / factor);
+    drawGISMap();
+  }, {passive:false});
 }
  
 function handleMapClick(clientX, clientY){
@@ -1883,7 +2182,9 @@ function closeMapSheet(){
    CONTROLES DE MAPA (ZOOM / PAN / AJUSTE DE EXTENSIÓN)
    ========================================================= */
 function gisZoom(factor){
-  mapState.scale = clamp(mapState.scale * factor, 0.05, 60);
+  const currentMpp = mapState.zoom / mapState.scale;
+  const targetMpp = currentMpp / factor;
+  mapState.scale = mapState.zoom / clampMapResolution(targetMpp);
   drawGISMap();
 }
  
@@ -1899,7 +2200,9 @@ function gisCenterGPS(){
  
 function gisFitBounds(){
   if(mapState.stationsCache.length === 0){
-    mapState.panX = 0; mapState.panY = 0; mapState.scale = 1;
+    mapState.panX = 0; mapState.panY = 0;
+    const currentMpp = mapState.zoom / mapState.scale;
+    mapState.scale = mapState.zoom / clampMapResolution(currentMpp);
     drawGISMap();
     return;
   }
@@ -1926,7 +2229,8 @@ function gisFitBounds(){
   const viewSize = canvas ? Math.min(canvas.width/dpr, canvas.height/dpr) - 100 : 300;
  
   mapState.zoom = 1;
-  mapState.scale = viewSize / metersSpan;
+  const targetMpp = metersSpan / viewSize;
+  mapState.scale = mapState.zoom / clampMapResolution(targetMpp);
   drawGISMap();
 }
  
@@ -4234,6 +4538,7 @@ function changeMagOffset(val){ magOffset=parseFloat(val)||0; localStorage.setIte
   injectBackupTranslations();
   injectMapLayerTranslations();
   injectOnlineLayerTranslations();
+  injectMapNavTranslations();
   requestPersistentStorage().catch(()=>{});
   initGPS();
   initSensors();
