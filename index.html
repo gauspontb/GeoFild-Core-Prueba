@@ -428,6 +428,61 @@ form#measForm .btn-row {
 /* UI-R2b - chips sin margen superior heredado */
 .check-grid > .check-item { margin-top: 0 !important; }
 
+details.settings-sec {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+details.settings-sec > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 15px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+details.settings-sec > summary::-webkit-details-marker {
+  display: none;
+}
+details.settings-sec[open] > summary {
+  border-bottom: 1px solid var(--border-soft);
+}
+details.settings-sec .sum-icon {
+  color: var(--text-faint);
+  transition: transform 0.2s;
+  font-size: 12px;
+}
+details.settings-sec[open] .sum-icon {
+  transform: rotate(180deg);
+}
+.settings-sec .sec-body {
+  padding: 0 14px;
+}
+.settings-sec .set-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.settings-sec .set-item:last-child {
+  border-bottom: none;
+}
+.settings-sec .set-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.settings-sec .set-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
 </style>
 </head>
 <body>
@@ -1193,10 +1248,17 @@ function setActiveNav(){
   document.getElementById('navExportTxt').textContent = t('export');
 }
 
+// CAMBIO: Se intercepta la salida de la vista de estereograma para limpiar el caché
 async function render(){
   if (state.view !== 'mapView' && typeof stopLiveLocation === 'function' && liveLocState.active) {
     stopLiveLocation();
   }
+
+  // CAMBIO: Liberar el caché de mecanismos focales al salir de la vista
+  if (state.view !== 'stereonet' && typeof drawBeachballQuadrants !== 'undefined' && drawBeachballQuadrants.cacheManager) {
+    drawBeachballQuadrants.cacheManager.clear();
+  }
+
   const app=document.getElementById('app');
   applyTheme();
   setActiveNav();
@@ -1227,6 +1289,53 @@ function injectMapPanelTranslations() {
   Object.assign(I18N.en, {
     mapLayersBtn: 'Layers'
   });
+}
+
+function injectNotationTranslations() {
+  Object.assign(I18N.es, {
+    readoutDipDir: 'Dip Dir.',
+    readoutStrike: 'Strike RHR',
+    readoutQuadrant: 'Cuadrante',
+    readoutDip: 'Manteo'
+  });
+  Object.assign(I18N.en, {
+    readoutDipDir: 'Dip Dir.',
+    readoutStrike: 'Strike RHR',
+    readoutQuadrant: 'Quadrant',
+    readoutDip: 'Dip'
+  });
+}
+// Ejecutar inmediatamente para inyectar en el entorno actual
+injectNotationTranslations();
+
+function formatPlaneReadout(dipDir, dip, notation, quadrantPref) {
+  if (dipDir == null || dip == null || isNaN(dipDir) || isNaN(dip)) {
+    let l1 = t('readoutDipDir');
+    if (notation === 'strike') l1 = t('readoutStrike');
+    if (notation === 'quadrant') l1 = t('readoutQuadrant');
+    return { label1: l1, value1: '—', label2: t('readoutDip'), value2: '—' };
+  }
+  
+  let label1 = t('readoutDipDir');
+  let value1 = Math.round(dipDir) + '°';
+  
+  if (notation === 'strike') {
+    label1 = t('readoutStrike');
+    value1 = Math.round(norm360(dipDir - 90)) + '°';
+  } else if (notation === 'quadrant') {
+    label1 = t('readoutQuadrant');
+    const oldPref = window.quadrantPref;
+    if (quadrantPref) window.quadrantPref = quadrantPref;
+    value1 = toQuadrant(norm360(dipDir - 90));
+    if (quadrantPref) window.quadrantPref = oldPref;
+  }
+  
+  return {
+    label1: label1,
+    value1: value1,
+    label2: t('readoutDip'),
+    value2: Math.round(dip) + '°'
+  };
 }
 
 function initMapPanelUI() {
@@ -3168,10 +3277,17 @@ function renderPlanarInputBlocks(formKey, strikeVal, dipVal, dipDirVal){
 }
 
 function switchInputNotation(formKey, mode){
+  // CAMBIO: Actualizar la variable global y guardarla para que el panel reaccione instantáneamente
+  inputNotation = mode;
+  localStorage.setItem('geo_input_notation', mode);
+
   ['dipdir','strike','quadrant'].forEach(m=>{
     const el = document.getElementById(`box_${m==='quadrant'?'quad':m}_${formKey}`);
     if(el) el.style.display = (m === mode) ? 'block' : 'none';
   });
+  
+  // CAMBIO: Forzar la actualización del panel de lectura en vivo para reflejar los nuevos rótulos
+  updateLiveDial();
 }
 
 function syncDip(formKey, val){
@@ -3809,8 +3925,9 @@ function renderSensorPanel(mode, formKey){
       <div class="dial-wrap" style="flex-wrap:wrap; justify-content:center;">
         <svg id="dial_${formKey}" viewBox="0 0 140 140" width="${dSize}" height="${dSize}"></svg>
         <div class="dial-readout" style="min-width:140px;">
-          <div class="readout-line"><span>Dip Dir.</span><b id="live_dipdir_${formKey}">—</b></div>
-          <div class="readout-line"><span>${currentLang==='es'?'Manteo':'Dip'}</span><b id="live_dip_${formKey}">—</b></div>
+          <!-- CAMBIO: Se agregaron IDs a los span para actualizar los rótulos dinámicamente -->
+          <div class="readout-line"><span id="lbl_live_dipdir_${formKey}">Dip Dir.</span><b id="live_dipdir_${formKey}">—</b></div>
+          <div class="readout-line"><span id="lbl_live_dip_${formKey}">${currentLang==='es'?'Manteo':'Dip'}</span><b id="live_dip_${formKey}">—</b></div>
           <div class="readout-line"><span>Trend</span><b id="live_trend_${formKey}">—</b></div>
           <div class="readout-line"><span>Plunge</span><b id="live_plunge_${formKey}">—</b></div>
         </div>
@@ -3832,14 +3949,27 @@ function updateLiveDial(){
     const mode=svg.closest('.sensor-box')?.dataset.mode||'planar';
     drawDial(svg, mode);
     const r=sensorState.last;
+    
     const dd=document.getElementById('live_dipdir_'+formKey);
     const dp=document.getElementById('live_dip_'+formKey);
     const tr=document.getElementById('live_trend_'+formKey);
     const pl=document.getElementById('live_plunge_'+formKey);
-    if(r && dd) dd.textContent = roundInt(r.dipDir)+'°';
-    if(r && dp) dp.textContent = roundInt(r.dip)+'°';
-    if(r && tr) tr.textContent = roundInt(r.trend)+'°';
-    if(r && pl) pl.textContent = roundInt(r.plunge)+'°';
+    
+    // CAMBIO: Referencias a los rótulos del DOM
+    const lblDd=document.getElementById('lbl_live_dipdir_'+formKey);
+    const lblDp=document.getElementById('lbl_live_dip_'+formKey);
+
+    if(mode === 'planar') {
+      // CAMBIO: Obtener lectura formateada mediante función pura
+      const readout = formatPlaneReadout(r ? r.dipDir : null, r ? r.dip : null, inputNotation, quadrantPref);
+      if(lblDd) lblDd.textContent = readout.label1;
+      if(lblDp) lblDp.textContent = readout.label2;
+      if(dd) dd.textContent = readout.value1;
+      if(dp) dp.textContent = readout.value2;
+    } else {
+      if(r && tr) tr.textContent = roundInt(r.trend)+'°';
+      if(r && pl) pl.textContent = roundInt(r.plunge)+'°';
+    }
   });
 }
 
@@ -3885,9 +4015,16 @@ function captureSensorReading(formKey, mode){
   if(mode==='planar'){
     setVal('dipDir_'+formKey, roundInt(r.dipDir));
     setVal('dip_'+formKey, roundInt(r.dip));
+    
+    // CAMBIO: Asegurar el llenado de los campos de manteo alternativos independientemente de la vista
+    setVal('dip2_'+formKey, roundInt(r.dip));
+    setVal('dip3_'+formKey, roundInt(r.dip));
+    
     setVal('strike_'+formKey, roundInt(r.strike));
     setVal('quad_'+formKey, toQuadrant(r.strike));
-    onOrientationInputChange(formKey, 'dipdir');
+    
+    // CAMBIO: Procesar el cambio derivado indicando el origen dinámico
+    onOrientationInputChange(formKey, inputNotation);
   } else {
     setVal('trend_'+formKey, roundInt(r.trend));
     setVal('plunge_'+formKey, roundInt(r.plunge));
@@ -4354,39 +4491,90 @@ function drawKinematicArrow(ctx, cx, cy, R, projType, strike, dip, kin){
   ctx.restore();
 }
 
-// REEMPLAZA
 function drawBeachballQuadrants(ctx, cx, cy, R, projType, kin){
-  // CAMBIO: Inicializar caché y contador de redibujados (para pruebas)
-  if (!drawBeachballQuadrants.cache) drawBeachballQuadrants.cache = new Map();
+  // CAMBIO: Presupuesto de memoria y gestor LRU integrado
+  const BEACHBALL_CACHE_MAX_BYTES = 48 * 1024 * 1024;
+  
+  if (!drawBeachballQuadrants.cacheManager) {
+    drawBeachballQuadrants.cacheManager = {
+      cache: new Map(),
+      totalBytes: 0,
+      currentProps: '',
+      clear: function() {
+        this.cache.clear();
+        this.totalBytes = 0;
+        window.stereoFillCacheBytes = 0;
+      },
+      get: function(key) {
+        if (this.cache.has(key)) {
+          // LRU: Extraer y volver a insertar al final
+          const entry = this.cache.get(key);
+          this.cache.delete(key);
+          this.cache.set(key, entry);
+          return entry.canvas;
+        }
+        return null;
+      },
+      put: function(key, canvas, bytes) {
+        this.cache.set(key, { canvas, bytes });
+        this.totalBytes += bytes;
+        // Expulsar las entradas más antiguas si se supera el presupuesto
+        while (this.totalBytes > BEACHBALL_CACHE_MAX_BYTES && this.cache.size > 0) {
+          const firstKey = this.cache.keys().next().value;
+          const entry = this.cache.get(firstKey);
+          this.totalBytes -= entry.bytes;
+          this.cache.delete(firstKey);
+        }
+        window.stereoFillCacheBytes = this.totalBytes;
+      }
+    };
+  }
+  
   if (typeof window.stereoFillCalcCount === 'undefined') window.stereoFillCalcCount = 0;
-  
+  if (typeof window.stereoFillCacheBytes === 'undefined') window.stereoFillCacheBytes = 0;
+
   const dpr = window.devicePixelRatio || 1;
-  const key = `${projType}_${Math.round(R)}_${dpr}_${kin.n.map(v=>v.toFixed(3)).join(',')}_${kin.u.map(v=>v.toFixed(3)).join(',')}`;
   
-  // CAMBIO: Retorno inmediato si ya existe en memoria, previniendo recálculo por interacción UI
-  if(drawBeachballQuadrants.cache.has(key)){
+  // CAMBIO: Invalidar caché entero si las propiedades base cambian (para redimensionamiento)
+  const currentProps = `${projType}_${Math.round(R)}_${dpr}`;
+  if (drawBeachballQuadrants.cacheManager.currentProps !== currentProps) {
+    drawBeachballQuadrants.cacheManager.clear();
+    drawBeachballQuadrants.cacheManager.currentProps = currentProps;
+  }
+
+  const key = `${kin.n.map(v=>v.toFixed(3)).join(',')}_${kin.u.map(v=>v.toFixed(3)).join(',')}`;
+  
+  const cachedCanvas = drawBeachballQuadrants.cacheManager.get(key);
+  if(cachedCanvas){
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(drawBeachballQuadrants.cache.get(key), cx - R, cy - R, R * 2, R * 2);
+    ctx.drawImage(cachedCanvas, cx - R, cy - R, R * 2, R * 2);
     ctx.restore();
     return;
   }
   
   window.stereoFillCalcCount++;
   
-  // CAMBIO: Supermuestreo dinámico, priorizando resolución hasta 1600px
   let scale = dpr;
   if (scale < 2) scale = 2; // Asegurar al menos 2x en pantallas normales
   if (R * 2 * scale > 1600) scale = 1600 / (R * 2);
   
-  const size = Math.ceil(R * 2 * scale);
+  // CAMBIO: Asegurar que la entrada individual NUNCA supere el presupuesto general
+  let size;
+  let bytes;
+  while (true) {
+    size = Math.ceil(R * 2 * scale);
+    bytes = size * size * 4;
+    if (bytes <= BEACHBALL_CACHE_MAX_BYTES) break;
+    scale *= 0.8; // Bajar factor de supermuestreo si es demasiado grande
+  }
+  
   const offCanvas = document.createElement('canvas');
   offCanvas.width = size;
   offCanvas.height = size;
   const offCtx = offCanvas.getContext('2d');
   
-  // CAMBIO: Generación acelerada píxel a píxel con ImageData nativo (miles de veces más veloz que fillRect)
   const imgData = offCtx.createImageData(size, size);
   const data = imgData.data;
   const rScaled = size / 2;
@@ -4405,14 +4593,13 @@ function drawBeachballQuadrants(ctx, cx, cy, R, projType, kin){
           data[idx] = 224;
           data[idx+1] = 100;
           data[idx+2] = 92;
-          data[idx+3] = 46; // Equivalente a rgba(224, 100, 92, 0.18) original
+          data[idx+3] = 46; 
         }
       }
     }
   }
   offCtx.putImageData(imgData, 0, 0);
   
-  // CAMBIO: Recorte suave del borde circular usando máscara de composición
   offCtx.globalCompositeOperation = 'destination-in';
   offCtx.fillStyle = '#000';
   offCtx.beginPath();
@@ -4420,13 +4607,9 @@ function drawBeachballQuadrants(ctx, cx, cy, R, projType, kin){
   offCtx.fill();
   offCtx.globalCompositeOperation = 'source-over';
   
-  // Guardar en caché y limitar tamaño circular (ej. 100 beachballs máximos)
-  drawBeachballQuadrants.cache.set(key, offCanvas);
-  if (drawBeachballQuadrants.cache.size > 100) {
-    drawBeachballQuadrants.cache.delete(drawBeachballQuadrants.cache.keys().next().value);
-  }
+  // Guardar en el gestor LRU
+  drawBeachballQuadrants.cacheManager.put(key, offCanvas, bytes);
   
-  // Componer en el canvas original con escalado suavizado
   ctx.save();
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
@@ -5364,83 +5547,118 @@ async function handleFileImport(e){
 /* =========================================================
    VISTA: AJUSTES
    ========================================================= */
+
+/* INSERTA ESTO JUSTO ANTES DE: function renderSettings(){ */
+function injectSettingsUITranslations() {
+  Object.assign(I18N.es, {
+    secAppearance: 'Apariencia',
+    secNotation: 'Notación y unidades',
+    secSensors: 'Brújula y sensores'
+  });
+  Object.assign(I18N.en, {
+    secAppearance: 'Appearance',
+    secNotation: 'Notation & Units',
+    secSensors: 'Compass & Sensors'
+  });
+}
+injectSettingsUITranslations();
+
+/* REEMPLAZA: function renderSettings(){ ... } */
 function renderSettings(){
   return `
   <div class="topline"><div><h2>${t('settings')}</h2></div></div>
 
-  <div class="card" style="cursor:default;">
-    <div class="card-title">🎨 ${t('colorTheme')}</div>
-    <div class="card-sub">Selecciona una paleta de alto contraste para luz solar</div>
-    <select onchange="changeColorTheme(this.value)" style="margin-top:8px;">
-      <option value="sun" ${colorTheme==='sun'?'selected':''}>☀️ Sol Directo (Blanco / Alto Contraste)</option>
-      <option value="dark" ${colorTheme==='dark'?'selected':''}>🌙 Noche / Campamento (Dark Slate)</option>
-      <option value="earth" ${colorTheme==='earth'?'selected':''}>🏜️ Geológico Tierra / Ocre</option>
-      <option value="forest" ${colorTheme==='forest'?'selected':''}>🌲 Bosque / Oliva</option>
-    </select>
-  </div>
+  <details class="settings-sec" open>
+    <summary>
+      <div class="sum-text">🎨 ${t('secAppearance')}</div>
+      <div class="sum-icon">▼</div>
+    </summary>
+    <div class="sec-body">
+      <div class="set-item">
+        <div class="set-title">${t('colorTheme')}</div>
+        <div class="set-sub">Selecciona una paleta de alto contraste para luz solar</div>
+        <select onchange="changeColorTheme(this.value)" style="margin-top:8px;">
+          <option value="sun" ${colorTheme==='sun'?'selected':''}>☀️ Sol Directo (Blanco / Alto Contraste)</option>
+          <option value="dark" ${colorTheme==='dark'?'selected':''}>🌙 Noche / Campamento (Dark Slate)</option>
+          <option value="earth" ${colorTheme==='earth'?'selected':''}>🏜️ Geológico Tierra / Ocre</option>
+          <option value="forest" ${colorTheme==='forest'?'selected':''}>🌲 Bosque / Oliva</option>
+        </select>
+      </div>
+      <div class="set-item">
+        <div class="set-title">${t('lang')} / Language</div>
+        <select onchange="changeLanguage(this.value)" style="margin-top:8px;">
+          <option value="es" ${currentLang==='es'?'selected':''}>Español</option>
+          <option value="en" ${currentLang==='en'?'selected':''}>English</option>
+        </select>
+      </div>
+      <div class="set-item">
+        <div class="set-title">${t('compassSize')}</div>
+        <select onchange="changeCompassScale(this.value)" style="margin-top:8px;">
+          <option value="sm" ${compassScale==='sm'?'selected':''}>Pequeño / Small</option>
+          <option value="md" ${compassScale==='md'?'selected':''}>Medio / Medium</option>
+          <option value="lg" ${compassScale==='lg'?'selected':''}>Grande / Large</option>
+          <option value="xl" ${compassScale==='xl'?'selected':''}>Extra Grande / Extra Large</option>
+        </select>
+      </div>
+      <div class="set-item">
+        <div class="set-title">${t('sensorBoxSize')}</div>
+        <select onchange="changeBoxScale(this.value)" style="margin-top:8px;">
+          <option value="md" ${boxScale==='md'?'selected':''}>Normal</option>
+          <option value="lg" ${boxScale==='lg'?'selected':''}>Grande (Recomendado)</option>
+          <option value="xl" ${boxScale==='xl'?'selected':''}>Extra grande</option>
+        </select>
+      </div>
+    </div>
+  </details>
 
-  <div class="card" style="cursor:default;">
-    <div class="card-title">⌨️ ${t('inputNotation')}</div>
-    <select onchange="changeInputNotation(this.value)" style="margin-top:8px;">
-      <option value="dipdir" ${inputNotation==='dipdir'?'selected':''}>Dip Direction / Dip (ej. 135 / 45)</option>
-      <option value="strike" ${inputNotation==='strike'?'selected':''}>Strike RHR / Dip (ej. 045 / 45)</option>
-      <option value="quadrant" ${inputNotation==='quadrant'?'selected':''}>Cuadrante / Dip (ej. N45°E / 45)</option>
-    </select>
-  </div>
+  <details class="settings-sec" open>
+    <summary>
+      <div class="sum-text">📐 ${t('secNotation')}</div>
+      <div class="sum-icon">▼</div>
+    </summary>
+    <div class="sec-body">
+      <div class="set-item">
+        <div class="set-title">⌨️ ${t('inputNotation')}</div>
+        <select onchange="changeInputNotation(this.value)" style="margin-top:8px;">
+          <option value="dipdir" ${inputNotation==='dipdir'?'selected':''}>Dip Direction / Dip (ej. 135 / 45)</option>
+          <option value="strike" ${inputNotation==='strike'?'selected':''}>Strike RHR / Dip (ej. 045 / 45)</option>
+          <option value="quadrant" ${inputNotation==='quadrant'?'selected':''}>Cuadrante / Dip (ej. N45°E / 45)</option>
+        </select>
+      </div>
+      <div class="set-item">
+        <div class="set-title">${t('quadrantMode')}</div>
+        <select onchange="changeQuadrantPref(this.value)" style="margin-top:8px;">
+          <option value="NS" ${quadrantPref==='NS'?'selected':''}>Norte y Sur (ej. N30°E y S45°O)</option>
+          <option value="N_ONLY" ${quadrantPref==='N_ONLY'?'selected':''}>Solo Norte (ej. N30°E y N135°O)</option>
+        </select>
+      </div>
+    </div>
+  </details>
 
-  <div class="card" style="cursor:default;">
-    <div class="card-title">${t('lang')} / Language</div>
-    <select onchange="changeLanguage(this.value)" style="margin-top:8px;">
-      <option value="es" ${currentLang==='es'?'selected':''}>Español</option>
-      <option value="en" ${currentLang==='en'?'selected':''}>English</option>
-    </select>
-  </div>
-
-  <div class="card" style="cursor:default;">
-    <div class="card-title">${t('quadrantMode')}</div>
-    <select onchange="changeQuadrantPref(this.value)" style="margin-top:8px;">
-      <option value="NS" ${quadrantPref==='NS'?'selected':''}>Norte y Sur (ej. N30°E y S45°O)</option>
-      <option value="N_ONLY" ${quadrantPref==='N_ONLY'?'selected':''}>Solo Norte (ej. N30°E y N135°O)</option>
-    </select>
-  </div>
-
-  <div class="card" style="cursor:default;">
-    <div class="card-title">${t('needleTarget')}</div>
-    <select onchange="changeNeedleMode(this.value)" style="margin-top:8px;">
-      <option value="dipdir" ${needleMode==='dipdir'?'selected':''}>Dirección de Manteo (Dip Direction)</option>
-      <option value="strike" ${needleMode==='strike'?'selected':''}>Rumbo / Strike (Regla mano derecha)</option>
-    </select>
-  </div>
-
-  <div class="card" style="cursor:default;">
-    <div class="card-title">${t('calibration')}</div>
-    <input type="number" step="1" value="${magOffset}" id="magOffsetInput" onchange="changeMagOffset(this.value)" style="margin-top:8px;" placeholder="ej. -5 o 8">
-    <button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="autoEstimateDeclination()">📍 Calcular declinación desde GPS actual</button>
-  </div>
-
-  <div class="card" style="cursor:default;">
-    <div class="card-title">${t('compassSize')}</div>
-    <select onchange="changeCompassScale(this.value)" style="margin-top:8px;">
-      <option value="sm" ${compassScale==='sm'?'selected':''}>Pequeño / Small</option>
-      <option value="md" ${compassScale==='md'?'selected':''}>Medio / Medium</option>
-      <option value="lg" ${compassScale==='lg'?'selected':''}>Grande / Large</option>
-      <option value="xl" ${compassScale==='xl'?'selected':''}>Extra Grande / Extra Large</option>
-    </select>
-  </div>
-
-  <div class="card" style="cursor:default;">
-    <div class="card-title">${t('sensorBoxSize')}</div>
-    <select onchange="changeBoxScale(this.value)" style="margin-top:8px;">
-      <option value="md" ${boxScale==='md'?'selected':''}>Normal</option>
-      <option value="lg" ${boxScale==='lg'?'selected':''}>Grande (Recomendado)</option>
-      <option value="xl" ${boxScale==='xl'?'selected':''}>Extra grande</option>
-    </select>
-  </div>
-
-  <div class="card" style="cursor:default;">
-    <div class="card-title">Sensores / Permisos</div>
-    <button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar / Re-calibrar Sensores</button>
-  </div>
+  <details class="settings-sec" open>
+    <summary>
+      <div class="sum-text">🧭 ${t('secSensors')}</div>
+      <div class="sum-icon">▼</div>
+    </summary>
+    <div class="sec-body">
+      <div class="set-item">
+        <div class="set-title">${t('needleTarget')}</div>
+        <select onchange="changeNeedleMode(this.value)" style="margin-top:8px;">
+          <option value="dipdir" ${needleMode==='dipdir'?'selected':''}>Dirección de Manteo (Dip Direction)</option>
+          <option value="strike" ${needleMode==='strike'?'selected':''}>Rumbo / Strike (Regla mano derecha)</option>
+        </select>
+      </div>
+      <div class="set-item">
+        <div class="set-title">${t('calibration')}</div>
+        <input type="number" step="1" value="${magOffset}" id="magOffsetInput" onchange="changeMagOffset(this.value)" style="margin-top:8px;" placeholder="ej. -5 o 8">
+        <button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="autoEstimateDeclination()">📍 Calcular declinación desde GPS actual</button>
+      </div>
+      <div class="set-item">
+        <div class="set-title">Sensores / Permisos</div>
+        <button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar / Re-calibrar Sensores</button>
+      </div>
+    </div>
+  </details>
   `;
 }
 
