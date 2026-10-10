@@ -268,7 +268,37 @@
 .map-controls{
     position:absolute; right:14px; top:75px; z-index:10;
     display:flex; flex-direction:column; gap:8px;
+    max-height:calc(100% - 150px); overflow-y:auto; padding-bottom:10px;
   }
+.map-controls::-webkit-scrollbar{ width:0; }
+
+/* CAMBIO: UI-R3 Panel Compacto Mapa GIS */
+.map-panel-container {
+  position: absolute; top: 12px; left: 12px; right: 12px; z-index: 15;
+  background: rgba(28,34,39,0.95); backdrop-filter: blur(8px);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4); display: flex; flex-direction: column;
+}
+.map-summary-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; min-height: 44px;
+}
+.map-summary-text {
+  font-size: 13px; color: var(--text-dim); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; margin-right: 10px; flex: 1;
+}
+.map-filters-panel {
+  transition: max-height 0.3s ease, opacity 0.3s ease, visibility 0s linear 0s;
+  overflow-y: auto; max-height: 60vh; opacity: 1;
+  padding: 0 10px 10px 10px; border-top: 1px solid var(--border-soft);
+  margin-top: 4px; padding-top: 8px;
+}
+.map-filters-panel.collapsed {
+  max-height: 0; opacity: 0; pointer-events: none; visibility: hidden;
+  margin-top: 0; padding-top: 0; padding-bottom: 0; border-top-color: transparent;
+  transition: max-height 0.3s ease, opacity 0.3s ease, visibility 0s linear 0.3s, margin-top 0.3s, padding 0.3s, border 0.3s;
+}
+
 .map-btn{
     width:42px; height:42px; border-radius:10px; background:var(--surface);
     border:1px solid var(--border); color:var(--text); font-size:18px;
@@ -285,6 +315,118 @@
   }
 .map-bottom-sheet.open{ transform:translateY(0); }
 .sheet-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+
+/* REEMPLAZA O INSERTA ESTO AL FINAL DEL <style> EXISTENTE */
+
+  /* UI-R1 */
+
+/* a) CHIPS: Contenedores flex, responsivos y con resaltado basado en estado */
+.check-grid {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.check-item {
+  flex: 1 1 auto;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 8px 12px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  border-radius: 8px;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.check-item:has(input:checked) {
+  border-color: var(--accent);
+  color: var(--accent);
+  /* Respetamos las paletas usando color-mix nativo con la variable de acento */
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+}
+
+/* b) BARRA FIJA: Fila Cancelar/Guardar anclada al fondo del contenedor #app */
+form#measForm .btn-row {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg);
+  /* Compensamos el padding original de #app para que ocupe todo el ancho */
+  margin: 20px -14px calc(-24px - var(--safe-b)) -14px;
+  padding: 12px 14px calc(12px + var(--safe-b));
+  border-top: 1px solid var(--border);
+  z-index: 10;
+}
+
+/* c) ANCHO EN ESCRITORIO: Centrado estructural del contenedor principal */
+@media (min-width: 900px) {
+  /* Vistas comunes limitadas y centradas a nivel de contenedor */
+  #app:not(.no-pad) {
+    max-width: 820px;
+    margin-inline: auto;
+    width: 100%;
+  }
+  /* Estereograma limitado a 960px */
+  #app:not(.no-pad):has(#stereoCanvas) {
+    max-width: 960px;
+  }
+}
+
+/* d) NAVEGACIÓN: Mejor contraste y tamaño en los textos */
+.nav-btn {
+  color: var(--text-dim);
+}
+.nav-btn span:not(.ic) {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.nav-btn.active span:not(.ic) {
+  color: var(--accent);
+}
+
+/* e) TOPBAR: Corrección de alineación vertical del título */
+#topbar .brand {
+  justify-content: center;
+  line-height: 1.3;
+}
+
+/* UI-R2 - Panel plegable de estereograma */
+.stereo-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+.stereo-summary-text {
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 10px;
+  flex: 1;
+}
+
+.stereo-filters-panel {
+  transition: max-height 0.3s ease, opacity 0.3s ease, visibility 0s linear 0s;
+  overflow: hidden;
+  max-height: 400px;
+  opacity: 1;
+}
+.stereo-filters-panel.collapsed {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+
+/* UI-R2b - chips sin margen superior heredado */
+.check-grid > .check-item { margin-top: 0 !important; }
 
 </style>
 </head>
@@ -569,16 +711,12 @@ function injectOnlineLayerTranslations() {
   });
 }
 
-function injectOnlineLayerTranslations() {
+function injectDeleteLayerTranslations() {
   Object.assign(I18N.es, {
-    onlineWarningText: 'Las capas en línea no funcionan sin conexión. Para terreno, usa una capa sin conexión',
-    tilesFailed: 'No se pudieron cargar teselas',
-    offlineRequired: 'Sin conexión: elige una capa sin conexión'
+    deleteLayerFail: 'Error al eliminar la capa'
   });
   Object.assign(I18N.en, {
-    onlineWarningText: 'Online layers do not work offline. For field terrain, use an offline layer',
-    tilesFailed: 'Could not load tiles',
-    offlineRequired: 'Offline: please choose an offline layer'
+    deleteLayerFail: 'Failed to delete layer'
   });
 }
 
@@ -598,9 +736,7 @@ function injectMapLayerTranslations() {
     layerDefault: 'Predeterminado',
     layerSatellite: 'Satelital',
     layerRelief: 'Relieve',
-    addLayer: 'Añadir capa',
-    deleteLayerConfirm: '¿Borrar esta capa?',
-    deleteLayerError: 'Error al eliminar la capa'
+    addLayer: 'Añadir capa'
   });
   Object.assign(I18N.en, {
     baseLayer: 'Base layer',
@@ -617,9 +753,7 @@ function injectMapLayerTranslations() {
     layerDefault: 'Default',
     layerSatellite: 'Satellite',
     layerRelief: 'Relief',
-    addLayer: 'Add layer',
-    deleteLayerConfirm: 'Delete this layer?',
-    deleteLayerError: 'Error deleting layer'
+    addLayer: 'Add layer'
   });
 }
 
@@ -905,8 +1039,10 @@ function utmToLL(easting, northing, zoneNumber, hemisphere){
           + (61+90*T1+298*C1+45*T1*T1-252*eccPrime2-3*C1*C1)*Math.pow(D,6)/720);
   let lon = (D-(1+2*T1+C1)*Math.pow(D,3)/6
           + (5-2*C1+28*T1-3*C1*C1+8*eccPrime2+24*T1*T1)*Math.pow(D,5)/120)/Math.cos(phi1);
-  return { lat: Number(lat.toFixed(6)), lon: Number((lonOrigin+toDeg(lon)).toFixed(6)) };
+  // CAMBIO: Faltaba convertir 'lat' de radianes a grados con toDeg()
+  return { lat: Number(toDeg(lat).toFixed(6)), lon: Number((lonOrigin+toDeg(lon)).toFixed(6)) };
 }
+
 function utmLabel(lat, lon){
   if(lat==null||lon==null||isNaN(lat)||isNaN(lon)) return null;
   const r=llToUTM(lat,lon);
@@ -1083,36 +1219,138 @@ async function render(){
 /* =========================================================
    MÓDULO MAPA GIS
    ========================================================= */
+
+function injectMapPanelTranslations() {
+  Object.assign(I18N.es, {
+    mapLayersBtn: 'Capas'
+  });
+  Object.assign(I18N.en, {
+    mapLayersBtn: 'Layers'
+  });
+}
+
+function initMapPanelUI() {
+  let attempts = 0;
+  const syncInterval = setInterval(() => {
+    if (typeof updateMapSummaryText === 'function') updateMapSummaryText();
+    const warnDiv = document.getElementById('onlineLayerWarning');
+    const ind = document.getElementById('mapOnlineWarnIndicator');
+    if (warnDiv && ind) {
+       ind.style.display = warnDiv.style.display === 'none' ? 'none' : 'inline-block';
+    }
+    attempts++;
+    if (attempts > 15) clearInterval(syncInterval);
+  }, 100);
+
+  const checkWarn = setInterval(() => {
+     const warnDiv = document.getElementById('onlineLayerWarning');
+     if (warnDiv) {
+        clearInterval(checkWarn);
+        const observer = new MutationObserver(() => {
+           const ind = document.getElementById('mapOnlineWarnIndicator');
+           if (ind) ind.style.display = warnDiv.style.display === 'none' ? 'none' : 'inline-block';
+        });
+        observer.observe(warnDiv, { attributes: true, attributeFilter: ['style'] });
+     }
+  }, 300);
+}
+
+function toggleMapPanel() {
+  const panel = document.getElementById('mapFiltersPanel');
+  const btn = document.getElementById('btnMapPanelToggle');
+  const ic = document.getElementById('mapToggleIc');
+  if (!panel || !btn || !ic) return;
+  
+  const isExpanded = btn.getAttribute('aria-expanded') === 'true';
+  const newState = !isExpanded;
+  
+  btn.setAttribute('aria-expanded', String(newState));
+  ic.textContent = newState ? '▲' : '▼';
+  
+  if (newState) {
+    panel.classList.remove('collapsed');
+  } else {
+    panel.classList.add('collapsed');
+  }
+  
+  try {
+    localStorage.setItem('geo_map_panel_open', newState ? '1' : '0');
+  } catch (e) {}
+}
+
+function updateMapSummaryText() {
+  const textEl = document.getElementById('mapSummaryText');
+  const campSel = document.getElementById('mapCampSelect');
+  const laySel = document.getElementById('mapBaseLayerSel');
+  if (!textEl || !campSel || !laySel) return;
+
+  const campText = campSel.options[campSel.selectedIndex]?.text.replace(/^[📁📂]\s*/, '') || '';
+  const layText = laySel.options[laySel.selectedIndex]?.text || '';
+  
+  textEl.textContent = campText + ' · ' + layText;
+}
+
 function renderMapGISView(){
+  let isClusterEnabled = true;
+  try {
+    const val = localStorage.getItem('geo_map_cluster');
+    if (val !== null) isClusterEnabled = val === 'true';
+  } catch(e) {}
+  const clusterBg = isClusterEnabled ? 'var(--accent)' : 'var(--surface)';
+
+  // CAMBIO: Determinar el estado inicial del panel
+  let isExpanded = window.innerWidth >= 700;
+  try {
+    const stored = localStorage.getItem('geo_map_panel_open');
+    if (stored !== null) isExpanded = stored === '1';
+  } catch(e) {}
+
   return `
   <div id="mapContainer">
-    <div class="map-toolbar">
-      <select id="mapCampSelect" onchange="onMapCampChange(this.value)" style="flex:1;">
-        <option value="ALL">📁 Todas las campañas</option>
-      </select>
-      <select id="mapLayerFilter" onchange="onMapLayerFilter(this.value)" style="flex:1; display:none;">
-        <option value="ALL">Capas: Todas</option>
-        <option value="planar">Planos (S0/S1)</option>
-        <option value="fault">Fallas / Estrías</option>
-        <option value="contact">Contactos</option>
-        <option value="vein">Vetas</option>
-        <option value="linear">Lineaciones</option>
-      </select>
-    </div>
-    
-    <div class="map-toolbar" style="top:56px;">
-      <select id="mapBaseLayerSel" onchange="onMapLayerSelectChange(this.value)" style="flex:1;">
-        <option value="">${t('noLayer')}</option>
-      </select>
-      <button class="btn ghost small" onclick="openManageLayers()" style="flex:0 0 auto; height:36px;">⚙️ ${t('manageLayers')}</button>
+    <!-- Hack inofensivo para enganchar inicialización UI sin tocar initGISMap -->
+    <img src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" onload="initMapPanelUI()" style="display:none;">
+
+    <!-- CAMBIO: Nuevo panel integrado (reemplaza a los map-toolbar múltiples) -->
+    <div class="map-panel-container">
+      <div class="map-summary-bar">
+         <div id="mapSummaryText" class="map-summary-text">Cargando...</div>
+         <span id="mapOnlineWarnIndicator" style="display:none; color:var(--warn); margin-right:8px; font-weight:bold;" title="Capa en línea activa">⚠</span>
+         <button class="btn ghost small" id="btnMapPanelToggle" aria-expanded="${isExpanded}" onclick="toggleMapPanel()" style="flex:0 0 auto; min-height:32px; padding:4px 10px;">
+            <span class="ic" id="mapToggleIc" style="font-size:14px; margin-right:4px;">${isExpanded ? '▲' : '▼'}</span>${t('mapLayersBtn')}
+         </button>
+      </div>
+
+      <div id="mapFiltersPanel" class="map-filters-panel ${isExpanded ? '' : 'collapsed'}">
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <select id="mapCampSelect" onchange="onMapCampChange(this.value)" style="flex:1; min-height:36px; padding:6px 8px; font-size:12px;">
+            <option value="ALL">📁 Todas las campañas</option>
+          </select>
+          <select id="mapLayerFilter" onchange="onMapLayerFilter(this.value)" style="flex:1; display:none; min-height:36px; padding:6px 8px; font-size:12px;">
+            <option value="ALL">Capas: Todas</option>
+            <option value="planar">Planos (S0/S1)</option>
+            <option value="fault">Fallas / Estrías</option>
+            <option value="contact">Contactos</option>
+            <option value="vein">Vetas</option>
+            <option value="linear">Lineaciones</option>
+          </select>
+        </div>
+        
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <select id="mapBaseLayerSel" onchange="onMapLayerSelectChange(this.value)" style="flex:1; min-height:36px; padding:6px 8px; font-size:12px;">
+            <option value="">${t('noLayer')}</option>
+          </select>
+          <button class="btn ghost small" onclick="openManageLayers()" style="flex:0 0 auto; height:36px;">⚙️ ${t('manageLayers')}</button>
+        </div>
+      </div>
     </div>
  
-    <div class="map-controls" style="top:110px;">
+    <div class="map-controls">
       <button class="map-btn" onclick="gisZoom(1.3)" title="Acercar">+</button>
       <button class="map-btn" onclick="gisZoom(0.7)" title="Alejar">-</button>
       <button class="map-btn" onclick="gisCenterGPS()" title="Mi Ubicación GPS">📍</button>
       <button class="map-btn" onclick="gisFitBounds()" title="Ajustar a datos">⛶</button>
       <button class="map-btn" onclick="gisGoToLayer()" title="Ir a capa cargada">🗺️</button>
+      <button class="map-btn" id="btnMapCluster" style="background:${clusterBg};" onclick="toggleMapCluster()" title="Agrupar puntos">🫧</button>
       <button class="map-btn" onclick="toggleNavSearchPanel()" title="Buscar coordenadas">🔍</button>
       <button class="map-btn" id="btnLiveLoc" onclick="toggleLiveLocation()" title="Ubicación en vivo">📡</button>
     </div>
@@ -1307,7 +1545,8 @@ async function loadMapData(){
   if(mapState.campId !== 'ALL'){
     stations = stations.filter(s => s.campaignId === mapState.campId);
   }
-  stations = stations.filter(s => s.lat != null && s.lon != null && !isNaN(s.lat) && !isNaN(s.lon));
+  // CAMBIO: Se implementa isValidLatLon para bloquear coordenadas corruptas y evitar la ruptura del renderizado
+  stations = stations.filter(s => s.lat != null && s.lon != null && isValidLatLon(s.lat, s.lon));
   const meas = await dbGetAll('measurements');
   mapState.stationsCache = stations;
   mapState.measCache = meas;
@@ -1315,8 +1554,10 @@ async function loadMapData(){
  
 function onMapCampChange(val){
   mapState.campId = val;
+  if (typeof updateMapSummaryText === 'function') updateMapSummaryText(); // CAMBIO: Actualizar texto superior
   loadMapData().then(()=>{ gisFitBounds(); drawGISMap(); });
 }
+
 function onMapLayerFilter(val){
   mapState.filterLayer = val;
   drawGISMap();
@@ -1535,15 +1776,34 @@ function parseCoordinateInput(text) {
   let str = text.trim();
   if (!str) return null;
 
-  const utmRegex = /^(\d{1,2})\s*([C-HJ-NP-X])\s+(\d+(?:\.\d+)?)\s*[Ee]?\s+(\d+(?:\.\d+)?)\s*[Nn]?$/i;
+  // CAMBIO: Se acepta cualquier letra en el bloque central para filtrar su validez lógicamente
+  const utmRegex = /^(\d{1,2})\s*([a-zA-Z])\s+(\d+(?:\.\d+)?)\s*[Ee]?\s+(\d+(?:\.\d+)?)\s*[Nn]?$/i;
   const utmMatch = str.match(utmRegex);
   if (utmMatch) {
     const zone = parseInt(utmMatch[1], 10);
+    // CAMBIO: Validación estricta del huso de 1 a 60
     if (zone < 1 || zone > 60) return null;
+    
     const letter = utmMatch[2].toUpperCase();
+    // CAMBIO: Se excluyen explícitamente I y O según estándar MGRS
+    if (letter === 'I' || letter === 'O') return null;
+    
+    let hemi;
+    // CAMBIO: Se prioriza 'N' y 'S' exactos para la convención de la app ANTES de evaluar rangos
+    if (letter === 'N') {
+      hemi = 'N';
+    } else if (letter === 'S') {
+      hemi = 'S';
+    } else if (letter >= 'C' && letter <= 'M') {
+      hemi = 'S';
+    } else if (letter >= 'P' && letter <= 'X') {
+      hemi = 'N';
+    } else {
+      return null;
+    }
+    
     const easting = parseFloat(utmMatch[3]);
     const northing = parseFloat(utmMatch[4]);
-    const hemi = letter >= 'N' ? 'N' : 'S';
     const ll = utmToLL(easting, northing, zone, hemi);
     if (isNaN(ll.lat) || isNaN(ll.lon)) return null;
     return { lat: ll.lat, lon: ll.lon, source: 'utm' };
@@ -1748,35 +2008,80 @@ function drawGISMap(){
   // 3. Dibujar Cuadrícula Geográfica / UTM dinámica
   drawMapGrid(ctx, w, h);
  
-  // 4. Dibujar Símbolos Geológicos Estructurales
+  // 4. Dibujar Símbolos Geológicos Estructurales (CAMBIO: Clústeres de puntos)
+  let isClusterEnabled = true;
+  try {
+    const val = localStorage.getItem('geo_map_cluster');
+    if (val !== null) isClusterEnabled = val === 'true';
+  } catch(e) {}
+
+  const screenPts = [];
+  const stMapForCluster = new Map();
+  
   mapState.stationsCache.forEach(st => {
     const pt = geoToScreen(st.lat, st.lon, w, h);
     if(pt.x < -60 || pt.x > w + 60 || pt.y < -60 || pt.y > h + 60) return; // Culling
- 
-    const stMeas = mapState.measCache.filter(m => m.stationId === st.id);
- 
-    // Punto base de la estación
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2);
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
-    ctx.strokeStyle = '#e8a33d';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
- 
-    // Etiqueta de la estación
-    ctx.font = 'bold 11px system-ui, sans-serif';
-    ctx.fillStyle = colorTheme==='sun' ? '#111' : '#eef2f5';
-    ctx.fillText(st.name || st.id, pt.x + 8, pt.y - 6);
- 
-    // Dibujar cada estructura registrada en la estación
-    if(stMeas.length === 0){
-      // Estación vacía
+    stMapForCluster.set(st.id, st);
+    screenPts.push({ id: st.id, x: pt.x, y: pt.y });
+  });
+
+  let clusters = [];
+  if (isClusterEnabled) {
+    clusters = clusterScreenPoints(screenPts, CLUSTER_RADIUS_PX);
+  } else {
+    clusters = screenPts.map(p => ({ x: p.x, y: p.y, count: 1, members: [p.id] }));
+  }
+
+  mapState.currentClusters = clusters;
+  mapState.currentClusterMap = stMapForCluster;
+
+  clusters.forEach(c => {
+    if (c.count === 1) {
+      const st = stMapForCluster.get(c.members[0]);
+      const stMeas = mapState.measCache.filter(m => m.stationId === st.id);
+      
+      // Punto base de la estación
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 4, 0, Math.PI*2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = '#e8a33d';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+   
+      // Etiqueta de la estación
+      ctx.font = 'bold 11px system-ui, sans-serif';
+      ctx.fillStyle = colorTheme==='sun' ? '#111' : '#eef2f5';
+      ctx.fillText(st.name || st.id, c.x + 8, c.y - 6);
+   
+      if(stMeas.length > 0){
+        stMeas.forEach((m) => {
+          if(mapState.filterLayer !== 'ALL' && m.type !== mapState.filterLayer) return;
+          drawGeologicalSymbol(ctx, c.x, c.y, m);
+        });
+      }
     } else {
-      stMeas.forEach((m, idx) => {
-        if(mapState.filterLayer !== 'ALL' && m.type !== mapState.filterLayer) return;
-        drawGeologicalSymbol(ctx, pt.x, pt.y, m);
-      });
+      // Burbuja de Clúster
+      const numStr = String(c.count);
+      const r = numStr.length > 2 ? 18 : (numStr.length > 1 ? 16 : 14);
+      
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, r, 0, Math.PI*2);
+      ctx.fillStyle = colorTheme === 'sun' ? '#ffffff' : '#1c2227';
+      ctx.fill();
+      ctx.strokeStyle = '#e8a33d';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      ctx.font = 'bold 12px system-ui, sans-serif';
+      ctx.fillStyle = colorTheme === 'sun' ? '#111' : '#e8a33d';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(numStr, c.x, c.y + 1);
+      
+      // Restaurar alineación
+      ctx.textAlign = 'start';
+      ctx.textBaseline = 'alphabetic';
     }
   });
  
@@ -2141,20 +2446,45 @@ function handleMapClick(clientX, clientY){
   const clickX = clientX - rect.left;
   const clickY = clientY - rect.top;
  
-  let clickedStation = null;
-  for(const st of mapState.stationsCache){
-    const pt = geoToScreen(st.lat, st.lon, canvas.width/dpr, canvas.height/dpr);
-    if(Math.hypot(clickX - pt.x, clickY - pt.y) < 22){
-      clickedStation = st;
-      break;
+  // CAMBIO: Se implementa la resolución de toque basada en clusters
+  if (mapState.currentClusters && mapState.currentClusterMap) {
+    const clickedCluster = hitTestClusters(mapState.currentClusters, clickX, clickY, 22);
+    
+    if (clickedCluster) {
+      if (clickedCluster.count === 1) {
+        const st = mapState.currentClusterMap.get(clickedCluster.members[0]);
+        if (st) openMapSheet(st);
+      } else {
+        const memberPts = clickedCluster.members.map(id => mapState.currentClusterMap.get(id)).filter(Boolean);
+        if (canSeparateCluster(memberPts, CLUSTER_RADIUS_PX, MAP_MIN_MPP)) {
+          // Si se pueden separar, encuadramos la vista
+          let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+          memberPts.forEach(s => {
+            minLat = Math.min(minLat, s.lat);
+            maxLat = Math.max(maxLat, s.lat);
+            minLon = Math.min(minLon, s.lon);
+            maxLon = Math.max(maxLon, s.lon);
+          });
+          const bounds = { north: maxLat, south: minLat, west: minLon, east: maxLon };
+          const fit = computeFitView(bounds, canvas.width/dpr, canvas.height/dpr, 40);
+          
+          mapState.centerLat = fit.lat;
+          mapState.centerLon = fit.lon;
+          mapState.panX = 0;
+          mapState.panY = 0;
+          mapState.zoom = 1;
+          mapState.scale = mapState.zoom / fit.mpp;
+          drawGISMap();
+        } else {
+          // Si no se pueden separar (muy cerca geográficamente o ya en res mínima), listamos
+          openClusterSheet(memberPts);
+        }
+      }
+      return;
     }
   }
- 
-  if(clickedStation){
-    openMapSheet(clickedStation);
-  } else {
-    closeMapSheet();
-  }
+  
+  closeMapSheet();
 }
  
 function openMapSheet(st){
@@ -2325,39 +2655,19 @@ async function setActiveMapLayer(id) {
   }
 }
 
-async function setActiveMapLayer(id) {
-  // ... (código previo sin tocar)
-  if (layer && layer.dataUrl) {
-    localStorage.setItem('geo_map_layer', id);
-    localStorage.setItem('geo_map_last_offline', id);
-    mapState.onlineLayer = null;
-    mapState.overlayMeta = layer;
-    if (warnDiv) warnDiv.style.display = 'none';
-    const img = new Image();
-    img.onload = () => {
-      mapState.overlayImg = img;
-      if (attrDiv) {
-        attrDiv.textContent = layer.attribution || '';
-        attrDiv.style.display = layer.attribution ? 'block' : 'none';
-      }
-      drawGISMap();
-    };
-    img.src = layer.dataUrl;
-  }
-}
-
-async function deleteMapLayer(id, skipConfirm = false) {
-  try {
-    if (!skipConfirm && !confirm(t('deleteLayerConfirm'))) return;
+async function deleteMapLayer(id, skipConfirm = false) { // CAMBIO: se agrega skipConfirm
+  try { // CAMBIO: se envuelve en try/catch
+    if (!skipConfirm && !confirm(currentLang === 'es' ? '¿Borrar esta capa?' : 'Delete this layer?')) return; // CAMBIO: se usa skipConfirm
     await dbDelete('map_overlays', id);
     if (localStorage.getItem('geo_map_layer') === id) {
       await setActiveMapLayer('');
     }
-    await renderLayerList();
+    renderLayerList();
     initGISMap();
-  } catch (err) {
-    toast(t('deleteLayerError'));
-  }
+  } catch (err) { // CAMBIO: bloque de captura de errores
+    toast(t('deleteLayerFail')); // CAMBIO: aviso con toast
+    renderLayerList(); // CAMBIO: se asegura que la lista quede como estaba
+  } // CAMBIO: cierre de catch
 }
 
 async function renameMapLayer(id) {
@@ -2374,15 +2684,12 @@ async function renameMapLayer(id) {
 
 function onMapLayerSelectChange(val) {
   setActiveMapLayer(val);
+  if (typeof updateMapSummaryText === 'function') updateMapSummaryText(); // CAMBIO: Actualizar texto superior
 }
 
 function openManageLayers() {
   document.getElementById('manageLayersModal').style.display = 'block';
   renderLayerList();
-}
-
-function closeManageLayers() {
-  document.getElementById('manageLayersModal').style.display = 'none';
 }
 
 function closeManageLayers() {
@@ -2396,11 +2703,11 @@ async function renderLayerList() {
   const layers = await listMapLayers();
   
   if (layers.length === 0) {
-    listEl.innerHTML = `<div class="empty"><p>${t('noLayersMsg')}</p></div>`;
+    listEl.innerHTML = `<div class="empty"><p>${t('noLayersMsg')}</p></div>`; // CAMBIO: content -> listEl
     return;
   }
   
-  listEl.innerHTML = layers.map(l => {
+  listEl.innerHTML = layers.map(l => { // CAMBIO: content -> listEl
     const sizeMB = ((l.dataUrl?.length || 0) * 0.75 / (1024 * 1024)).toFixed(1);
     return `
       <div class="mini-row">
@@ -2409,8 +2716,8 @@ async function renderLayerList() {
           <span>${esc(l.kind)} · ~${sizeMB} MB</span>
         </div>
         <div class="mini-actions">
-          <button class="icon-sm" style="min-width:44px; min-height:44px;" onclick="renameMapLayer('${l.id}')">✎</button>
-          <button class="icon-sm" style="min-width:44px; min-height:44px; color:var(--danger); border-color:var(--danger-dim);" onclick="deleteMapLayer('${l.id}')">🗑</button>
+          <button class="icon-sm" onclick="renameMapLayer('${l.id}')">✎</button>
+          <button class="btn danger" style="min-width:44px; min-height:44px; padding:0; display:flex; align-items:center; justify-content:center;" onclick="deleteMapLayer('${l.id}')">🗑</button> <!-- CAMBIO: botón peligro de 44px -->
         </div>
       </div>
     `;
@@ -3615,6 +3922,20 @@ async function renderStereonetView(){
     stations = await dbGetAll('stations');
   }
 
+  // CAMBIO: Determinación del estado inicial del panel plegable
+  let isExpanded = window.innerWidth >= 700;
+  try {
+    const stored = localStorage.getItem('geo_stereo_filters_open');
+    if(stored !== null) isExpanded = (stored === '1');
+  } catch(e) {}
+
+  // CAMBIO: Construcción del texto del resumen truncado
+  const campName = stereoState.campId === 'ALL' ? t('stereoAllCamps') : (camps.find(c => c.id === stereoState.campId)?.name || 'Campaña');
+  const statName = stereoState.stationId === 'ALL' ? t('stereoAllStations') : (stations.find(s => s.id === stereoState.stationId)?.name || 'Estación');
+  const projName = stereoState.proj === 'schmidt' ? t('projSchmidt') : t('projWulff');
+  const bbName = stereoState.showBeachball ? t('stereoBeachballOn') : t('stereoBeachballOff');
+  const summaryText = `${campName} · ${statName} · ${projName} · ${bbName}`;
+
   return `
   <div class="topline">
     <button class="back-btn" onclick="Nav.back()">←</button>
@@ -3622,45 +3943,57 @@ async function renderStereonetView(){
   </div>
 
   <div class="card" style="cursor:default; padding:10px 14px;">
-    <div class="grid2">
-      <div>
-        <label style="margin-top:0;">Campaña</label>
-        <select id="stereoCampSel" onchange="onStereoCampChange(this.value)">
-          <option value="ALL">Todas las campañas</option>
-          ${camps.map(c=>`<option value="${c.id}" ${stereoState.campId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}
-        </select>
+    <!-- CAMBIO: Barra de resumen siempre visible -->
+    <div class="stereo-summary-bar">
+      <div id="stereoSummaryText" class="stereo-summary-text">${esc(summaryText)}</div>
+      <button class="btn ghost small" id="btnStereoToggle" aria-expanded="${isExpanded}" onclick="toggleStereoFilters()" style="flex:0 0 auto; min-height:32px; padding:4px 10px;">
+        <span class="ic" id="stereoToggleIc" style="font-size:14px; margin-right:4px;">${isExpanded ? '▲' : '▼'}</span>${t('stereoFilters')}
+      </button>
+    </div>
+
+    <!-- CAMBIO: Panel de controles ocultable por CSS -->
+    <div id="stereoFiltersPanel" class="stereo-filters-panel ${isExpanded ? '' : 'collapsed'}">
+      <div class="grid2">
+        <div>
+          <label style="margin-top:0;">Campaña</label>
+          <select id="stereoCampSel" onchange="onStereoCampChange(this.value)">
+            <option value="ALL">Todas las campañas</option>
+            ${camps.map(c=>`<option value="${c.id}" ${stereoState.campId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="margin-top:0;">Estación</label>
+          <select id="stereoStationSel" onchange="onStereoStationChange(this.value)">
+            <option value="ALL">Todas las estaciones</option>
+            ${stations.map(s=>`<option value="${s.id}" ${stereoState.stationId===s.id?'selected':''}>${esc(s.name||s.id)}</option>`).join('')}
+          </select>
+        </div>
       </div>
-      <div>
-        <label style="margin-top:0;">Estación</label>
-        <select id="stereoStationSel" onchange="onStereoStationChange(this.value)">
-          <option value="ALL">Todas las estaciones</option>
-          ${stations.map(s=>`<option value="${s.id}" ${stereoState.stationId===s.id?'selected':''}>${esc(s.name||s.id)}</option>`).join('')}
-        </select>
+
+      <div class="grid2" style="margin-top:8px;">
+        <div>
+          <label style="margin-top:0;">Proyección</label>
+          <select id="stereoProjSel" onchange="onStereoProjChange(this.value)">
+            <option value="schmidt" ${stereoState.proj==='schmidt'?'selected':''}>${t('projSchmidt')}</option>
+            <option value="wulff" ${stereoState.proj==='wulff'?'selected':''}>${t('projWulff')}</option>
+          </select>
+        </div>
+        <div>
+          <label style="margin-top:0;">Beachball (Falla)</label>
+          <select id="stereoBeachballSel" onchange="onStereoBeachballChange(this.value)">
+            <option value="off" ${!stereoState.showBeachball?'selected':''}>Desactivado</option>
+            <option value="on" ${stereoState.showBeachball?'selected':''}>Activado (Cuadrantes)</option>
+          </select>
+        </div>
       </div>
     </div>
 
-    <div class="grid2" style="margin-top:8px;">
-      <div>
-        <label style="margin-top:0;">Proyección</label>
-        <select id="stereoProjSel" onchange="onStereoProjChange(this.value)">
-          <option value="schmidt" ${stereoState.proj==='schmidt'?'selected':''}>${t('projSchmidt')}</option>
-          <option value="wulff" ${stereoState.proj==='wulff'?'selected':''}>${t('projWulff')}</option>
-        </select>
-      </div>
-      <div>
-        <label style="margin-top:0;">Beachball (Falla)</label>
-        <select id="stereoBeachballSel" onchange="onStereoBeachballChange(this.value)">
-          <option value="off" ${!stereoState.showBeachball?'selected':''}>Desactivado</option>
-          <option value="on" ${stereoState.showBeachball?'selected':''}>Activado (Cuadrantes)</option>
-        </select>
-      </div>
-    </div>
-
+    <!-- CAMBIO: Fila de chips independientes del panel plegable, forzando flex unificado -->
     <div class="check-grid" style="margin-top:10px;">
-      <label class="check-item"><input type="checkbox" id="chkPlanes" ${stereoState.showPlanes?'checked':''} onchange="stereoState.showPlanes=this.checked; drawStereonet();">Ciclográficas</label>
-      <label class="check-item"><input type="checkbox" id="chkPoles" ${stereoState.showPoles?'checked':''} onchange="stereoState.showPoles=this.checked; drawStereonet();">Polos de planos</label>
-      <label class="check-item"><input type="checkbox" id="chkFaults" ${stereoState.showFaults?'checked':''} onchange="stereoState.showFaults=this.checked; drawStereonet();">Fallas y Estrías</label>
-      <label class="check-item"><input type="checkbox" id="chkPT" ${stereoState.showPT?'checked':''} onchange="stereoState.showPT=this.checked; drawStereonet();">Ejes P / T</label>
+      <label class="check-item" style="flex:1 1 0%; justify-content:center; text-align:center; padding:6px; min-height:44px;"><input type="checkbox" id="chkPlanes" ${stereoState.showPlanes?'checked':''} onchange="stereoState.showPlanes=this.checked; drawStereonet();">Ciclográficas</label>
+      <label class="check-item" style="flex:1 1 0%; justify-content:center; text-align:center; padding:6px; min-height:44px;"><input type="checkbox" id="chkPoles" ${stereoState.showPoles?'checked':''} onchange="stereoState.showPoles=this.checked; drawStereonet();">Polos de planos</label>
+      <label class="check-item" style="flex:1 1 0%; justify-content:center; text-align:center; padding:6px; min-height:44px;"><input type="checkbox" id="chkFaults" ${stereoState.showFaults?'checked':''} onchange="stereoState.showFaults=this.checked; drawStereonet();">Fallas y Estrías</label>
+      <label class="check-item" style="flex:1 1 0%; justify-content:center; text-align:center; padding:6px; min-height:44px;"><input type="checkbox" id="chkPT" ${stereoState.showPT?'checked':''} onchange="stereoState.showPT=this.checked; drawStereonet();">Ejes P / T</label>
     </div>
   </div>
 
@@ -3677,10 +4010,58 @@ async function renderStereonetView(){
   `;
 }
 
+// CAMBIO: Funciones para manejar el despliegue del panel y la actualización dinámica del resumen
+function toggleStereoFilters() {
+  const panel = document.getElementById('stereoFiltersPanel');
+  const btn = document.getElementById('btnStereoToggle');
+  const ic = document.getElementById('stereoToggleIc');
+  if (!panel || !btn || !ic) return;
+  
+  const isExpanded = btn.getAttribute('aria-expanded') === 'true';
+  const newState = !isExpanded;
+  
+  btn.setAttribute('aria-expanded', String(newState));
+  ic.textContent = newState ? '▲' : '▼';
+  
+  if (newState) {
+    panel.classList.remove('collapsed');
+  } else {
+    panel.classList.add('collapsed');
+  }
+  
+  try {
+    localStorage.setItem('geo_stereo_filters_open', newState ? '1' : '0');
+  } catch (e) {}
+
+  requestAnimationFrame(() => {
+    if (typeof drawStereonet === 'function') drawStereonet();
+  });
+}
+
+function updateStereoSummaryText() {
+  const el = document.getElementById('stereoSummaryText');
+  if (!el) return;
+  
+  const campSel = document.getElementById('stereoCampSel');
+  const statSel = document.getElementById('stereoStationSel');
+  const projSel = document.getElementById('stereoProjSel');
+  const bbSel = document.getElementById('stereoBeachballSel');
+  
+  if(!campSel || !statSel || !projSel || !bbSel) return;
+  
+  const campName = campSel.options[campSel.selectedIndex].text;
+  const statName = statSel.options[statSel.selectedIndex].text;
+  const projName = projSel.options[projSel.selectedIndex].text;
+  const bbName = bbSel.value === 'on' ? t('stereoBeachballOn') : t('stereoBeachballOff');
+  
+  el.textContent = `${campName} · ${statName} · ${projName} · ${bbName}`;
+}
+
 function onStereoCampChange(campId){ stereoState.campId = campId; stereoState.stationId = 'ALL'; render(); }
-function onStereoStationChange(stId){ stereoState.stationId = stId; drawStereonet(); }
-function onStereoProjChange(p){ stereoState.proj = p; drawStereonet(); }
-function onStereoBeachballChange(v){ stereoState.showBeachball = (v === 'on'); drawStereonet(); }
+// CAMBIO: Agregado updateStereoSummaryText() a los manejadores
+function onStereoStationChange(stId){ stereoState.stationId = stId; updateStereoSummaryText(); drawStereonet(); }
+function onStereoProjChange(p){ stereoState.proj = p; updateStereoSummaryText(); drawStereonet(); }
+function onStereoBeachballChange(v){ stereoState.showBeachball = (v === 'on'); updateStereoSummaryText(); drawStereonet(); }
 
 async function initStereonetCanvas(){
   const canvas = document.getElementById('stereoCanvas');
@@ -3693,6 +4074,51 @@ async function initStereonetCanvas(){
   canvas.style.height = size + 'px';
   canvas.onpointerdown = handleCanvasTouch;
   await drawStereonet();
+}
+
+// CAMBIO: Función pura para normalizar códigos de sentido cinemático
+function normalizeSenseCode(raw) {
+  if (raw == null) return null;
+  const s = String(raw).trim().toLowerCase();
+  if (s === '') return null;
+
+  const map = {
+    'n': 'normal',
+    't': 'inverso',
+    'nr': 'dextral-normal',
+    'nl': 'sinistral-normal',
+    'tr': 'dextral-inverso',
+    'tl': 'sinistral-inverso'
+  };
+
+  if (map.hasOwnProperty(s)) return map[s];
+
+  if (s === 'r' || s === 'l') return null;
+
+  // Si ya pertenece al vocabulario base admitido
+  const appVocab = [
+    'normal', 'inverso', 'thrust', 'dextral', 'sinistral', 'rl', 'll',
+    'dextral-normal', 'dextral-inverso', 'sinistral-normal', 'sinistral-inverso'
+  ];
+  if (appVocab.includes(s)) return raw;
+
+  return null;
+}
+
+// CAMBIO: Wrapper para aislar la llamada, aplicar la normalización en lectura 
+// y emitir advertencias de consola una sola vez por sesión/código.
+const warnedSenses = new Set();
+function getFaultKinematicsNormalized(f) {
+  const norm = normalizeSenseCode(f.sense);
+  if (norm === null && f.sense) {
+    const rawStr = String(f.sense).trim();
+    if (rawStr !== '' && !warnedSenses.has(rawStr)) {
+      console.warn('Sentido cinemático no reconocido, usando "normal":', rawStr);
+      warnedSenses.add(rawStr);
+    }
+  }
+  // Se pasa el valor normalizado o un fallback silencioso para que la original no grite
+  return computeFaultKinematics({ ...f, sense: norm || 'normal' });
 }
 
 async function drawStereonet(){
@@ -3728,7 +4154,7 @@ async function drawStereonet(){
 
   if(stereoState.showBeachball){
     meas.filter(m => m.type === 'fault' && (m.strike != null || m.dipDir != null)).forEach(f => {
-      const kin = computeFaultKinematics(f);
+      const kin = getFaultKinematicsNormalized(f); // CAMBIO: Usar wrapper normalizado
       drawBeachballQuadrants(ctx, cx, cy, R, stereoState.proj, kin);
     });
   }
@@ -3781,7 +4207,7 @@ async function drawStereonet(){
 
     if(m.type === 'fault' && (strike != null || m.dipDir != null)){
       faultRecords.push(m);
-      const kin = computeFaultKinematics(m);
+      const kin = getFaultKinematicsNormalized(m); // CAMBIO: Usar wrapper normalizado
 
       if(stereoState.showFaults){
         drawGreatCircle(ctx, cx, cy, R, stereoState.proj, strike, dip, '#e0645c', 2, false);
@@ -3928,22 +4354,83 @@ function drawKinematicArrow(ctx, cx, cy, R, projType, strike, dip, kin){
   ctx.restore();
 }
 
+// REEMPLAZA
 function drawBeachballQuadrants(ctx, cx, cy, R, projType, kin){
-  ctx.save();
-  const step = 6;
-  for(let y = -R; y <= R; y += step){
-    for(let x = -R; x <= R; x += step){
-      if(Math.hypot(x, y) <= R){
-        const v = unproject2D(x, y, projType, R);
-        if(v){
-          if(V3.dot(kin.n, v) * V3.dot(kin.u, v) > 0){
-            ctx.fillStyle = 'rgba(224, 100, 92, 0.18)';
-            ctx.fillRect(cx + x - step/2, cy + y - step/2, step, step);
-          }
+  // CAMBIO: Inicializar caché y contador de redibujados (para pruebas)
+  if (!drawBeachballQuadrants.cache) drawBeachballQuadrants.cache = new Map();
+  if (typeof window.stereoFillCalcCount === 'undefined') window.stereoFillCalcCount = 0;
+  
+  const dpr = window.devicePixelRatio || 1;
+  const key = `${projType}_${Math.round(R)}_${dpr}_${kin.n.map(v=>v.toFixed(3)).join(',')}_${kin.u.map(v=>v.toFixed(3)).join(',')}`;
+  
+  // CAMBIO: Retorno inmediato si ya existe en memoria, previniendo recálculo por interacción UI
+  if(drawBeachballQuadrants.cache.has(key)){
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(drawBeachballQuadrants.cache.get(key), cx - R, cy - R, R * 2, R * 2);
+    ctx.restore();
+    return;
+  }
+  
+  window.stereoFillCalcCount++;
+  
+  // CAMBIO: Supermuestreo dinámico, priorizando resolución hasta 1600px
+  let scale = dpr;
+  if (scale < 2) scale = 2; // Asegurar al menos 2x en pantallas normales
+  if (R * 2 * scale > 1600) scale = 1600 / (R * 2);
+  
+  const size = Math.ceil(R * 2 * scale);
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width = size;
+  offCanvas.height = size;
+  const offCtx = offCanvas.getContext('2d');
+  
+  // CAMBIO: Generación acelerada píxel a píxel con ImageData nativo (miles de veces más veloz que fillRect)
+  const imgData = offCtx.createImageData(size, size);
+  const data = imgData.data;
+  const rScaled = size / 2;
+  const rScaledSq = rScaled * rScaled;
+  
+  for (let y = 0; y < size; y++) {
+    const dy = y - rScaled;
+    for (let x = 0; x < size; x++) {
+      const dx = x - rScaled;
+      if (dx * dx + dy * dy <= rScaledSq) {
+        const origX = dx / scale;
+        const origY = dy / scale;
+        const v = unproject2D(origX, origY, projType, R);
+        if (v && (V3.dot(kin.n, v) * V3.dot(kin.u, v) > 0)) {
+          const idx = (y * size + x) * 4;
+          data[idx] = 224;
+          data[idx+1] = 100;
+          data[idx+2] = 92;
+          data[idx+3] = 46; // Equivalente a rgba(224, 100, 92, 0.18) original
         }
       }
     }
   }
+  offCtx.putImageData(imgData, 0, 0);
+  
+  // CAMBIO: Recorte suave del borde circular usando máscara de composición
+  offCtx.globalCompositeOperation = 'destination-in';
+  offCtx.fillStyle = '#000';
+  offCtx.beginPath();
+  offCtx.arc(rScaled, rScaled, rScaled - 0.5, 0, Math.PI * 2);
+  offCtx.fill();
+  offCtx.globalCompositeOperation = 'source-over';
+  
+  // Guardar en caché y limitar tamaño circular (ej. 100 beachballs máximos)
+  drawBeachballQuadrants.cache.set(key, offCanvas);
+  if (drawBeachballQuadrants.cache.size > 100) {
+    drawBeachballQuadrants.cache.delete(drawBeachballQuadrants.cache.keys().next().value);
+  }
+  
+  // Componer en el canvas original con escalado suavizado
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(offCanvas, cx - R, cy - R, R * 2, R * 2);
   ctx.restore();
 }
 
@@ -4008,7 +4495,170 @@ async function requestPersistentStorage() {
     }
   }
 }
- 
+
+function injectClusterTranslations() {
+  Object.assign(I18N.es, {
+    clusterTitle: 'Grupo de {n} estaciones'
+  });
+  Object.assign(I18N.en, {
+    clusterTitle: 'Cluster of {n} stations'
+  });
+}
+
+const CLUSTER_RADIUS_PX = 20;
+
+function distanceMeters(lat1, lon1, lat2, lon2) {
+  const avgLat = (lat1 + lat2) / 2;
+  const mLat = 111320;
+  const mLon = 111320 * Math.cos(avgLat * Math.PI / 180);
+  const dx = (lon2 - lon1) * mLon;
+  const dy = (lat2 - lat1) * mLat;
+  return Math.hypot(dx, dy);
+}
+
+function clusterScreenPoints(points, radiusPx) {
+  const clusters = [];
+  if (!points || points.length === 0) return clusters;
+  
+  let originX = null, originY = null;
+  const cellSize = radiusPx;
+  const grid = new Map();
+  
+  const getCell = (x, y) => `${Math.floor((x - originX) / cellSize)},${Math.floor((y - originY) / cellSize)}`;
+
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    if (!isFinite(p.x) || !isFinite(p.y)) continue;
+    if (originX === null) {
+      originX = p.x;
+      originY = p.y;
+    }
+    
+    const cx = Math.floor((p.x - originX) / cellSize);
+    const cy = Math.floor((p.y - originY) / cellSize);
+    
+    let closestCluster = null;
+    let minDist = radiusPx + 0.001;
+    
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const cellKey = `${cx + dx},${cy + dy}`;
+        const cellClusters = grid.get(cellKey);
+        if (cellClusters) {
+          for (let j = 0; j < cellClusters.length; j++) {
+            const c = cellClusters[j];
+            const dist = Math.hypot(p.x - c.x, p.y - c.y);
+            if (dist <= radiusPx && dist < minDist) {
+              minDist = dist;
+              closestCluster = c;
+            }
+          }
+        }
+      }
+    }
+    
+    if (closestCluster) {
+      const oldCellKey = getCell(closestCluster.x, closestCluster.y);
+      const n = closestCluster.count;
+      closestCluster.x = (closestCluster.x * n + p.x) / (n + 1);
+      closestCluster.y = (closestCluster.y * n + p.y) / (n + 1);
+      closestCluster.count++;
+      closestCluster.members.push(p.id);
+      
+      const newCellKey = getCell(closestCluster.x, closestCluster.y);
+      if (oldCellKey !== newCellKey) {
+        const oldList = grid.get(oldCellKey);
+        const idx = oldList.indexOf(closestCluster);
+        if (idx > -1) oldList.splice(idx, 1);
+        if (!grid.has(newCellKey)) grid.set(newCellKey, []);
+        grid.get(newCellKey).push(closestCluster);
+      }
+    } else {
+      const newCluster = { x: p.x, y: p.y, count: 1, members: [p.id] };
+      clusters.push(newCluster);
+      const cellKey = getCell(p.x, p.y);
+      if (!grid.has(cellKey)) grid.set(cellKey, []);
+      grid.get(cellKey).push(newCluster);
+    }
+  }
+  return clusters;
+}
+
+function hitTestClusters(clusters, x, y, hitRadiusPx) {
+  let closest = null;
+  let minDist = hitRadiusPx + 0.001;
+  for (let i = 0; i < clusters.length; i++) {
+    const c = clusters[i];
+    const d = Math.hypot(c.x - x, c.y - y);
+    if (d <= hitRadiusPx && d < minDist) {
+      minDist = d;
+      closest = c;
+    }
+  }
+  return closest;
+}
+
+function canSeparateCluster(members, radiusPx, minMpp) {
+  if (members.length < 2) return false;
+  let maxDist = 0;
+  for (let i = 0; i < members.length; i++) {
+    for (let j = i + 1; j < members.length; j++) {
+      const d = distanceMeters(members[i].lat, members[i].lon, members[j].lat, members[j].lon);
+      if (d > maxDist) maxDist = d;
+    }
+  }
+  return (maxDist / minMpp) > radiusPx;
+}
+
+function toggleMapCluster() {
+  let isEnabled = true;
+  try {
+    const val = localStorage.getItem('geo_map_cluster');
+    if (val !== null) isEnabled = val === 'true';
+  } catch (e) {}
+  isEnabled = !isEnabled;
+  try {
+    localStorage.setItem('geo_map_cluster', isEnabled.toString());
+  } catch (e) {}
+  
+  const btn = document.getElementById('btnMapCluster');
+  if (btn) btn.style.background = isEnabled ? 'var(--accent)' : 'var(--surface)';
+  drawGISMap();
+}
+
+function openMapSheetById(id) {
+  const st = mapState.stationsCache.find(s => s.id === id);
+  if (st) openMapSheet(st);
+}
+
+// CAMBIO: Nueva función pura para construir el HTML de la lista del clúster
+function buildClusterListHtml(members) {
+  if (!members || members.length === 0) return '';
+  return members.map(st => `
+    <div class="mini-row" style="cursor:pointer;" onclick="openMapSheetById('${st.id}')">
+      <div class="ml">
+        <b>📍 ${esc(st.name || st.id)}</b>
+        <span>${fmtDate(st.timestamp)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openClusterSheet(stations) {
+  const sheet = document.getElementById('mapBottomSheet');
+  const title = document.getElementById('sheetTitle');
+  const content = document.getElementById('sheetContent');
+  if(!sheet || !content) return;
+  
+  title.textContent = t('clusterTitle').replace('{n}', stations.length);
+  
+  // CAMBIO: Se usa buildClusterListHtml y se corrige la interpolación de la variable
+  const listHtml = buildClusterListHtml(stations);
+  
+  content.innerHTML = `<div class="section-hdr" style="margin:10px 0 6px;"><h3>Estaciones agrupadas</h3></div>${listHtml}`;
+  sheet.classList.add('open');
+}
+
 function injectBackupTranslations() {
   Object.assign(I18N.es, {
     backupRestore: 'Respaldo y restauración',
@@ -4396,6 +5046,183 @@ async function exportGeoJSON(){
   toast('GeoJSON exportado');
 }
 
+function injectImportTranslations() {
+  Object.assign(I18N.es, {
+    importWarningTitle: 'Advertencia de datos incompatibles',
+    importWarningText: 'Estos datos parecen incompatibles con el archivo de origen (por ejemplo, un archivo abierto y guardado en Excel con separador de miles). Revisa el archivo original exportado por la app de terreno antes de importarlo.',
+    importCancel: 'Cancelar importación',
+    importValidOnly: 'Importar solo filas válidas',
+    importAllInvalid: 'Todas las filas con coordenadas tienen problemas.',
+    importFlaggedCount: 'Filas problemáticas: {count} de {total}',
+    importExample: 'Ejemplo fila {row}: lat {lat}, lon {lon}',
+    importDateWarn: 'Filas con fecha no interpretable (se usó fecha actual): {count}',
+    reasonNoData: 'Sin dato (-1)' // CAMBIO: Nueva traducción
+  });
+  Object.assign(I18N.en, {
+    importWarningTitle: 'Incompatible Data Warning',
+    importWarningText: 'These data appear incompatible with the source file (e.g., a file opened and saved in Excel with thousands separators). Please review the original file exported by the field app before importing.',
+    importCancel: 'Cancel import',
+    importValidOnly: 'Import valid rows only',
+    importAllInvalid: 'All rows with coordinates have issues.',
+    importFlaggedCount: 'Problematic rows: {count} of {total}',
+    importExample: 'Example row {row}: lat {lat}, lon {lon}',
+    importDateWarn: 'Rows with unparseable date (used current date): {count}',
+    reasonNoData: 'No data (-1)' // CAMBIO: Nueva traducción
+  });
+}
+
+function isValidLatLon(lat, lon) {
+  if (typeof lat !== 'number' || typeof lon !== 'number') return false;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+  if (lat < -90 || lat > 90) return false;
+  if (lon < -180 || lon > 180) return false;
+  return true;
+}
+
+// CAMBIO: Funciones puras para análisis de CSV y fechas
+function splitCsvLine(line, delim) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      else { inQuotes = !inQuotes; }
+    } else if (char === delim && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+function detectDelimiter(headerLine) {
+  const counts = { '\t': 0, ',': 0, ';': 0 };
+  let inQuotes = false;
+  for (let i = 0; i < headerLine.length; i++) {
+    const char = headerLine[i];
+    if (char === '"') {
+      if (inQuotes && headerLine[i + 1] === '"') i++;
+      else inQuotes = !inQuotes;
+    } else if (!inQuotes && counts[char] !== undefined) {
+      counts[char]++;
+    }
+  }
+  let best = '\t';
+  let max = counts['\t'];
+  if (counts[','] > max) { best = ','; max = counts[',']; }
+  if (counts[';'] > max) { best = ';'; max = counts[';']; }
+  return best;
+}
+
+function normalizeField(s) {
+  if (!s) return '';
+  let res = s.replace(/^\uFEFF/, '').replace(/^[\s\u00A0]+|[\s\u00A0]+$/g, '');
+  if (res.startsWith('"') && res.endsWith('"') && res.length >= 2) {
+    res = res.slice(1, -1);
+  }
+  return res;
+}
+
+function parseFlexibleDate(str) {
+  if (!str) return null;
+  const s = str.trim();
+  if (!s) return null;
+  const m1 = s.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+  if (m1) return new Date(m1[1], m1[2] - 1, m1[3], m1[4], m1[5], m1[6] || 0);
+  const m2 = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})[\sT](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+  if (m2) return new Date(m2[3], m2[2] - 1, m2[1], m2[4], m2[5], m2[6] || 0);
+  const m3 = s.match(/^(?:[A-Za-z]{3,4}\s+)?([A-Za-z]{3,4})\s+(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})\s+(\d{4})$/);
+  if (m3) {
+    const months = { jan: 0, ene: 0, feb: 1, mar: 2, apr: 3, abr: 3, may: 4, jun: 5, jul: 6, aug: 7, ago: 7, sep: 8, set: 8, oct: 9, nov: 10, dec: 11, dic: 11 };
+    const mon = months[m3[1].toLowerCase().substring(0, 3)];
+    if (mon !== undefined) return new Date(m3[6], mon, m3[2], m3[3], m3[4], m3[5]);
+  }
+  return null;
+}
+
+function looksLikeSeparatorMangled(raw) {
+  if (typeof raw !== 'string') return false;
+  // 1 a 3 dígitos seguidos de dos o más grupos ".ddd" (separador de miles)
+  return /^[+-]?\d{1,3}(?:\.\d{3}){2,}$/.test(raw.trim());
+}
+
+function analyzeImportRows(rows) {
+  const validRows = [];
+  const flagged = [];
+  
+  for (const row of rows) {
+    let isFlagged = false;
+    let reason = '';
+    
+    // CAMBIO: Se añade la verificación para -1 en estructuras
+    if (row.strikeVal === -1 || row.dipVal === -1 || row.dipAzVal === -1) {
+      isFlagged = true;
+      reason = t('reasonNoData');
+    } else if (looksLikeSeparatorMangled(row.rawLat) || looksLikeSeparatorMangled(row.rawLon) || 
+        looksLikeSeparatorMangled(row.rawX) || looksLikeSeparatorMangled(row.rawY)) {
+      isFlagged = true;
+      reason = 'separator_mangled';
+    } else if (row.rawLat && row.rawLat.trim() !== '' && row.rawLon && row.rawLon.trim() !== '') {
+      if (!isValidLatLon(row.parsedLat, row.parsedLon)) {
+        isFlagged = true;
+        reason = 'invalid_range';
+      }
+    }
+    
+    if (isFlagged) {
+      flagged.push({ index: row.index, reason, rawLat: row.rawLat, rawLon: row.rawLon });
+    } else {
+      validRows.push(row.index);
+    }
+  }
+  return { validRows, flagged };
+}
+
+function showImportWarningModal(flagged, total, onCancel, onProceed) {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:90;padding:20px;overflow-y:auto;display:flex;align-items:center;justify-content:center;';
+  
+  const isAllInvalid = flagged.length === total;
+  const examplesHtml = flagged.slice(0, 3).map(f => {
+     const txt = t('importExample').replace('{row}', f.index).replace('{lat}', f.rawLat||'').replace('{lon}', f.rawLon||'');
+     return `<li style="font-family:var(--mono);font-size:11px;margin-bottom:4px;">${esc(txt)}</li>`;
+  }).join('');
+  
+  const countText = t('importFlaggedCount').replace('{count}', flagged.length).replace('{total}', total);
+  
+  modal.innerHTML = `
+    <div class="card" style="max-width:440px;width:100%;cursor:default;border:2px solid var(--danger);">
+      <div class="card-title" style="color:var(--danger);">⚠️ ${t('importWarningTitle')}</div>
+      <p style="font-size:13px;margin-top:10px;">${t('importWarningText')}</p>
+      <div class="card-sub" style="margin-top:10px;font-weight:bold;">${countText}</div>
+      <ul style="margin:8px 0 15px 0;padding-left:20px;color:var(--danger);">${examplesHtml}</ul>
+      ${isAllInvalid ? `<p style="font-size:13px;color:var(--danger);margin-bottom:15px;font-weight:bold;">${t('importAllInvalid')}</p>` : ''}
+      <div class="btn-row">
+        <button class="btn ghost" id="btnImportCancel">${t('importCancel')}</button>
+        ${!isAllInvalid ? `<button class="btn danger" id="btnImportProceed">${t('importValidOnly')}</button>` : ''}
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  document.getElementById('btnImportCancel').onclick = () => {
+    modal.remove();
+    onCancel();
+  };
+  if (!isAllInvalid) {
+    document.getElementById('btnImportProceed').onclick = () => {
+      modal.remove();
+      onProceed();
+    };
+  }
+}
+
 async function handleFileImport(e){
   const file = e.target.files[0];
   if(!file) return;
@@ -4403,79 +5230,135 @@ async function handleFileImport(e){
   const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
   if(lines.length < 2){ toast('Archivo vacío o sin datos'); return; }
 
-  const campName = 'Importación_' + file.name.replace(/\.[^/.]+$/, "");
+  const campName = 'Importación_' + file.name.replace(/\.[^/.]+\$/, "");
   const campId = uid();
-  await dbPut('campaigns', { id: campId, name: campName, timestamp: nowIso(), notes: `Importado desde ${file.name}` });
 
   const headerLine = lines[0];
-  const delim = headerLine.includes('\t') ? '\t' : (headerLine.includes(';') ? ';' : ',');
-  const rawHeaders = headerLine.split(delim).map(h => h.trim().toLowerCase());
+  const delim = detectDelimiter(headerLine);
+  const rawHeaders = splitCsvLine(headerLine, delim).map(h => normalizeField(h).toLowerCase());
 
   const getIdx = (patterns) => rawHeaders.findIndex(h => patterns.some(p => h.includes(p)));
   const iStrike = getIdx(['fault strike','strike']);
   const iDip = getIdx(['fault dip','dip']);
+  const iDipAz = getIdx(['dipazimuth','dip azimuth','dip_azimuth','dip direction','dipdir']);
   const iTrend = getIdx(['striae trend','trend']);
   const iPlunge = getIdx(['striae plunge','plunge']);
   const iSense = getIdx(['sense of slip','sense']);
-  const iFieldNo = getIdx(['field no.','station_id','station','estacion','name']);
+  const iFieldNo = getIdx(['field no.','station_id','station','estacion','name','localityname']);
   const iLat = getIdx(['latitude','lat']);
   const iLon = getIdx(['longitude','lon','long']);
-  const iAlt = getIdx(['elevation','alt']);
+  const iAlt = getIdx(['elevation','alt','altitude']);
   const iNotes = getIdx(['notes','nota']);
+  const iEast = getIdx(['easting','east','x']);
+  const iNorth = getIdx(['northing','north','y']);
+  const iDate = getIdx(['timedate','date','fecha','timestamp']);
 
-  let count = 0;
-  const stationsCreated = {};
+  const parsedRows = [];
+  const rowsForAnalysis = [];
+  let unparseableDateCount = 0;
 
   for(let i = 1; i < lines.length; i++){
-    const cols = lines[i].split(delim).map(c => c.trim());
+    const cols = splitCsvLine(lines[i], delim).map(c => normalizeField(c));
     if(cols.length < 2) continue;
 
-    const stName = (iFieldNo >= 0 && cols[iFieldNo]) ? cols[iFieldNo] : `EST-${String(count+1).padStart(2,'0')}`;
-    let stId = stationsCreated[stName];
+    const rawLat = (iLat >= 0 && cols[iLat]) ? cols[iLat] : '';
+    const rawLon = (iLon >= 0 && cols[iLon]) ? cols[iLon] : '';
+    const rawX = (iEast >= 0 && cols[iEast]) ? cols[iEast] : '';
+    const rawY = (iNorth >= 0 && cols[iNorth]) ? cols[iNorth] : '';
 
-    const latVal = (iLat >= 0 && cols[iLat]) ? parseFloat(cols[iLat]) : null;
-    const lonVal = (iLon >= 0 && cols[iLon]) ? parseFloat(cols[iLon]) : null;
+    const latVal = rawLat ? parseFloat(rawLat) : null;
+    const lonVal = rawLon ? parseFloat(rawLon) : null;
     const altVal = (iAlt >= 0 && cols[iAlt]) ? roundInt(parseFloat(cols[iAlt])) : null;
-
-    if(!stId){
-      stId = uid();
-      stationsCreated[stName] = stId;
-      await dbPut('stations', {
-        id: stId, campaignId: campId, name: stName, timestamp: nowIso(),
-        lat: isNaN(latVal) ? null : latVal, lon: isNaN(lonVal) ? null : lonVal, alt: isNaN(altVal) ? null : altVal,
-        notes: 'Importado de FaultKin/Texto'
-      });
-    }
-
     const strikeVal = (iStrike >= 0 && cols[iStrike]) ? roundInt(parseFloat(cols[iStrike])) : null;
     const dipVal = (iDip >= 0 && cols[iDip]) ? roundInt(parseFloat(cols[iDip])) : null;
+    const dipAzVal = (iDipAz >= 0 && cols[iDipAz]) ? roundInt(parseFloat(cols[iDipAz])) : null;
+    
+    let recordDate = null;
+    if (iDate >= 0 && cols[iDate]) {
+      const parsed = parseFlexibleDate(cols[iDate]);
+      if (parsed) recordDate = parsed.toISOString();
+      else unparseableDateCount++;
+    }
+
+    rowsForAnalysis.push({
+      index: i, rawLat, rawLon, rawX, rawY, parsedLat: latVal, parsedLon: lonVal,
+      strikeVal, dipVal, dipAzVal
+    });
+
+    const stName = (iFieldNo >= 0 && cols[iFieldNo]) ? cols[iFieldNo] : '';
     const trendVal = (iTrend >= 0 && cols[iTrend]) ? roundInt(parseFloat(cols[iTrend])) : null;
     const plungeVal = (iPlunge >= 0 && cols[iPlunge]) ? roundInt(parseFloat(cols[iPlunge])) : null;
     const senseVal = (iSense >= 0 && cols[iSense]) ? cols[iSense] : '';
     const noteVal = (iNotes >= 0 && cols[iNotes]) ? cols[iNotes] : '';
 
-    if(strikeVal != null && dipVal != null){
-      const dipDirVal = roundInt(norm360(strikeVal + 90));
-      const measObj = {
-        id: uid(), stationId: stId,
-        type: (trendVal != null || senseVal) ? 'fault' : 'planar',
-        subtype: 'Importado', timestamp: nowIso(),
-        strike: strikeVal, dip: dipVal, dipDir: dipDirVal,
-        trend: trendVal, plunge: plungeVal, striaeMode: 'trendplunge',
-        sense: senseVal || 'Normal', notes: noteVal
-      };
-
-      if(trendVal != null && plungeVal != null){
-        const rk = calculateRakeFromTP(dipDirVal, dipVal, trendVal, plungeVal);
-        if(rk){ measObj.rake = rk.rake; measObj.rakeQuadrant = rk.quadrant; }
-      }
-      await dbPut('measurements', measObj);
-      count++;
-    }
+    parsedRows.push({
+      index: i, stName, latVal, lonVal, altVal,
+      strikeVal, dipVal, dipAzVal, trendVal, plungeVal, senseVal, noteVal, recordDate
+    });
   }
 
-  toast(`Importados ${count} registros`);
-  Nav.campaign(campId);
+  const analysis = analyzeImportRows(rowsForAnalysis);
+
+  const doWrite = async (validIndices) => {
+    let writtenCount = 0;
+    const stationsCreated = {};
+
+    await dbPut('campaigns', { id: campId, name: campName, timestamp: nowIso(), notes: `Importado desde ${file.name}` });
+
+    for (const pr of parsedRows) {
+      if (!validIndices.includes(pr.index)) continue;
+
+      const finalStName = pr.stName ? pr.stName : `EST-${String(writtenCount + 1).padStart(2, '0')}`;
+      const ts = pr.recordDate || nowIso();
+
+      let stId = stationsCreated[finalStName];
+      if (!stId) {
+        stId = uid();
+        stationsCreated[finalStName] = stId;
+        await dbPut('stations', {
+          id: stId, campaignId: campId, name: finalStName, timestamp: ts,
+          lat: isNaN(pr.latVal) ? null : pr.latVal, lon: isNaN(pr.lonVal) ? null : pr.lonVal, alt: isNaN(pr.altVal) ? null : pr.altVal,
+          notes: 'Importado de FaultKin/Texto'
+        });
+      }
+
+      if (pr.strikeVal != null && pr.dipVal != null) {
+        const dipDirVal = pr.dipAzVal != null ? pr.dipAzVal : roundInt(norm360(pr.strikeVal + 90));
+        const measObj = {
+          id: uid(), stationId: stId,
+          type: (pr.trendVal != null || pr.senseVal) ? 'fault' : 'planar',
+          subtype: 'Importado', timestamp: ts,
+          strike: pr.strikeVal, dip: pr.dipVal, dipDir: dipDirVal,
+          trend: pr.trendVal, plunge: pr.plungeVal, striaeMode: 'trendplunge',
+          sense: pr.senseVal, // CAMBIO: Conservar el texto original (removido el default a 'Normal')
+          notes: pr.noteVal
+        };
+
+        if (pr.trendVal != null && pr.plungeVal != null) {
+          const rk = calculateRakeFromTP(dipDirVal, pr.dipVal, pr.trendVal, pr.plungeVal);
+          if (rk) { measObj.rake = rk.rake; measObj.rakeQuadrant = rk.quadrant; }
+        }
+        await dbPut('measurements', measObj);
+        writtenCount++;
+      }
+    }
+
+    toast(`Importados ${writtenCount} registros`);
+    if (unparseableDateCount > 0) {
+      setTimeout(() => alert(t('importDateWarn').replace('{count}', unparseableDateCount)), 500);
+    }
+    Nav.campaign(campId);
+  };
+
+  if (analysis.flagged.length > 0) {
+    showImportWarningModal(analysis.flagged, parsedRows.length,
+      () => { e.target.value = ''; toast(t('importCancel')); },
+      () => { doWrite(analysis.validRows); e.target.value = ''; }
+    );
+  } else {
+    await doWrite(analysis.validRows);
+    e.target.value = '';
+  }
 }
 
 /* =========================================================
@@ -4579,12 +5462,47 @@ function changeQuadrantPref(val){ quadrantPref=val; localStorage.setItem('geo_qu
 function changeNeedleMode(val){ needleMode=val; localStorage.setItem('geo_needle_mode', val); render(); }
 function changeMagOffset(val){ magOffset=parseFloat(val)||0; localStorage.setItem('geo_mag_offset', magOffset); render(); }
 
+// CAMBIO: Traducciones para la nueva UI compacta del estereograma
+function injectStereoTranslations() {
+  Object.assign(I18N.es, {
+    stereoFilters: 'Filtros'
+  });
+  Object.assign(I18N.en, {
+    stereoFilters: 'Filters'
+  });
+}
+
+// CAMBIO: Nueva función de traducciones UI-R2 (se llamará en init)
+function injectStereoUITranslations() {
+  Object.assign(I18N.es, {
+    stereoFilters: 'Filtros',
+    stereoAllCamps: 'Todas las campañas',
+    stereoAllStations: 'Todas las estaciones',
+    stereoBeachballOn: 'Beachball: Activado',
+    stereoBeachballOff: 'Beachball: Desactivado'
+  });
+  Object.assign(I18N.en, {
+    stereoFilters: 'Filters',
+    stereoAllCamps: 'All campaigns',
+    stereoAllStations: 'All stations',
+    stereoBeachballOn: 'Beachball: On',
+    stereoBeachballOff: 'Beachball: Off'
+  });
+}
+
+injectStereoTranslations();
+
 (async function init(){
   await openDB();
+  // CAMBIO: Se inyectan traducciones para las alertas del importador
+  injectImportTranslations();
+  injectStereoUITranslations();
+  injectClusterTranslations();
   injectBackupTranslations();
   injectMapLayerTranslations();
   injectOnlineLayerTranslations();
   injectMapNavTranslations();
+  injectMapPanelTranslations(); // CAMBIO: Cargar nuevas traducciones
   requestPersistentStorage().catch(()=>{});
   initGPS();
   initSensors();
