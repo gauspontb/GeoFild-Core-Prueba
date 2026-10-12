@@ -318,6 +318,13 @@
 
 /* REEMPLAZA O INSERTA ESTO AL FINAL DEL <style> EXISTENTE */
 
+/* CAMBIO: Estilos para la validación visual de errores en formularios */
+.field-error { border-color: var(--danger) !important; }
+.error-msg { color: var(--danger); font-size: 11px; margin-top: 4px; font-weight: 600; display: block; }
+
+/* CAMBIO: Aumentar área táctil de los botones de la tarjeta de medición a 44px */
+.mini-actions .icon-sm { min-width: 44px; min-height: 44px; font-size: 16px; }
+
   /* UI-R1 */
 
 /* a) CHIPS: Contenedores flex, responsivos y con resaltado basado en estado */
@@ -1107,7 +1114,8 @@ function utmLabel(lat, lon){
 /* =========================================================
    ESTADO GLOBAL Y SENSORES
    ========================================================= */
-const state={ view:'campaigns', campId:null, stationId:null, measId:null, measType:null };
+// CAMBIO: Añadido duplicateData para transferir la precarga de datos temporalmente
+const state={ view:'campaigns', campId:null, stationId:null, measId:null, measType:null, duplicateData:null };
 const stereoState = {
   proj: 'schmidt', campId: 'ALL', stationId: 'ALL',
   showPlanes: true, showPoles: true, showFaults: true, showPT: true, showBeachball: false, interactiveItems: []
@@ -1211,6 +1219,12 @@ const Nav={
   station(id, campId){ state.view='stationDetail'; state.stationId=id; if(campId) state.campId=campId; render(); },
   newMeasurement(stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=null; render(); },
   editMeasurement(id, stationId, type){ state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=id; render(); },
+  // CAMBIO: Función para cargar los datos temporalmente y abrir formulario de creación
+  async duplicateMeasurement(id, stationId, type){
+    state.duplicateData = await dbGet('measurements', id);
+    state.view='measForm'; state.stationId=stationId; state.measType=type; state.measId=null;
+    render();
+  },
   stereonet(campId, stationId){ 
     state.view='stereonet'; 
     if(campId) stereoState.campId = campId;
@@ -3564,19 +3578,65 @@ function captureGpsIntoStation(){
   if(gpsState.alt!=null) setVal('f_alt', Math.round(gpsState.alt));
   utmFromLatLon();
 }
+
 async function saveStation(id, isNew){
-  const name=document.getElementById('f_name').value.trim() || id;
-  const dt=document.getElementById('f_dt').value;
-  const lat=parseFloat(document.getElementById('f_lat').value);
-  const lon=parseFloat(document.getElementById('f_lon').value);
-  const alt=parseInt(document.getElementById('f_alt').value, 10);
-  const notes=document.getElementById('f_notes').value;
-  const obj={ id, campaignId: state.campId, name, timestamp: dt? new Date(dt).toISOString(): nowIso(),
-              lat: isNaN(lat)?null:lat, lon: isNaN(lon)?null:lon, alt: isNaN(alt)?null:alt, notes };
+  // CAMBIO: Limpiar errores previos en campos de estación
+  document.querySelectorAll('.error-msg').forEach(function(e){ e.remove(); });
+  document.querySelectorAll('.field-error').forEach(function(e){ e.classList.remove('field-error'); });
+  let hasError = false;
+  let firstErrorEl = null;
+
+  function check(inputId, kind, isReq) {
+    const el = document.getElementById(inputId);
+    if (!el) return null;
+    const res = validateField(kind, el.value, isReq);
+    if (!res.ok) {
+      hasError = true;
+      el.classList.add('field-error');
+      const msg = document.createElement('div');
+      msg.className = 'error-msg';
+      msg.textContent = res.message;
+      el.parentNode.appendChild(msg);
+      if (!firstErrorEl) firstErrorEl = el;
+    } else if (res.value !== null) {
+      el.value = res.value; // Normaliza
+    }
+    return res.value;
+  }
+
+  // CAMBIO: Validar componentes espaciales
+  const lat = check('f_lat', 'lat', false);
+  const lon = check('f_lon', 'lon', false);
+  check('f_utmZone', 'utmZone', false);
+  check('f_utmEast', 'easting', false);
+  check('f_utmNorth', 'northing', false);
+
+  if (hasError) {
+    if (firstErrorEl) firstErrorEl.focus();
+    return; // Detiene la grabación
+  }
+
+  const name = document.getElementById('f_name').value.trim() || id;
+  const dt = document.getElementById('f_dt').value;
+  const alt = parseInt(document.getElementById('f_alt').value, 10);
+  const notes = document.getElementById('f_notes').value;
+  
+  const obj = { 
+    id: id, 
+    campaignId: state.campId, 
+    name: name, 
+    timestamp: dt ? new Date(dt).toISOString() : nowIso(),
+    lat: isNaN(lat) || lat === null ? null : lat, 
+    lon: isNaN(lon) || lon === null ? null : lon, 
+    alt: isNaN(alt) ? null : alt, 
+    notes: notes 
+  };
+  
   await dbPut('stations', obj);
-  toast(currentLang==='es'?'Estación guardada':'Station saved');
+  toast(currentLang === 'es' ? 'Estación guardada' : 'Station saved');
   Nav.station(id, state.campId);
 }
+
 async function confirmDeleteStation(id){
   if(!confirm(currentLang==='es'?'¿Eliminar esta estación?':'Delete station?')) return;
   await dbDeleteStationCascade(id);
@@ -3599,12 +3659,14 @@ async function renderStationDetail(){
 
   const cats = CATS.map(c=>{
     const items = meas.filter(m=>m.type===c.key).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+    // CAMBIO: Se añadió el botón de Duplicar a los mini-actions con su respectiva función
     const rows = items.map(m=>`
       <div class="mini-row">
-        <div class="ml"><b>${esc(m.structKind ? (m.structKind+' - '+(m.texture||'')) : (m.subtype||c.title))}</b><span>${esc(measSub(m))}</span></div>
+        <div class="ml"><b>${esc(m.structKind ? (m.texture ? (m.structKind+' - '+m.texture) : m.structKind) : (m.subtype||c.title))}</b><span>${esc(measSub(m))}</span></div>
         <div class="mini-actions">
-          <button class="icon-sm" onclick="event.stopPropagation();Nav.editMeasurement('${m.id}','${st.id}','${m.type}')">✎</button>
-          <button class="icon-sm" onclick="event.stopPropagation();deleteMeasurement('${m.id}')">🗑</button>
+          <button class="icon-sm" onclick="event.stopPropagation();Nav.editMeasurement('${m.id}','${st.id}','${m.type}')" title="Editar">✎</button>
+          <button class="icon-sm" onclick="event.stopPropagation();Nav.duplicateMeasurement('${m.id}','${st.id}','${m.type}')" title="${t('duplicate')}">⎘</button>
+          <button class="icon-sm" onclick="event.stopPropagation();deleteMeasurement('${m.id}')" title="Eliminar">🗑</button>
         </div>
       </div>`).join('') || `<div class="hint" style="margin-top:8px;">${currentLang==='es'?'Sin registros aún':'No records yet'}</div>`;
     const title = currentLang==='en'? c.titleEn : c.title;
@@ -3625,8 +3687,8 @@ async function renderStationDetail(){
   </div>
   <div class="card" style="cursor:default;">
     <div class="card-sub" style="font-family:var(--mono);font-size:12px;">${coords}</div>
-    ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>` : ''}
-    ${st.notes? `<p style="margin-top:6px;font-size:13px;">${esc(st.notes)}</p>`:''}
+    ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM \${esc(utmInfo.text)}</div>` : ''}
+    ${st.notes? `<p style="margin-top:6px;font-size:13px;">\${esc(st.notes)}</p>`:''}
     <div class="btn-row" style="margin-top:10px;">
       <button class="btn ghost small" onclick="Nav.editStation('${st.id}','${st.campaignId}')">✎ ${t('editStation')}</button>
       <button class="btn primary small" onclick="Nav.stereonet('${st.campaignId}','${st.id}')">🌐 Estereograma</button>
@@ -3647,8 +3709,19 @@ async function deleteMeasurement(id){
    ========================================================= */
 async function renderMeasForm(){
   const isNew = !state.measId;
-  const m = isNew ? { id:uid(), stationId:state.stationId, type:state.measType, timestamp: nowIso() }
-                  : await dbGet('measurements', state.measId);
+  let m;
+  // CAMBIO: Si es nueva pero existe data a duplicar, inyectamos esa información pisando ID y Timestamp
+  if (isNew) {
+    if (state.duplicateData) {
+      m = { ...state.duplicateData, id: uid(), timestamp: nowIso() };
+      state.duplicateData = null; // Limpiar tras el consumo
+    } else {
+      m = { id:uid(), stationId:state.stationId, type:state.measType, timestamp: nowIso() };
+    }
+  } else {
+    m = await dbGet('measurements', state.measId);
+  }
+  
   let fields='';
   if(m.type==='planar') fields=renderPlanarFields(m);
   else if(m.type==='fault') fields=renderFaultFields(m);
@@ -3854,55 +3927,142 @@ function onKindChange(el){
 }
 
 async function saveMeasurement(id, isNew){
-  const type=state.measType;
-  const obj={ id, stationId:state.stationId, type, timestamp: nowIso(), notes: document.getElementById('f_notes').value };
+  // CAMBIO: Limpiar errores previos
+  document.querySelectorAll('.error-msg').forEach(function(e){ e.remove(); });
+  document.querySelectorAll('.field-error').forEach(function(e){ e.classList.remove('field-error'); });
+  let hasError = false;
+  let firstErrorEl = null;
 
-  if(type==='planar'){
-    obj.subtype=document.getElementById('f_subtype').value;
-    if(LINEAR_SUBTYPES.includes(obj.subtype)){
-      obj.trend=intOrNull('trend_l1'); obj.plunge=intOrNull('plunge_l1');
-    } else {
-      obj.dipDir=intOrNull('dipDir_p1'); obj.dip=intOrNull('dip_p1');
-      obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
+  // CAMBIO: Función interna para procesar la validación y pintar el DOM
+  function check(inputId, kind, isReq) {
+    const el = document.getElementById(inputId);
+    if (!el) return null;
+    const res = validateField(kind, el.value, isReq);
+    if (!res.ok) {
+      hasError = true;
+      el.classList.add('field-error');
+      const msg = document.createElement('div');
+      msg.className = 'error-msg';
+      msg.textContent = res.message;
+      el.parentNode.appendChild(msg);
+      if (!firstErrorEl) firstErrorEl = el;
+    } else if (res.value !== null && kind !== 'quadrant') {
+      el.value = res.value; // Escribir de vuelta el valor normalizado (ej. 360 -> 0)
     }
-  } else if(type==='fault'){
-    obj.dipDir=intOrNull('dipDir_fp'); obj.dip=intOrNull('dip_fp');
-    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
-    obj.striaeMode=document.querySelector('input[name=striaeMode]:checked')?.value || 'rake';
-    if(obj.striaeMode==='trendplunge'){
-      obj.trend=intOrNull('trend_fl'); obj.plunge=intOrNull('plunge_fl');
-    }
-    obj.rake=intOrNull('f_rake');
-    obj.rakeQuadrant=document.getElementById('f_rakeQuad')?.value || null;
-    obj.sense=document.getElementById('f_sense').value;
-    obj.senseQuality=document.getElementById('f_senseQuality').value;
-    obj.criteria=[...document.querySelectorAll('.crit-chk:checked')].map(c=>c.value);
-  } else if(type==='contact'){
-    obj.contactType=document.getElementById('f_contactType').value;
-    obj.dipDir=intOrNull('dipDir_c1'); obj.dip=intOrNull('dip_c1');
-    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
-    obj.lithoTop=document.getElementById('f_lithoTop').value;
-    obj.lithoBottom=document.getElementById('f_lithoBottom').value;
-    obj.appThickness=intOrNull('f_appThickness');
-    obj.bedDip=intOrNull('f_bedDip');
-    obj.slope=intOrNull('f_slope');
-    obj.slopeSense=document.getElementById('f_slopeSense').value;
-    obj.trueThickness=calcThickness();
-  } else if(type==='vein'){
-    obj.structKind=document.querySelector('input[name=structKind]:checked')?.value || 'Veta';
-    obj.dipDir=intOrNull('dipDir_v1'); obj.dip=intOrNull('dip_v1');
-    obj.strike = obj.dipDir!=null? roundInt(norm360(obj.dipDir-90)) : null;
-    obj.veinThickness=intOrNull('f_veinThick');
-    obj.veinUnit=document.getElementById('f_veinUnit').value;
-    obj.veinDensity=intOrNull('f_veinDensity');
-    obj.mineralogy=[...document.querySelectorAll('.min-chk:checked')].map(c=>c.value);
-    obj.mineralOther=document.getElementById('f_mineralOther').value;
-    obj.texture=document.getElementById('f_texture').value;
-    obj.alteration=[...document.querySelectorAll('.alt-chk:checked')].map(c=>c.value);
-    obj.intensity=document.getElementById('f_intensity').value;
+    return res.value;
   }
+
+  // CAMBIO: Determinar los inputs a validar según la notación activa
+  function checkPlane(formKey) {
+    let dipId = 'dip_' + formKey;
+    let azId = 'dipDir_' + formKey;
+    let azKind = 'azimuth';
+    if (inputNotation === 'strike') {
+      dipId = 'dip2_' + formKey;
+      azId = 'strike_' + formKey;
+    } else if (inputNotation === 'quadrant') {
+      dipId = 'dip3_' + formKey;
+      azId = 'quad_' + formKey;
+      azKind = 'quadrant';
+    }
+
+    const dipVal = check(dipId, 'angle', true);
+    const azReq = (dipVal !== 0 && dipVal !== null); // Dip=0 no requiere rumbo
+    check(azId, azKind, azReq);
+
+    // Asegurar que los inputs ocultos se sincronicen con el valor validado
+    onOrientationInputChange(formKey, inputNotation);
+  }
+
+  const type = state.measType;
+  const obj = { id: id, stationId: state.stationId, type: type, timestamp: nowIso(), notes: document.getElementById('f_notes').value };
+
+  // CAMBIO: Ejecutar todas las validaciones aplicables al formulario
+  if (type === 'planar') {
+    obj.subtype = document.getElementById('f_subtype').value;
+    if (LINEAR_SUBTYPES.includes(obj.subtype)) {
+      check('trend_l1', 'azimuth', true);
+      check('plunge_l1', 'angle', true);
+    } else {
+      checkPlane('p1');
+    }
+  } else if (type === 'fault') {
+    checkPlane('fp');
+    const striaeMode = document.querySelector('input[name=striaeMode]:checked') ? document.querySelector('input[name=striaeMode]:checked').value : 'rake';
+    if (striaeMode === 'trendplunge') {
+      check('trend_fl', 'azimuth', true);
+      check('plunge_fl', 'angle', true);
+    }
+    check('f_rake', 'angle', false);
+  } else if (type === 'contact') {
+    checkPlane('c1');
+    check('f_appThickness', 'positive', false);
+    check('f_bedDip', 'angle', false);
+    check('f_slope', 'angle', false);
+  } else if (type === 'vein') {
+    checkPlane('v1');
+    check('f_veinThick', 'positive', false);
+    check('f_veinDensity', 'positive', false);
+  }
+
+  if (hasError) {
+    if (firstErrorEl) firstErrorEl.focus();
+    return; // CAMBIO: Detener el guardado en IndexedDB
+  }
+
+  // Poblado final del objeto garantizado con valores ya limpios
+  if (type === 'planar') {
+    if (LINEAR_SUBTYPES.includes(obj.subtype)) {
+      obj.trend = intOrNull('trend_l1');
+      obj.plunge = intOrNull('plunge_l1');
+    } else {
+      obj.dipDir = intOrNull('dipDir_p1');
+      obj.dip = intOrNull('dip_p1');
+      obj.strike = obj.dipDir != null ? roundInt(norm360(obj.dipDir - 90)) : null;
+    }
+  } else if (type === 'fault') {
+    obj.dipDir = intOrNull('dipDir_fp');
+    obj.dip = intOrNull('dip_fp');
+    obj.strike = obj.dipDir != null ? roundInt(norm360(obj.dipDir - 90)) : null;
+    obj.striaeMode = document.querySelector('input[name=striaeMode]:checked') ? document.querySelector('input[name=striaeMode]:checked').value : 'rake';
+    if (obj.striaeMode === 'trendplunge') {
+      obj.trend = intOrNull('trend_fl');
+      obj.plunge = intOrNull('plunge_fl');
+    }
+    obj.rake = intOrNull('f_rake');
+    obj.rakeQuadrant = document.getElementById('f_rakeQuad') ? document.getElementById('f_rakeQuad').value : null;
+    obj.sense = document.getElementById('f_sense').value;
+    obj.senseQuality = document.getElementById('f_senseQuality').value;
+    obj.criteria = Array.from(document.querySelectorAll('.crit-chk:checked')).map(function(c){ return c.value; });
+  } else if (type === 'contact') {
+    obj.contactType = document.getElementById('f_contactType').value;
+    obj.dipDir = intOrNull('dipDir_c1');
+    obj.dip = intOrNull('dip_c1');
+    obj.strike = obj.dipDir != null ? roundInt(norm360(obj.dipDir - 90)) : null;
+    obj.lithoTop = document.getElementById('f_lithoTop').value;
+    obj.lithoBottom = document.getElementById('f_lithoBottom').value;
+    obj.appThickness = intOrNull('f_appThickness');
+    obj.bedDip = intOrNull('f_bedDip');
+    obj.slope = intOrNull('f_slope');
+    obj.slopeSense = document.getElementById('f_slopeSense').value;
+    obj.trueThickness = calcThickness();
+  } else if (type === 'vein') {
+    obj.structKind = document.querySelector('input[name=structKind]:checked') ? document.querySelector('input[name=structKind]:checked').value : 'Veta';
+    obj.dipDir = intOrNull('dipDir_v1');
+    obj.dip = intOrNull('dip_v1');
+    obj.strike = obj.dipDir != null ? roundInt(norm360(obj.dipDir - 90)) : null;
+    obj.veinThickness = intOrNull('f_veinThick');
+    obj.veinUnit = document.getElementById('f_veinUnit').value;
+    obj.veinDensity = intOrNull('f_veinDensity');
+    obj.mineralogy = Array.from(document.querySelectorAll('.min-chk:checked')).map(function(c){ return c.value; });
+    obj.mineralOther = document.getElementById('f_mineralOther').value;
+    obj.texture = document.getElementById('f_texture').value;
+    obj.alteration = Array.from(document.querySelectorAll('.alt-chk:checked')).map(function(c){ return c.value; });
+    obj.intensity = document.getElementById('f_intensity').value;
+  }
+  
   await dbPut('measurements', obj);
-  toast(currentLang==='es'?'Guardado':'Saved');
+  toast(currentLang === 'es' ? 'Guardado' : 'Saved');
   Nav.station(state.stationId, state.campId);
 }
 
@@ -5548,7 +5708,120 @@ async function handleFileImport(e){
    VISTA: AJUSTES
    ========================================================= */
 
-/* INSERTA ESTO JUSTO ANTES DE: function renderSettings(){ */
+// CAMBIO: Variables globales para el manejo de Screen Wake Lock
+let wakeLockSentinel = null;
+let wakeLockPref = localStorage.getItem('geo_keep_awake') === '1';
+let wakeLockRetryPending = false;
+
+// CAMBIO: Solicitud del bloqueo de pantalla
+async function requestKeepAwake() {
+  if (!('wakeLock' in navigator) || !window.isSecureContext) return false;
+  try {
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release', function() {
+      if (document.getElementById('geoWakeLockToggle')) updateWakeLockUI();
+    });
+    wakeLockPref = true;
+    localStorage.setItem('geo_keep_awake', '1');
+    if (document.getElementById('geoWakeLockToggle')) updateWakeLockUI();
+    return true;
+  } catch (err) {
+    if (err.name === 'NotAllowedError') {
+      toast(t('wakeLockBattery'));
+      wakeLockPref = false;
+      localStorage.setItem('geo_keep_awake', '0');
+    }
+    if (document.getElementById('geoWakeLockToggle')) updateWakeLockUI();
+    return false;
+  }
+}
+
+// CAMBIO: Liberación del bloqueo de pantalla
+async function releaseKeepAwake() {
+  wakeLockPref = false;
+  localStorage.setItem('geo_keep_awake', '0');
+  if (wakeLockSentinel) {
+    await wakeLockSentinel.release();
+    wakeLockSentinel = null;
+  }
+  if (document.getElementById('geoWakeLockToggle')) updateWakeLockUI();
+}
+
+// CAMBIO: Manejador del toggle en Ajustes
+function toggleKeepAwake(checked) {
+  if (checked) {
+    requestKeepAwake();
+  } else {
+    releaseKeepAwake();
+  }
+}
+
+// CAMBIO: Actualización de la interfaz en base al estado del Wake Lock
+function updateWakeLockUI() {
+  const chk = document.getElementById('geoWakeLockToggle');
+  const lbl = document.getElementById('geoWakeLockStatus');
+  if (!chk || !lbl) return;
+  if (!('wakeLock' in navigator) || !window.isSecureContext) {
+    chk.disabled = true;
+    chk.checked = false;
+    lbl.textContent = t('wakeLockUnavailable');
+  } else {
+    chk.disabled = false;
+    chk.checked = (wakeLockSentinel !== null && !wakeLockSentinel.released);
+    lbl.textContent = chk.checked ? t('wakeLockActive') : t('wakeLockInactive');
+  }
+}
+
+// CAMBIO: Listener global para recuperar el lock al volver a la pestaña
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible' && wakeLockPref) {
+    requestKeepAwake();
+  }
+});
+
+// CAMBIO: Función para reintentar obtener el Wake Lock en la primera interacción
+function handleWakeLockInteraction() {
+  if (wakeLockRetryPending && wakeLockPref) {
+    wakeLockRetryPending = false;
+    requestKeepAwake();
+  }
+  document.removeEventListener('pointerdown', handleWakeLockInteraction);
+  document.removeEventListener('keydown', handleWakeLockInteraction);
+}
+
+// CAMBIO: Inicializador global del estado del Wake Lock
+async function initWakeLock() {
+  if (wakeLockPref) {
+    const success = await requestKeepAwake();
+    if (!success && wakeLockPref) {
+      wakeLockRetryPending = true;
+      document.addEventListener('pointerdown', handleWakeLockInteraction);
+      document.addEventListener('keydown', handleWakeLockInteraction);
+    }
+  }
+}
+initWakeLock();
+
+// CAMBIO: Función independiente para inyectar los textos en los diccionarios (es/en)
+function injectWakeLockTranslations() {
+  Object.assign(I18N.es, {
+    wakeLockTitle: 'Mantener pantalla activa',
+    wakeLockSub: 'Evita que la pantalla se apague mientras mides. Gasta más batería.',
+    wakeLockActive: 'Activa',
+    wakeLockInactive: 'Inactiva',
+    wakeLockUnavailable: 'No disponible en este navegador',
+    wakeLockBattery: 'Ahorro de batería impide mantener pantalla'
+  });
+  Object.assign(I18N.en, {
+    wakeLockTitle: 'Keep screen awake',
+    wakeLockSub: 'Prevents the screen from turning off while measuring. Uses more battery.',
+    wakeLockActive: 'Active',
+    wakeLockInactive: 'Inactive',
+    wakeLockUnavailable: 'Unavailable on this browser',
+    wakeLockBattery: 'Battery saver prevents keeping screen awake'
+  });
+}
+  
 function injectSettingsUITranslations() {
   Object.assign(I18N.es, {
     secAppearance: 'Apariencia',
@@ -5563,103 +5836,122 @@ function injectSettingsUITranslations() {
 }
 injectSettingsUITranslations();
 
-/* REEMPLAZA: function renderSettings(){ ... } */
+
 function renderSettings(){
-  return `
-  <div class="topline"><div><h2>${t('settings')}</h2></div></div>
+  // CAMBIO: Sustitución de interpolaciones por concatenación pura para evitar conflictos y agregación del control de Wake Lock
+  let wlState = '';
+  let wlDisabled = '';
+  if (!('wakeLock' in navigator) || !window.isSecureContext) {
+    wlState = t('wakeLockUnavailable');
+    wlDisabled = 'disabled';
+  } else {
+    wlState = (wakeLockSentinel !== null && !wakeLockSentinel.released) ? t('wakeLockActive') : t('wakeLockInactive');
+  }
+  let isChecked = (wakeLockSentinel !== null && !wakeLockSentinel.released) ? 'checked' : '';
 
-  <details class="settings-sec" open>
-    <summary>
-      <div class="sum-text">🎨 ${t('secAppearance')}</div>
-      <div class="sum-icon">▼</div>
-    </summary>
-    <div class="sec-body">
-      <div class="set-item">
-        <div class="set-title">${t('colorTheme')}</div>
-        <div class="set-sub">Selecciona una paleta de alto contraste para luz solar</div>
-        <select onchange="changeColorTheme(this.value)" style="margin-top:8px;">
-          <option value="sun" ${colorTheme==='sun'?'selected':''}>☀️ Sol Directo (Blanco / Alto Contraste)</option>
-          <option value="dark" ${colorTheme==='dark'?'selected':''}>🌙 Noche / Campamento (Dark Slate)</option>
-          <option value="earth" ${colorTheme==='earth'?'selected':''}>🏜️ Geológico Tierra / Ocre</option>
-          <option value="forest" ${colorTheme==='forest'?'selected':''}>🌲 Bosque / Oliva</option>
-        </select>
-      </div>
-      <div class="set-item">
-        <div class="set-title">${t('lang')} / Language</div>
-        <select onchange="changeLanguage(this.value)" style="margin-top:8px;">
-          <option value="es" ${currentLang==='es'?'selected':''}>Español</option>
-          <option value="en" ${currentLang==='en'?'selected':''}>English</option>
-        </select>
-      </div>
-      <div class="set-item">
-        <div class="set-title">${t('compassSize')}</div>
-        <select onchange="changeCompassScale(this.value)" style="margin-top:8px;">
-          <option value="sm" ${compassScale==='sm'?'selected':''}>Pequeño / Small</option>
-          <option value="md" ${compassScale==='md'?'selected':''}>Medio / Medium</option>
-          <option value="lg" ${compassScale==='lg'?'selected':''}>Grande / Large</option>
-          <option value="xl" ${compassScale==='xl'?'selected':''}>Extra Grande / Extra Large</option>
-        </select>
-      </div>
-      <div class="set-item">
-        <div class="set-title">${t('sensorBoxSize')}</div>
-        <select onchange="changeBoxScale(this.value)" style="margin-top:8px;">
-          <option value="md" ${boxScale==='md'?'selected':''}>Normal</option>
-          <option value="lg" ${boxScale==='lg'?'selected':''}>Grande (Recomendado)</option>
-          <option value="xl" ${boxScale==='xl'?'selected':''}>Extra grande</option>
-        </select>
-      </div>
-    </div>
-  </details>
+  return '<div class="topline"><div><h2>' + t('settings') + '</h2></div></div>' +
 
-  <details class="settings-sec" open>
-    <summary>
-      <div class="sum-text">📐 ${t('secNotation')}</div>
-      <div class="sum-icon">▼</div>
-    </summary>
-    <div class="sec-body">
-      <div class="set-item">
-        <div class="set-title">⌨️ ${t('inputNotation')}</div>
-        <select onchange="changeInputNotation(this.value)" style="margin-top:8px;">
-          <option value="dipdir" ${inputNotation==='dipdir'?'selected':''}>Dip Direction / Dip (ej. 135 / 45)</option>
-          <option value="strike" ${inputNotation==='strike'?'selected':''}>Strike RHR / Dip (ej. 045 / 45)</option>
-          <option value="quadrant" ${inputNotation==='quadrant'?'selected':''}>Cuadrante / Dip (ej. N45°E / 45)</option>
-        </select>
-      </div>
-      <div class="set-item">
-        <div class="set-title">${t('quadrantMode')}</div>
-        <select onchange="changeQuadrantPref(this.value)" style="margin-top:8px;">
-          <option value="NS" ${quadrantPref==='NS'?'selected':''}>Norte y Sur (ej. N30°E y S45°O)</option>
-          <option value="N_ONLY" ${quadrantPref==='N_ONLY'?'selected':''}>Solo Norte (ej. N30°E y N135°O)</option>
-        </select>
-      </div>
-    </div>
-  </details>
+  '<details class="settings-sec" open>' +
+    '<summary>' +
+      '<div class="sum-text">🎨 ' + t('secAppearance') + '</div>' +
+      '<div class="sum-icon">▼</div>' +
+    '</summary>' +
+    '<div class="sec-body">' +
+      '<div class="set-item">' +
+        '<div class="switch-row" style="margin:0; min-height:44px; padding:0; background:transparent; border:none;">' +
+          '<div style="padding-right:12px;">' +
+            '<div class="set-title">' + t('wakeLockTitle') + '</div>' +
+            '<div class="set-sub" style="margin-top:2px;">' + t('wakeLockSub') + '</div>' +
+            '<div class="set-sub" id="geoWakeLockStatus" style="font-weight:bold; margin-top:4px;">' + wlState + '</div>' +
+          '</div>' +
+          '<label class="switch" style="flex:0 0 auto;"><input type="checkbox" id="geoWakeLockToggle" onchange="toggleKeepAwake(this.checked)" ' + isChecked + ' ' + wlDisabled + '><span class="track"><span class="thumb"></span></span></label>' +
+        '</div>' +
+      '</div>' +
+      '<div class="set-item">' +
+        '<div class="set-title">' + t('colorTheme') + '</div>' +
+        '<div class="set-sub">Selecciona una paleta de alto contraste para luz solar</div>' +
+        '<select onchange="changeColorTheme(this.value)" style="margin-top:8px;">' +
+          '<option value="sun" ' + (colorTheme==='sun'?'selected':'') + '>☀️ Sol Directo (Blanco / Alto Contraste)</option>' +
+          '<option value="dark" ' + (colorTheme==='dark'?'selected':'') + '>🌙 Noche / Campamento (Dark Slate)</option>' +
+          '<option value="earth" ' + (colorTheme==='earth'?'selected':'') + '>🏜️ Geológico Tierra / Ocre</option>' +
+          '<option value="forest" ' + (colorTheme==='forest'?'selected':'') + '>🌲 Bosque / Oliva</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="set-item">' +
+        '<div class="set-title">' + t('lang') + ' / Language</div>' +
+        '<select onchange="changeLanguage(this.value)" style="margin-top:8px;">' +
+          '<option value="es" ' + (currentLang==='es'?'selected':'') + '>Español</option>' +
+          '<option value="en" ' + (currentLang==='en'?'selected':'') + '>English</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="set-item">' +
+        '<div class="set-title">' + t('compassSize') + '</div>' +
+        '<select onchange="changeCompassScale(this.value)" style="margin-top:8px;">' +
+          '<option value="sm" ' + (compassScale==='sm'?'selected':'') + '>Pequeño / Small</option>' +
+          '<option value="md" ' + (compassScale==='md'?'selected':'') + '>Medio / Medium</option>' +
+          '<option value="lg" ' + (compassScale==='lg'?'selected':'') + '>Grande / Large</option>' +
+          '<option value="xl" ' + (compassScale==='xl'?'selected':'') + '>Extra Grande / Extra Large</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="set-item">' +
+        '<div class="set-title">' + t('sensorBoxSize') + '</div>' +
+        '<select onchange="changeBoxScale(this.value)" style="margin-top:8px;">' +
+          '<option value="md" ' + (boxScale==='md'?'selected':'') + '>Normal</option>' +
+          '<option value="lg" ' + (boxScale==='lg'?'selected':'') + '>Grande (Recomendado)</option>' +
+          '<option value="xl" ' + (boxScale==='xl'?'selected':'') + '>Extra grande</option>' +
+        '</select>' +
+      '</div>' +
+    '</div>' +
+  '</details>' +
 
-  <details class="settings-sec" open>
-    <summary>
-      <div class="sum-text">🧭 ${t('secSensors')}</div>
-      <div class="sum-icon">▼</div>
-    </summary>
-    <div class="sec-body">
-      <div class="set-item">
-        <div class="set-title">${t('needleTarget')}</div>
-        <select onchange="changeNeedleMode(this.value)" style="margin-top:8px;">
-          <option value="dipdir" ${needleMode==='dipdir'?'selected':''}>Dirección de Manteo (Dip Direction)</option>
-          <option value="strike" ${needleMode==='strike'?'selected':''}>Rumbo / Strike (Regla mano derecha)</option>
-        </select>
-      </div>
-      <div class="set-item">
-        <div class="set-title">${t('calibration')}</div>
-        <input type="number" step="1" value="${magOffset}" id="magOffsetInput" onchange="changeMagOffset(this.value)" style="margin-top:8px;" placeholder="ej. -5 o 8">
-        <button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="autoEstimateDeclination()">📍 Calcular declinación desde GPS actual</button>
-      </div>
-      <div class="set-item">
-        <div class="set-title">Sensores / Permisos</div>
-        <button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar / Re-calibrar Sensores</button>
-      </div>
-    </div>
-  </details>
-  `;
+  '<details class="settings-sec" open>' +
+    '<summary>' +
+      '<div class="sum-text">📐 ' + t('secNotation') + '</div>' +
+      '<div class="sum-icon">▼</div>' +
+    '</summary>' +
+    '<div class="sec-body">' +
+      '<div class="set-item">' +
+        '<div class="set-title">⌨️ ' + t('inputNotation') + '</div>' +
+        '<select onchange="changeInputNotation(this.value)" style="margin-top:8px;">' +
+          '<option value="dipdir" ' + (inputNotation==='dipdir'?'selected':'') + '>Dip Direction / Dip (ej. 135 / 45)</option>' +
+          '<option value="strike" ' + (inputNotation==='strike'?'selected':'') + '>Strike RHR / Dip (ej. 045 / 45)</option>' +
+          '<option value="quadrant" ' + (inputNotation==='quadrant'?'selected':'') + '>Cuadrante / Dip (ej. N45°E / 45)</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="set-item">' +
+        '<div class="set-title">' + t('quadrantMode') + '</div>' +
+        '<select onchange="changeQuadrantPref(this.value)" style="margin-top:8px;">' +
+          '<option value="NS" ' + (quadrantPref==='NS'?'selected':'') + '>Norte y Sur (ej. N30°E y S45°O)</option>' +
+          '<option value="N_ONLY" ' + (quadrantPref==='N_ONLY'?'selected':'') + '>Solo Norte (ej. N30°E y N135°O)</option>' +
+        '</select>' +
+      '</div>' +
+    '</div>' +
+  '</details>' +
+
+  '<details class="settings-sec" open>' +
+    '<summary>' +
+      '<div class="sum-text">🧭 ' + t('secSensors') + '</div>' +
+      '<div class="sum-icon">▼</div>' +
+    '</summary>' +
+    '<div class="sec-body">' +
+      '<div class="set-item">' +
+        '<div class="set-title">' + t('needleTarget') + '</div>' +
+        '<select onchange="changeNeedleMode(this.value)" style="margin-top:8px;">' +
+          '<option value="dipdir" ' + (needleMode==='dipdir'?'selected':'') + '>Dirección de Manteo (Dip Direction)</option>' +
+          '<option value="strike" ' + (needleMode==='strike'?'selected':'') + '>Rumbo / Strike (Regla mano derecha)</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="set-item">' +
+        '<div class="set-title">' + t('calibration') + '</div>' +
+        '<input type="number" step="1" value="' + magOffset + '" id="magOffsetInput" onchange="changeMagOffset(this.value)" style="margin-top:8px;" placeholder="ej. -5 o 8">' +
+        '<button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="autoEstimateDeclination()">📍 Calcular declinación desde GPS actual</button>' +
+      '</div>' +
+      '<div class="set-item">' +
+        '<div class="set-title">Sensores / Permisos</div>' +
+        '<button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar / Re-calibrar Sensores</button>' +
+      '</div>' +
+    '</div>' +
+  '</details>';
 }
 
 function autoEstimateDeclination(){
@@ -5679,6 +5971,91 @@ function changeBoxScale(scale){ boxScale=scale; localStorage.setItem('geo_box_sc
 function changeQuadrantPref(val){ quadrantPref=val; localStorage.setItem('geo_quadrant_pref', val); render(); }
 function changeNeedleMode(val){ needleMode=val; localStorage.setItem('geo_needle_mode', val); render(); }
 function changeMagOffset(val){ magOffset=parseFloat(val)||0; localStorage.setItem('geo_mag_offset', magOffset); render(); }
+
+// CAMBIO: Textos traducidos puros para validaciones
+function injectValidationTranslations() {
+  Object.assign(I18N.es, {
+    valReq: 'Campo obligatorio',
+    valNum: 'Debe ser un número válido',
+    valAzi: 'Debe estar entre 0 y 359°',
+    valAng: 'Debe estar entre 0 y 90°',
+    valQuad: 'Formato inválido (ej. N45E, S10W)',
+    valLat: 'Latitud debe estar entre -90 y 90',
+    valLon: 'Longitud debe estar entre -180 y 180',
+    valPos: 'Debe ser mayor o igual a 0',
+    valZone: 'Huso válido entre 1 y 60',
+    valEast: 'Este entre 100000 y 900000',
+    valNorth: 'Norte entre 0 y 10000000'
+  });
+  Object.assign(I18N.en, {
+    valReq: 'Required field',
+    valNum: 'Must be a valid number',
+    valAzi: 'Must be between 0 and 359°',
+    valAng: 'Must be between 0 and 90°',
+    valQuad: 'Invalid format (e.g. N45E, S10W)',
+    valLat: 'Latitude must be between -90 and 90',
+    valLon: 'Longitude must be between -180 and 180',
+    valPos: 'Must be greater than or equal to 0',
+    valZone: 'Zone must be between 1 and 60',
+    valEast: 'Easting between 100000 and 900000',
+    valNorth: 'Northing between 0 and 10000000'
+  });
+}
+
+// CAMBIO: Función pura central de validación de campos según el tipo numérico o textual
+function validateField(kind, value, isRequired) {
+  if (typeof value === 'string') value = value.trim();
+
+  if (value === '' || value === null || value === undefined) {
+    if (isRequired) return { ok: false, value: null, message: t('valReq') };
+    return { ok: true, value: null };
+  }
+  
+    if (kind === 'quadrant') {
+    const strike = parseQuadrantToStrike(String(value));
+    if (strike === null) return { ok: false, value: value, message: t('valQuad') };
+    const nums = String(value).match(/\d+(?:[.,]\d+)?/g) || [];
+    if (nums.some(n => parseFloat(n.replace(',', '.')) > 90)) return { ok: false, value: value, message: t('valQuad') };
+    return { ok: true, value: String(value) };
+  }
+  
+  const v = (typeof value === 'string') ? Number(value.replace(',', '.')) : Number(value);
+  if (!Number.isFinite(v)) return { ok: false, value: v, message: t('valNum') };
+
+  if (kind === 'azimuth') {
+    let norm = v;
+    if (norm === 360) norm = 0;
+    if (norm < 0 || norm >= 360) return { ok: false, value: norm, message: t('valAzi') };
+    return { ok: true, value: norm };
+  } else if (kind === 'angle') {
+    if (v < 0 || v > 90) return { ok: false, value: v, message: t('valAng') };
+  } else if (kind === 'lat') {
+    if (v < -90 || v > 90) return { ok: false, value: v, message: t('valLat') };
+  } else if (kind === 'lon') {
+    if (v < -180 || v > 180) return { ok: false, value: v, message: t('valLon') };
+  } else if (kind === 'positive') {
+    if (v < 0) return { ok: false, value: v, message: t('valPos') };
+  } else if (kind === 'utmZone') {
+    if (v < 1 || v > 60) return { ok: false, value: v, message: t('valZone') };
+  } else if (kind === 'easting') {
+    if (v < 100000 || v > 900000) return { ok: false, value: v, message: t('valEast') };
+  } else if (kind === 'northing') {
+    if (v < 0 || v > 10000000) return { ok: false, value: v, message: t('valNorth') };
+  }
+  
+  return { ok: true, value: v };
+}
+
+// CAMBIO: Traducciones para la acción de duplicado
+function injectDuplicateTranslations() {
+  Object.assign(I18N.es, {
+    duplicate: 'Duplicar'
+  });
+  Object.assign(I18N.en, {
+    duplicate: 'Duplicate'
+  });
+}
+injectDuplicateTranslations();
 
 // CAMBIO: Traducciones para la nueva UI compacta del estereograma
 function injectStereoTranslations() {
@@ -5712,16 +6089,18 @@ injectStereoTranslations();
 
 (async function init(){
   await openDB();
-  // CAMBIO: Se inyectan traducciones para las alertas del importador
   injectImportTranslations();
+  injectValidationTranslations();
   injectStereoUITranslations();
   injectClusterTranslations();
   injectBackupTranslations();
   injectMapLayerTranslations();
   injectOnlineLayerTranslations();
   injectMapNavTranslations();
-  injectMapPanelTranslations(); // CAMBIO: Cargar nuevas traducciones
-  requestPersistentStorage().catch(()=>{});
+  injectMapPanelTranslations();
+  // CAMBIO: Inyección de los textos de Wake Lock en la etapa de carga
+  injectWakeLockTranslations(); 
+  requestPersistentStorage().catch(function(){});
   initGPS();
   initSensors();
   updateTopbarStatus();
