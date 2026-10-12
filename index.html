@@ -4830,13 +4830,93 @@ function exportStereoImage(){
 
 // ===== FASE 4: RESPALDO Y RESTAURACIÓN =====
  
-async function requestPersistentStorage() {
-  if (navigator.storage && navigator.storage.persist) {
-    const isPersisted = await navigator.storage.persisted();
-    if (!isPersisted) {
-      await navigator.storage.persist();
+// CAMBIO: Lógicas de API Storage y actualización asíncrona de UI de Ajustes
+async function getStorageStatus() {
+  const res = { supported: false, persisted: false, usage: 0, quota: 0 };
+  if (navigator.storage) {
+    res.supported = true;
+    if (navigator.storage.persisted) {
+      try { res.persisted = await navigator.storage.persisted(); } catch(e){}
+    }
+    if (navigator.storage.estimate) {
+      try {
+        const est = await navigator.storage.estimate();
+        res.usage = est.usage || 0;
+        res.quota = est.quota || 0;
+      } catch(e){}
     }
   }
+  return res;
+}
+
+async function requestPersistentStorage() {
+  if (navigator.storage && navigator.storage.persist) {
+    try {
+      const isPersisted = await navigator.storage.persisted();
+      if (!isPersisted) {
+        await navigator.storage.persist();
+        return true;
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  return false;
+}
+
+async function updateStorageSettingsUI() {
+  const statusEl = document.getElementById('storageStatusTxt');
+  const usageEl = document.getElementById('storageUsageTxt');
+  const btn = document.getElementById('btnReqStorage');
+  const backupEl = document.getElementById('lastBackupTxt');
+  const warnEl = document.getElementById('storageWarnBox');
+  if (!statusEl) return;
+
+  const st = await getStorageStatus();
+  
+  if (!st.supported) {
+    statusEl.textContent = t('storageNotAvail');
+    usageEl.textContent = '—';
+    if(btn) btn.style.display = 'none';
+  } else {
+    statusEl.textContent = st.persisted ? t('storageProtected') : t('storageUnprotected');
+    const mbUsage = (st.usage / (1024*1024)).toFixed(1);
+    const mbQuota = (st.quota / (1024*1024)).toFixed(1);
+    usageEl.textContent = mbUsage + ' MB de ' + mbQuota + ' MB';
+    if(btn) btn.style.display = st.persisted ? 'none' : 'inline-flex';
+  }
+
+  const lastBkup = localStorage.getItem('geo_last_backup');
+  let isOld = false;
+  if (!lastBkup) {
+    backupEl.textContent = t('never');
+    isOld = true;
+  } else {
+    const d = new Date(lastBkup);
+    const diffDays = Math.floor((Date.now() - d.getTime()) / (1000 * 3600 * 24));
+    backupEl.textContent = fmtDate(lastBkup) + ' (hace ' + diffDays + ' días)';
+    if (diffDays > 7) isOld = true;
+  }
+
+  if (!st.persisted && isOld) {
+    warnEl.style.display = 'block';
+    warnEl.textContent = t('storageWarning');
+  } else {
+    warnEl.style.display = 'none';
+  }
+}
+
+async function handleRequestStorage() {
+  const success = await requestPersistentStorage();
+  if (!success) {
+    const warnEl = document.getElementById('storageWarnBox');
+    if (warnEl) {
+      warnEl.style.display = 'block';
+      warnEl.textContent = t('storageDeniedMsg');
+    }
+  }
+  updateStorageSettingsUI();
 }
 
 function injectClusterTranslations() {
@@ -5073,11 +5153,12 @@ async function exportFullBackup() {
     const jsonStr = JSON.stringify(obj);
     const d = new Date();
     const pad = n => String(n).padStart(2, '0');
-    const filename = `geofield_respaldo_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+    const filename = 'geofield_respaldo_' + d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes()) + '.json';
     downloadFile(jsonStr, filename, 'application/json');
-    localStorage.setItem('geo_last_backup', obj.exported_at);
+    // CAMBIO: Guardar marca de tiempo exacta de finalización exitosa
+    localStorage.setItem('geo_last_backup', new Date().toISOString());
     const sizeKb = (new Blob([jsonStr]).size / 1024).toFixed(1);
-    toast(`Respaldo creado: ${obj.counts.measurements || 0} mediciones, ${sizeKb} KB`);
+    toast('Respaldo creado: ' + (obj.counts.measurements || 0) + ' mediciones, ' + sizeKb + ' KB');
     render();
   } catch (err) {
     alert("Error al exportar el respaldo: " + err.message);
@@ -5821,6 +5902,32 @@ function injectWakeLockTranslations() {
     wakeLockBattery: 'Battery saver prevents keeping screen awake'
   });
 }
+
+// CAMBIO: Traducciones para la nueva sección de Almacenamiento Persistente
+function injectStorageTranslations() {
+  Object.assign(I18N.es, {
+    secStorage: 'Datos y almacenamiento',
+    storageStatus: 'Estado de persistencia',
+    storageProtected: 'Protegido',
+    storageUnprotected: 'No protegido',
+    storageNotAvail: 'No disponible en este navegador',
+    storageUsage: 'Uso de espacio',
+    reqProtectionBtn: 'Solicitar protección',
+    storageWarning: 'Tus datos son volátiles y tu último respaldo es antiguo o inexistente. Protégelos o haz un respaldo pronto.',
+    storageDeniedMsg: 'El navegador no la concedió. Instala la app (Añadir a pantalla de inicio) y haz respaldos con frecuencia.'
+  });
+  Object.assign(I18N.en, {
+    secStorage: 'Data & Storage',
+    storageStatus: 'Persistence Status',
+    storageProtected: 'Protected',
+    storageUnprotected: 'Unprotected',
+    storageNotAvail: 'Not available on this browser',
+    storageUsage: 'Space usage',
+    reqProtectionBtn: 'Request protection',
+    storageWarning: 'Your data is volatile and your last backup is old or missing. Protect it or backup soon.',
+    storageDeniedMsg: 'The browser denied it. Install the app (Add to Home Screen) and backup frequently.'
+  });
+}
   
 function injectSettingsUITranslations() {
   Object.assign(I18N.es, {
@@ -5838,7 +5945,8 @@ injectSettingsUITranslations();
 
 
 function renderSettings(){
-  // CAMBIO: Sustitución de interpolaciones por concatenación pura para evitar conflictos y agregación del control de Wake Lock
+  setTimeout(updateStorageSettingsUI, 0); // CAMBIO: Actualizar datos de almacenamiento asíncronamente
+  
   let wlState = '';
   let wlDisabled = '';
   if (!('wakeLock' in navigator) || !window.isSecureContext) {
@@ -5950,6 +6058,30 @@ function renderSettings(){
         '<div class="set-title">Sensores / Permisos</div>' +
         '<button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar / Re-calibrar Sensores</button>' +
       '</div>' +
+    '</div>' +
+  '</details>' +
+  
+  // CAMBIO: Nueva sección de Datos y almacenamiento persistente
+  '<details class="settings-sec" open>' +
+    '<summary>' +
+      '<div class="sum-text">💾 ' + t('secStorage') + '</div>' +
+      '<div class="sum-icon">▼</div>' +
+    '</summary>' +
+    '<div class="sec-body">' +
+      '<div class="set-item">' +
+        '<div class="set-title">' + t('storageStatus') + '</div>' +
+        '<div class="set-sub" id="storageStatusTxt" style="font-weight:bold; margin-top:4px;">Cargando...</div>' +
+      '</div>' +
+      '<div class="set-item">' +
+        '<div class="set-title">' + t('storageUsage') + '</div>' +
+        '<div class="set-sub" id="storageUsageTxt" style="font-family:var(--mono); margin-top:4px;">Cargando...</div>' +
+      '</div>' +
+      '<div class="set-item">' +
+        '<div class="set-title">' + t('lastBackup') + '</div>' +
+        '<div class="set-sub" id="lastBackupTxt" style="font-family:var(--mono); margin-top:4px;">Cargando...</div>' +
+      '</div>' +
+      '<div id="storageWarnBox" style="display:none; background:var(--warn); color:var(--accent-text); padding:10px; border-radius:8px; font-size:12px; margin-top:10px; font-weight:600;"></div>' +
+      '<button class="btn primary" id="btnReqStorage" style="display:none; margin-top:14px; min-height:44px; width:100%;" onclick="handleRequestStorage()">' + t('reqProtectionBtn') + '</button>' +
     '</div>' +
   '</details>';
 }
@@ -6098,8 +6230,9 @@ injectStereoTranslations();
   injectOnlineLayerTranslations();
   injectMapNavTranslations();
   injectMapPanelTranslations();
-  // CAMBIO: Inyección de los textos de Wake Lock en la etapa de carga
   injectWakeLockTranslations(); 
+  // CAMBIO: Inyección de traducciones de almacenamiento
+  injectStorageTranslations();
   requestPersistentStorage().catch(function(){});
   initGPS();
   initSensors();
