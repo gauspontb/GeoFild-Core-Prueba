@@ -822,7 +822,47 @@ function injectMapLayerTranslations() {
 /* =========================================================
    BASE DE DATOS INDEXEDDB (INCLUYE RASTERS OFFLINE)
    ========================================================= */
-const DB_NAME='geofieldcore_db', DB_VERSION=4;
+// CAMBIO: Estilos de la galería de fotos y visor
+const photoStyles = document.createElement('style');
+photoStyles.textContent = `
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; margin-top: 10px; }
+.photo-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-soft); cursor: pointer; background: var(--surface-2); }
+.photo-thumb-wrap { position: relative; }
+.photo-del-badge { position: absolute; top: -4px; right: -4px; background: var(--danger); color: #fff; border-radius: 50%; width: 22px; height: 22px; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.4); z-index: 5; }
+#photoViewer { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column; }
+#photoViewerImg { flex: 1; object-fit: contain; width: 100%; height: 100%; min-height: 0; }
+.photo-viewer-bar { padding: 10px; display: flex; justify-content: space-between; background: rgba(20,24,28,0.8); padding-top: calc(10px + var(--safe-t)); }
+`;
+document.head.appendChild(photoStyles);
+
+function injectPhotosTranslations() {
+  Object.assign(I18N.es, {
+    photos: 'Fotos',
+    takePhoto: 'Tomar foto',
+    gallery: 'Galería',
+    photoLimit: 'Límite de 12 fotos alcanzado',
+    photoSaveError: 'Error al guardar foto(s)',
+    deletePhoto: 'Eliminar foto',
+    confirmDeletePhoto: '¿Eliminar esta foto permanentemente?',
+    close: 'Cerrar',
+    stationPhotos: 'Fotos de la estación',
+    backupPhotosWarn: 'Las fotos aún no se incluyen en el respaldo completo.'
+  });
+  Object.assign(I18N.en, {
+    photos: 'Photos',
+    takePhoto: 'Take photo',
+    gallery: 'Gallery',
+    photoLimit: '12 photos limit reached',
+    photoSaveError: 'Error saving photo(s)',
+    deletePhoto: 'Delete photo',
+    confirmDeletePhoto: 'Delete this photo permanently?',
+    close: 'Close',
+    stationPhotos: 'Station Photos',
+    backupPhotosWarn: 'Photos are not yet included in the full backup.'
+  });
+}
+
+const DB_NAME='geofieldcore_db', DB_VERSION=5; // CAMBIO: Sube la versión a 5
 let DB=null;
 function openDB(){
   return new Promise((resolve,reject)=>{
@@ -833,11 +873,28 @@ function openDB(){
       if(!d.objectStoreNames.contains('stations')) d.createObjectStore('stations',{keyPath:'id'});
       if(!d.objectStoreNames.contains('measurements')) d.createObjectStore('measurements',{keyPath:'id'});
       if(!d.objectStoreNames.contains('map_overlays')) d.createObjectStore('map_overlays',{keyPath:'id'});
+      // CAMBIO: Se agrega almacén de fotos
+      if(!d.objectStoreNames.contains('photos')) {
+        const ps = d.createObjectStore('photos', {keyPath:'id'});
+        ps.createIndex('ownerId', 'ownerId', {unique:false});
+        ps.createIndex('stationId', 'stationId', {unique:false});
+      }
     };
-    req.onsuccess=(e)=>{ DB=e.target.result; resolve(DB); };
+    req.onsuccess=(e)=>{ 
+      DB=e.target.result; 
+      // CAMBIO: Manejo de onversionchange para no bloquear futuras actualizaciones
+      DB.onversionchange = () => {
+        DB.close();
+        toast(currentLang === 'es' ? 'Cierra otras pestañas de la app' : 'Close other app tabs');
+      };
+      resolve(DB); 
+    };
+    // CAMBIO: Manejo de onblocked
+    req.onblocked=()=>toast(currentLang === 'es' ? 'Cierra otras pestañas de la app' : 'Close other app tabs');
     req.onerror=(e)=>reject(e.target.error);
   });
 }
+
 function tx(store,mode){ return DB.transaction(store,mode).objectStore(store); }
 function dbPut(store,obj){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').put(obj); r.onsuccess=()=>res(obj); r.onerror=()=>rej(r.error); }); }
 function dbGet(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').get(id); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
@@ -852,11 +909,22 @@ async function dbGetByCampaign(campId){
   const all = await dbGetAll('stations');
   return all.filter(s => s.campaignId === campId);
 }
+
 async function dbDeleteStationCascade(stationId){
   const meas = await dbGetByStation(stationId);
-  for(const m of meas) await dbDelete('measurements', m.id);
+  for(const m of meas) {
+    await dbDelete('measurements', m.id);
+    // CAMBIO: Cascada de fotos de las mediciones eliminadas
+    const mPhotos = (await dbGetAll('photos')).filter(p => p.ownerId === m.id);
+    for(const p of mPhotos) await dbDelete('photos', p.id);
+  }
+  // CAMBIO: Cascada de fotos de la estación misma
+  const sPhotos = (await dbGetAll('photos')).filter(p => p.ownerId === stationId);
+  for(const p of sPhotos) await dbDelete('photos', p.id);
+  
   await dbDelete('stations', stationId);
 }
+
 async function dbDeleteCampaignCascade(campId){
   const sts = await dbGetByCampaign(campId);
   for(const s of sts) await dbDeleteStationCascade(s.id);
@@ -3657,18 +3725,28 @@ async function renderStationDetail(){
   const coords = (st.lat!=null&&st.lon!=null) ? `${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}${st.alt!=null?' · '+st.alt+' m':''}` : 'Sin GPS';
   const utmInfo = utmLabel(st.lat, st.lon);
 
+  // CAMBIO: Pre-cargar conteo de fotos
+  const allPhotos = await dbGetAll('photos');
+  const photosByMeas = {};
+  allPhotos.forEach(p => { 
+    if(p.ownerKind==='measurement') photosByMeas[p.ownerId] = (photosByMeas[p.ownerId]||0) + 1; 
+  });
+
   const cats = CATS.map(c=>{
     const items = meas.filter(m=>m.type===c.key).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
-    // CAMBIO: Se añadió el botón de Duplicar a los mini-actions con su respectiva función
-    const rows = items.map(m=>`
+    const rows = items.map(m=> {
+      const pc = photosByMeas[m.id];
+      const pBadge = pc ? `<span class="badge accent" style="margin-left:6px;">📷 ${pc}</span>` : '';
+      return `
       <div class="mini-row">
-        <div class="ml"><b>${esc(m.structKind ? (m.texture ? (m.structKind+' - '+m.texture) : m.structKind) : (m.subtype||c.title))}</b><span>${esc(measSub(m))}</span></div>
+        <div class="ml"><b>${esc(m.structKind ? (m.texture ? (m.structKind+' - '+m.texture) : m.structKind) : (m.subtype||c.title))}</b>${pBadge}<span>${esc(measSub(m))}</span></div>
         <div class="mini-actions">
           <button class="icon-sm" onclick="event.stopPropagation();Nav.editMeasurement('${m.id}','${st.id}','${m.type}')" title="Editar">✎</button>
           <button class="icon-sm" onclick="event.stopPropagation();Nav.duplicateMeasurement('${m.id}','${st.id}','${m.type}')" title="${t('duplicate')}">⎘</button>
           <button class="icon-sm" onclick="event.stopPropagation();deleteMeasurement('${m.id}')" title="Eliminar">🗑</button>
         </div>
-      </div>`).join('') || `<div class="hint" style="margin-top:8px;">${currentLang==='es'?'Sin registros aún':'No records yet'}</div>`;
+      </div>`;
+    }).join('') || `<div class="hint" style="margin-top:8px;">${currentLang==='es'?'Sin registros aún':'No records yet'}</div>`;
     const title = currentLang==='en'? c.titleEn : c.title;
     return `
     <details class="accordion" open>
@@ -3679,6 +3757,8 @@ async function renderStationDetail(){
       </div>
     </details>`;
   }).join('');
+
+  setTimeout(() => renderSavedPhotos(st.id, 'stationPhotoGrid'), 50);
 
   return `
   <div class="topline">
@@ -3694,27 +3774,202 @@ async function renderStationDetail(){
       <button class="btn primary small" onclick="Nav.stereonet('${st.campaignId}','${st.id}')">🌐 Estereograma</button>
     </div>
   </div>
+  
+  ${renderPhotoSectionUI('station', st.id, st.id)}
+  
   <div class="section-hdr"><h3>Toma de datos geológicos</h3></div>
   ${cats}
   `;
 }
+
 async function deleteMeasurement(id){
   if(!confirm('¿Eliminar registro?')) return;
   await dbDelete('measurements', id);
+  // CAMBIO: Cascada de fotos al borrar medición individual
+  const mPhotos = (await dbGetAll('photos')).filter(p => p.ownerId === id);
+  for(const p of mPhotos) await dbDelete('photos', p.id);
   render();
 }
 
 /* =========================================================
    FORMULARIOS DE MEDIDAS
    ========================================================= */
+
+// CAMBIO: Sistema de fotos y compresión
+const PHOTO_CFG = { maxDim: 1600, quality: 0.75, thumbDim: 256, maxPhotos: 12 };
+let pendingPhotos = [];
+let currentPhotoObjUrl = null;
+
+async function compressPhoto(file) {
+  let bmp;
+  try {
+    bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch (e) {
+    bmp = await new Promise((res, rej) => {
+      const img = new Image();
+      const u = URL.createObjectURL(file);
+      img.onload = () => { URL.revokeObjectURL(u); res(img); };
+      img.onerror = rej;
+      img.src = u;
+    });
+  }
+  
+  const w = bmp.width, h = bmp.height;
+  const ratio = Math.min(PHOTO_CFG.maxDim / w, PHOTO_CFG.maxDim / h, 1);
+  const cw = Math.round(w * ratio), ch = Math.round(h * ratio);
+  
+  const cvs = document.createElement('canvas');
+  cvs.width = cw; cvs.height = ch;
+  const ctx = cvs.getContext('2d');
+  ctx.drawImage(bmp, 0, 0, cw, ch);
+  
+  const blob = await new Promise(r => cvs.toBlob(r, 'image/jpeg', PHOTO_CFG.quality));
+  
+  const tr = Math.min(PHOTO_CFG.thumbDim / w, PHOTO_CFG.thumbDim / h, 1);
+  const tw = Math.round(w * tr), th = Math.round(h * tr);
+  const tvs = document.createElement('canvas');
+  tvs.width = tw; tvs.height = th;
+  tvs.getContext('2d').drawImage(bmp, 0, 0, tw, th);
+  const thumb = tvs.toDataURL('image/jpeg', 0.6);
+  
+  return { blob, thumb, width: cw, height: ch, bytes: blob.size };
+}
+
+async function handlePhotoCapture(e, ownerKind, ownerId, stationId) {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
+  
+  let currentCount = pendingPhotos.length;
+  if (ownerId !== 'NEW') {
+    const existing = (await dbGetAll('photos')).filter(p => p.ownerId === ownerId);
+    currentCount += existing.length;
+  }
+  
+  if (currentCount >= PHOTO_CFG.maxPhotos) {
+    toast(t('photoLimit'));
+    e.target.value = '';
+    return;
+  }
+  
+  toast(currentLang === 'es' ? 'Procesando foto...' : 'Processing photo...');
+  try {
+    const compressed = await compressPhoto(files[0]);
+    const pObj = {
+      id: uid(), ownerKind, ownerId: (ownerId==='NEW' ? null : ownerId), stationId,
+      blob: compressed.blob, thumb: compressed.thumb,
+      width: compressed.width, height: compressed.height,
+      bytes: compressed.bytes, createdAt: nowIso()
+    };
+    
+    if (ownerKind === 'measurement') {
+       pendingPhotos.push(pObj);
+       renderPendingPhotos();
+    } else if (ownerKind === 'station') {
+       await dbPut('photos', pObj);
+       renderSavedPhotos(ownerId, 'stationPhotoGrid');
+    }
+  } catch(err) {
+    toast(t('photoSaveError'));
+  }
+  e.target.value = '';
+}
+
+function renderPendingPhotos() {
+  const c = document.getElementById('measPendingGrid');
+  if(!c) return;
+  c.innerHTML = pendingPhotos.map(p => `
+    <div class="photo-thumb-wrap">
+      <img class="photo-thumb" src="${p.thumb}" onclick="openPhotoViewerPending('${p.id}')">
+      <div class="photo-del-badge" onclick="deletePendingPhoto('${p.id}')">✕</div>
+    </div>
+  `).join('');
+}
+
+async function renderSavedPhotos(ownerId, containerId) {
+  const c = document.getElementById(containerId);
+  if(!c || !ownerId || ownerId === 'NEW') return;
+  const all = await dbGetAll('photos');
+  const mine = all.filter(p => p.ownerId === ownerId);
+  c.innerHTML = mine.map(p => `
+    <div class="photo-thumb-wrap">
+      <img class="photo-thumb" src="${p.thumb}" onclick="openPhotoViewerSaved('${p.id}', '${ownerId}', '${containerId}')">
+      <div class="photo-del-badge" onclick="deleteSavedPhoto('${p.id}', '${ownerId}', '${containerId}')">✕</div>
+    </div>
+  `).join('');
+}
+
+function deletePendingPhoto(id) {
+  pendingPhotos = pendingPhotos.filter(p => p.id !== id);
+  renderPendingPhotos();
+}
+
+async function deleteSavedPhoto(id, ownerId, containerId) {
+  if(!confirm(t('confirmDeletePhoto'))) return;
+  await dbDelete('photos', id);
+  renderSavedPhotos(ownerId, containerId);
+}
+
+function openPhotoViewerPending(id) {
+  const p = pendingPhotos.find(x => x.id === id);
+  if(p) showViewer(p.blob, () => { deletePendingPhoto(id); closePhotoViewer(); });
+}
+
+async function openPhotoViewerSaved(id, ownerId, containerId) {
+  const p = await dbGet('photos', id);
+  if(p) showViewer(p.blob, async () => { await deleteSavedPhoto(id, ownerId, containerId); closePhotoViewer(); });
+}
+
+function showViewer(blob, onDel) {
+  const existing = document.getElementById('photoViewer');
+  if(existing) existing.remove();
+  
+  currentPhotoObjUrl = URL.createObjectURL(blob);
+  const v = document.createElement('div');
+  v.id = 'photoViewer';
+  v.innerHTML = `
+    <div class="photo-viewer-bar">
+      <button class="btn ghost small" style="color:#fff;" onclick="closePhotoViewer()">${t('close')}</button>
+      <button class="btn danger small" id="pvDelBtn" style="min-width:44px; min-height:44px;">${t('deletePhoto')}</button>
+    </div>
+    <img id="photoViewerImg" src="${currentPhotoObjUrl}">
+  `;
+  document.body.appendChild(v);
+  document.getElementById('pvDelBtn').onclick = onDel;
+}
+
+function closePhotoViewer() {
+  if(currentPhotoObjUrl) { URL.revokeObjectURL(currentPhotoObjUrl); currentPhotoObjUrl = null; }
+  const v = document.getElementById('photoViewer');
+  if(v) v.remove();
+}
+
+function renderPhotoSectionUI(ownerKind, ownerId, stationId) {
+  const cId = ownerKind === 'measurement' ? 'measPhotoGrid' : 'stationPhotoGrid';
+  const pId = ownerKind === 'measurement' ? 'measPendingGrid' : 'stationPendingGrid';
+  return `
+  <div class="section-hdr"><h3>${t('photos')}</h3></div>
+  <div class="btn-row">
+    <label class="btn ghost small" style="flex:1; min-height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+      📷 ${t('takePhoto')}
+      <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoCapture(event, '${ownerKind}', '${ownerId}', '${stationId}')">
+    </label>
+    <label class="btn ghost small" style="flex:1; min-height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+      🖼️ ${t('gallery')}
+      <input type="file" accept="image/*" style="display:none;" onchange="handlePhotoCapture(event, '${ownerKind}', '${ownerId}', '${stationId}')">
+    </label>
+  </div>
+  <div id="${cId}" class="photo-grid"></div>
+  <div id="${pId}" class="photo-grid"></div>
+  `;
+}
+
 async function renderMeasForm(){
   const isNew = !state.measId;
   let m;
-  // CAMBIO: Si es nueva pero existe data a duplicar, inyectamos esa información pisando ID y Timestamp
   if (isNew) {
     if (state.duplicateData) {
       m = { ...state.duplicateData, id: uid(), timestamp: nowIso() };
-      state.duplicateData = null; // Limpiar tras el consumo
+      state.duplicateData = null;
     } else {
       m = { id:uid(), stationId:state.stationId, type:state.measType, timestamp: nowIso() };
     }
@@ -3722,23 +3977,31 @@ async function renderMeasForm(){
     m = await dbGet('measurements', state.measId);
   }
   
+  pendingPhotos = []; // CAMBIO: Limpiar buffer de fotos
+  
   let fields='';
   if(m.type==='planar') fields=renderPlanarFields(m);
   else if(m.type==='fault') fields=renderFaultFields(m);
   else if(m.type==='contact') fields=renderContactFields(m);
   else if(m.type==='vein') fields=renderVeinFields(m);
 
+  // Cargar UI de fotos de forma diferida
+  setTimeout(() => { 
+    if(!isNew) renderSavedPhotos(m.id, 'measPhotoGrid'); 
+  }, 50);
+
   return `
   <div class="topline">
-    <button class="back-btn" onclick="Nav.back()">←</button>
+    <button class="back-btn" onclick="pendingPhotos=[]; Nav.back()">←</button>
     <div><h2>${isNew?'Nuevo registro':'Editar registro'}</h2><div class="sub">${m.type}</div></div>
   </div>
   <form id="measForm" onsubmit="event.preventDefault(); saveMeasurement('${m.id}', ${isNew});">
     ${fields}
+    ${renderPhotoSectionUI('measurement', isNew ? 'NEW' : m.id, state.stationId)}
     <label>${t('notes')}</label>
     <textarea id="f_notes">${esc(m.notes||'')}</textarea>
     <div class="btn-row" style="margin-top:22px;">
-      <button type="button" class="btn ghost" onclick="Nav.back()">${t('cancel')}</button>
+      <button type="button" class="btn ghost" onclick="pendingPhotos=[]; Nav.back()">${t('cancel')}</button>
       <button type="submit" class="btn primary">${t('save')}</button>
     </div>
   </form>
@@ -4062,6 +4325,18 @@ async function saveMeasurement(id, isNew){
   }
   
   await dbPut('measurements', obj);
+  // CAMBIO: Guardar fotos pendientes ligándolas a la medición ya creada
+  let photosFailed = false;
+  for (const p of pendingPhotos) {
+    try {
+      p.ownerId = obj.id;
+      await dbPut('photos', p);
+    } catch(err) {
+      photosFailed = true;
+    }
+  }
+  pendingPhotos = [];
+  if (photosFailed) toast(t('photoSaveError'));
   toast(currentLang === 'es' ? 'Guardado' : 'Saved');
   Nav.station(state.stationId, state.campId);
 }
@@ -6081,6 +6356,7 @@ function renderSettings(){
         '<div class="set-sub" id="lastBackupTxt" style="font-family:var(--mono); margin-top:4px;">Cargando...</div>' +
       '</div>' +
       '<div id="storageWarnBox" style="display:none; background:var(--warn); color:var(--accent-text); padding:10px; border-radius:8px; font-size:12px; margin-top:10px; font-weight:600;"></div>' +
+      '<div style="font-size:11.5px; color:var(--text-dim); margin-top:8px;">' + t('backupPhotosWarn') + '</div>' + // CAMBIO: Aviso de respaldo de fotos
       '<button class="btn primary" id="btnReqStorage" style="display:none; margin-top:14px; min-height:44px; width:100%;" onclick="handleRequestStorage()">' + t('reqProtectionBtn') + '</button>' +
     '</div>' +
   '</details>';
@@ -6231,7 +6507,7 @@ injectStereoTranslations();
   injectMapNavTranslations();
   injectMapPanelTranslations();
   injectWakeLockTranslations(); 
-  // CAMBIO: Inyección de traducciones de almacenamiento
+  injectPhotosTranslations(); // CAMBIO: Inicializar diccionario de fotos
   injectStorageTranslations();
   requestPersistentStorage().catch(function(){});
   initGPS();
