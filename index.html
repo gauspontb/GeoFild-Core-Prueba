@@ -891,12 +891,12 @@ function openDB(){
       // CAMBIO: Manejo de onversionchange para no bloquear futuras actualizaciones
       DB.onversionchange = () => {
         DB.close();
-        toast(currentLang === 'es' ? 'Cierra otras pestañas de la app' : 'Close other app tabs');
+        toast(t('closeTabs'));
       };
       resolve(DB); 
     };
     // CAMBIO: Manejo de onblocked
-    req.onblocked=()=>toast(currentLang === 'es' ? 'Cierra otras pestañas de la app' : 'Close other app tabs');
+    req.onblocked=()=>toast(t('closeTabs'));
     req.onerror=(e)=>reject(e.target.error);
   });
 }
@@ -906,6 +906,31 @@ function dbPut(store,obj){ return new Promise((res,rej)=>{ const r=tx(store,'rea
 function dbGet(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').get(id); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 function dbGetAll(store){ return new Promise((res,rej)=>{ const r=tx(store,'readonly').getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); }); }
 function dbDelete(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
+
+// CAMBIO: Funciones de índice para rendimiento y helpers de codificación para Blob en base64
+function dbGetPhotosBy(indexName, key) {
+  return new Promise((resolve, reject) => {
+    const req = tx('photos', 'readonly').index(indexName).getAll(key);
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function base64ToBlob(b64, type) {
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: type || 'image/jpeg' });
+}
 
 async function dbGetByStation(stationId){
   const all = await dbGetAll('measurements');
@@ -920,12 +945,12 @@ async function dbDeleteStationCascade(stationId){
   const meas = await dbGetByStation(stationId);
   for(const m of meas) {
     await dbDelete('measurements', m.id);
-    // CAMBIO: Cascada de fotos de las mediciones eliminadas
-    const mPhotos = (await dbGetAll('photos')).filter(p => p.ownerId === m.id);
+    // CAMBIO: Uso eficiente del índice de fotos
+    const mPhotos = await dbGetPhotosBy('ownerId', m.id);
     for(const p of mPhotos) await dbDelete('photos', p.id);
   }
-  // CAMBIO: Cascada de fotos de la estación misma
-  const sPhotos = (await dbGetAll('photos')).filter(p => p.ownerId === stationId);
+  // CAMBIO: Uso eficiente del índice de fotos
+  const sPhotos = await dbGetPhotosBy('ownerId', stationId);
   for(const p of sPhotos) await dbDelete('photos', p.id);
   
   await dbDelete('stations', stationId);
@@ -3731,10 +3756,10 @@ async function renderStationDetail(){
   const coords = (st.lat!=null&&st.lon!=null) ? `${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}${st.alt!=null?' · '+st.alt+' m':''}` : 'Sin GPS';
   const utmInfo = utmLabel(st.lat, st.lon);
 
-  // CAMBIO: Pre-cargar conteo de fotos
-  const allPhotos = await dbGetAll('photos');
+  // CAMBIO: Pre-cargar conteo de fotos mediante índice para optimizar RAM
+  const stPhotos = await dbGetPhotosBy('stationId', st.id);
   const photosByMeas = {};
-  allPhotos.forEach(p => { 
+  stPhotos.forEach(p => { 
     if(p.ownerKind==='measurement') photosByMeas[p.ownerId] = (photosByMeas[p.ownerId]||0) + 1; 
   });
 
@@ -3773,8 +3798,8 @@ async function renderStationDetail(){
   </div>
   <div class="card" style="cursor:default;">
     <div class="card-sub" style="font-family:var(--mono);font-size:12px;">${coords}</div>
-    ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>` : ''}
-    ${st.notes? `<p style="margin-top:6px;font-size:13px;">${esc(st.notes)}</p>`:''}
+    ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM \${esc(utmInfo.text)}</div>` : ''}
+    ${st.notes? `<p style="margin-top:6px;font-size:13px;">\${esc(st.notes)}</p>`:''}
     <div class="btn-row" style="margin-top:10px;">
       <button class="btn ghost small" onclick="Nav.editStation('${st.id}','${st.campaignId}')">✎ ${t('editStation')}</button>
       <button class="btn primary small" onclick="Nav.stereonet('${st.campaignId}','${st.id}')">🌐 Estereograma</button>
@@ -3789,10 +3814,11 @@ async function renderStationDetail(){
 }
 
 async function deleteMeasurement(id){
-  if(!confirm('¿Eliminar registro?')) return;
+  // CAMBIO: Usar traducción para confirmación
+  if(!confirm(t('confirmDelMeas'))) return;
   await dbDelete('measurements', id);
-  // CAMBIO: Cascada de fotos al borrar medición individual
-  const mPhotos = (await dbGetAll('photos')).filter(p => p.ownerId === id);
+  // CAMBIO: Uso eficiente del índice de fotos en cascada
+  const mPhotos = await dbGetPhotosBy('ownerId', id);
   for(const p of mPhotos) await dbDelete('photos', p.id);
   render();
 }
@@ -3847,7 +3873,8 @@ async function handlePhotoCapture(e, ownerKind, ownerId, stationId) {
   
   let currentCount = pendingPhotos.length;
   if (ownerId !== 'NEW') {
-    const existing = (await dbGetAll('photos')).filter(p => p.ownerId === ownerId);
+    // CAMBIO: Consulta de fotos por índice
+    const existing = await dbGetPhotosBy('ownerId', ownerId);
     currentCount += existing.length;
   }
   
@@ -3857,7 +3884,8 @@ async function handlePhotoCapture(e, ownerKind, ownerId, stationId) {
     return;
   }
   
-  toast(currentLang === 'es' ? 'Procesando foto...' : 'Processing photo...');
+  // CAMBIO: Traducción de procesamiento
+  toast(t('processingPhoto'));
   try {
     const compressed = await compressPhoto(files[0]);
     const pObj = {
@@ -3894,8 +3922,8 @@ function renderPendingPhotos() {
 async function renderSavedPhotos(ownerId, containerId) {
   const c = document.getElementById(containerId);
   if(!c || !ownerId || ownerId === 'NEW') return;
-  const all = await dbGetAll('photos');
-  const mine = all.filter(p => p.ownerId === ownerId);
+  // CAMBIO: Uso de consulta de fotos por índice para no sobrecargar RAM
+  const mine = await dbGetPhotosBy('ownerId', ownerId);
   c.innerHTML = mine.map(p => `
     <div class="photo-thumb-wrap">
       <img class="photo-thumb" src="${p.thumb}" onclick="openPhotoViewerSaved('${p.id}', '${ownerId}', '${containerId}')">
@@ -5168,7 +5196,9 @@ async function updateStorageSettingsUI() {
     if(btn) btn.style.display = st.persisted ? 'none' : 'inline-flex';
   }
 
+  // CAMBIO: Mostrar si fue con fotos
   const lastBkup = localStorage.getItem('geo_last_backup');
+  const lastBkupPhotos = localStorage.getItem('geo_last_backup_photos');
   let isOld = false;
   if (!lastBkup) {
     backupEl.textContent = t('never');
@@ -5176,7 +5206,8 @@ async function updateStorageSettingsUI() {
   } else {
     const d = new Date(lastBkup);
     const diffDays = Math.floor((Date.now() - d.getTime()) / (1000 * 3600 * 24));
-    backupEl.textContent = fmtDate(lastBkup) + ' (hace ' + diffDays + ' días)';
+    const pStr = lastBkupPhotos === '1' ? t('backupWithPhotos') : t('backupWithoutPhotos');
+    backupEl.textContent = fmtDate(lastBkup) + ' (hace ' + diffDays + ' días) - ' + pStr;
     if (diffDays > 7) isOld = true;
   }
 
@@ -5397,14 +5428,61 @@ function injectBackupTranslations() {
     restoreData: 'Restore'
   });
 }
- 
+
+function injectBackupTranslations() {
+  Object.assign(I18N.es, {
+    backupRestore: 'Respaldo y restauración',
+    // ... (las líneas que ya tenías)
+    overwriteExisting: 'Sobrescribir existentes',
+    restoreData: 'Restaurar'
+  });
+  Object.assign(I18N.en, {
+    backupRestore: 'Backup and Restore',
+    // ... (las líneas que ya tenías)
+    overwriteExisting: 'Overwrite existing',
+    restoreData: 'Restore'
+  });
+}
+
+// ---> PEGA EL CÓDIGO NUEVO EXACTAMENTE AQUÍ <---
+
+// CAMBIO: Textos traducidos para fotos en respaldo y notificaciones
+function injectBackupPhotosTranslations() {
+  Object.assign(I18N.es, {
+    processingPhoto: 'Procesando foto...',
+    closeTabs: 'Cierra otras pestañas de la app',
+    confirmDelMeas: '¿Eliminar registro?',
+    backupPhotosActive: 'Activa «Incluir fotos» al exportar para respaldarlas.',
+    backupWithPhotos: 'con fotos',
+    backupWithoutPhotos: 'sin fotos',
+    backupLargeWarn: 'Respaldo grande: puede tardar o fallar en teléfonos con poca memoria.',
+    includePhotosLbl: 'Incluir fotos ({n} fotos · ~{size} MB)',
+    prepPhotosProg: 'Preparando fotos {i}/{n}',
+    replaceNoPhotosWarn: 'Este respaldo no incluye fotos: las fotos actuales se eliminarán.'
+  });
+  Object.assign(I18N.en, {
+    processingPhoto: 'Processing photo...',
+    closeTabs: 'Close other app tabs',
+    confirmDelMeas: 'Delete record?',
+    backupPhotosActive: 'Enable "Include photos" on export to back them up.',
+    backupWithPhotos: 'with photos',
+    backupWithoutPhotos: 'without photos',
+    backupLargeWarn: 'Large backup: may take long or fail on low memory phones.',
+    includePhotosLbl: 'Include photos ({n} photos · ~{size} MB)',
+    prepPhotosProg: 'Preparing photos {i}/{n}',
+    replaceNoPhotosWarn: 'This backup does not include photos: current photos will be deleted.'
+  });
+}
+injectBackupPhotosTranslations();
+
+// CAMBIO: Excluir las fotos explícitamente para ensamblarlas después y no saturar RAM
 async function buildBackupObject(includeOverlays) {
   const stores = Array.from(DB.objectStoreNames);
   const data = {};
   const counts = {};
   for (const store of stores) {
-    // Sin imágenes base: se omite el almacén (así "Reemplazar" no borra las imágenes actuales)
     if (!includeOverlays && store === 'map_overlays') continue;
+    if (store === 'photos') continue;
     const records = await dbGetAll(store);
     data[store] = records;
     counts[store] = records.length;
@@ -5426,23 +5504,79 @@ async function buildBackupObject(includeOverlays) {
     data
   };
 }
+
+// CAMBIO: Nueva función para construir Blob usando partes y FileReader
+async function buildBackupBlob({ includeOverlays, includePhotos, onProgress }) {
+  const baseObj = await buildBackupObject(includeOverlays);
+  const allPhotos = includePhotos ? await dbGetAll('photos') : [];
+  if (includePhotos) baseObj.counts.photos = allPhotos.length;
+
+  const parts = [];
+  const preData = { ...baseObj };
+  delete preData.data;
+  let jsonStart = JSON.stringify(preData);
+  jsonStart = jsonStart.slice(0, -1) + ',"data":{';
+  parts.push(jsonStart);
+
+  const dataKeys = Object.keys(baseObj.data);
+  let firstStore = true;
+  for (const key of dataKeys) {
+    if (!firstStore) parts.push(',');
+    parts.push(JSON.stringify(key) + ':' + JSON.stringify(baseObj.data[key]));
+    firstStore = false;
+  }
+
+  if (includePhotos) {
+    if (!firstStore) parts.push(',');
+    parts.push('"photos":[');
+    for (let i = 0; i < allPhotos.length; i++) {
+      if (onProgress) onProgress(i + 1, allPhotos.length);
+      const p = allPhotos[i];
+      const b64 = await blobToBase64(p.blob);
+      const pCopy = { ...p, blobBase64: b64, blobType: p.blob.type || 'image/jpeg' };
+      delete pCopy.blob;
+      parts.push((i > 0 ? ',' : '') + JSON.stringify(pCopy));
+    }
+    parts.push(']');
+  }
+  parts.push('}}');
+  return new Blob(parts, { type: 'application/json' });
+}
  
 async function exportFullBackup() {
+  const btn = document.getElementById('btnExportFull');
+  if (btn) btn.disabled = true;
   try {
     const includeOverlays = document.getElementById('chkIncludeOverlays')?.checked ?? true;
-    const obj = await buildBackupObject(includeOverlays);
-    const jsonStr = JSON.stringify(obj);
+    const includePhotos = document.getElementById('chkIncludePhotos')?.checked ?? false;
+    
+    // CAMBIO: Enviar Blob al descargador usando partes
+    const blob = await buildBackupBlob({
+      includeOverlays,
+      includePhotos,
+      onProgress: (i, n) => { toast(t('prepPhotosProg').replace('{i}', i).replace('{n}', n)); }
+    });
+
     const d = new Date();
     const pad = n => String(n).padStart(2, '0');
     const filename = 'geofield_respaldo_' + d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes()) + '.json';
-    downloadFile(jsonStr, filename, 'application/json');
-    // CAMBIO: Guardar marca de tiempo exacta de finalización exitosa
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+
+    // CAMBIO: Registrar preferencia de fotos
     localStorage.setItem('geo_last_backup', new Date().toISOString());
-    const sizeKb = (new Blob([jsonStr]).size / 1024).toFixed(1);
-    toast('Respaldo creado: ' + (obj.counts.measurements || 0) + ' mediciones, ' + sizeKb + ' KB');
+    localStorage.setItem('geo_last_backup_photos', includePhotos ? '1' : '0');
+
+    const sizeKb = (blob.size / 1024).toFixed(1);
+    toast('Respaldo creado: ' + sizeKb + ' KB');
     render();
   } catch (err) {
     alert("Error al exportar el respaldo: " + err.message);
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
  
@@ -5535,6 +5669,16 @@ async function importFullBackup(file, mode, overwrite) {
     }
  
     if (mode === 'replace') {
+      // CAMBIO: Aviso de pérdida de fotos actuales
+      const hasPhotos = obj.data.photos && obj.data.photos.length > 0;
+      const currentPhotos = await dbGetAll('photos');
+      if (!hasPhotos && currentPhotos.length > 0) {
+        if (!confirm(t('replaceNoPhotosWarn'))) {
+          toast("Restauración cancelada.");
+          return;
+        }
+      }
+      
       const confirmText = prompt("Escribe REEMPLAZAR para confirmar que deseas borrar toda tu base de datos actual y cargar la del archivo.");
       if (confirmText !== 'REEMPLAZAR') {
         toast("Restauración cancelada.");
@@ -5558,6 +5702,13 @@ async function importFullBackup(file, mode, overwrite) {
         const store = transaction.objectStore(storeName);
         if (mode === 'replace') store.clear();
         for (const record of obj.data[storeName]) {
+          // CAMBIO: Decodificar el base64 a Blob antes de insertar
+          if (storeName === 'photos' && record.blobBase64) {
+             record.blob = base64ToBlob(record.blobBase64, record.blobType);
+             delete record.blobBase64;
+             delete record.blobType;
+          }
+
           if (mode === 'replace') {
             store.put(record);
             added++;
@@ -5581,8 +5732,22 @@ async function importFullBackup(file, mode, overwrite) {
     }
  
     await txPromise;
+    
+    // CAMBIO: Limpiar fotos huérfanas
+    let omittedPhotos = 0;
+    if (validStores.includes('photos')) {
+      const allSts = await dbGetAll('stations');
+      const allMeas = await dbGetAll('measurements');
+      const validOwners = new Set([...allSts.map(s => s.id), ...allMeas.map(m => m.id)]);
+      const finalPhotos = await dbGetAll('photos');
+      for (const p of finalPhotos) {
+        if (p.ownerId && !validOwners.has(p.ownerId)) {
+          await dbDelete('photos', p.id);
+          omittedPhotos++;
+        }
+      }
+    }
  
-    // Los ajustes se restauran SOLO si la base de datos se escribió completa
     let settingsRestored = false;
     if (mode === 'replace' && obj.settings && typeof obj.settings === 'object') {
       for (const [k, v] of Object.entries(obj.settings)) {
@@ -5591,7 +5756,13 @@ async function importFullBackup(file, mode, overwrite) {
       settingsRestored = true;
     }
  
-    alert(`Restauración completada con éxito.\nResumen de operaciones:\nAgregados: ${added}\nActualizados: ${updated}\nOmitidos: ${skipped}`);
+    // CAMBIO: Actualizar resumen alertando de las fotos huérfanas
+    let msg = `Restauración completada con éxito.\nResumen de operaciones:\nAgregados: ${added}\nActualizados: ${updated}\nOmitidos: ${skipped}`;
+    if (obj.data.photos) {
+      msg += `\nFotos restauradas: ${obj.data.photos.length - omittedPhotos}\nFotos omitidas (sin estación/medición base): ${omittedPhotos}`;
+    }
+    alert(msg);
+    
     if (settingsRestored) {
       location.reload();
     } else {
@@ -5621,7 +5792,12 @@ async function renderExport(){
   const meas = await dbGetAll('measurements');
  
   const lastBackup = localStorage.getItem('geo_last_backup');
-  const lastBackupStr = lastBackup ? fmtDate(lastBackup) : t('never');
+  const lastBackupPhotos = localStorage.getItem('geo_last_backup_photos');
+  let lastBackupStr = t('never');
+  if (lastBackup) {
+     const pStr = lastBackupPhotos === '1' ? t('backupWithPhotos') : t('backupWithoutPhotos');
+     lastBackupStr = fmtDate(lastBackup) + ' (' + pStr + ')';
+  }
  
   let persistMsg = 'Desconocido';
   if (navigator.storage && navigator.storage.persisted) {
@@ -5629,6 +5805,16 @@ async function renderExport(){
     persistMsg = isPersisted ? '✅ Seguro (Activado)' : '❌ Volátil (Podría limpiarse)';
   }
  
+  // CAMBIO: Cálculo de fotos y validación de tamaño
+  const allPhotos = await dbGetAll('photos');
+  const photoCount = allPhotos.length;
+  let photoBytes = 0;
+  allPhotos.forEach(p => photoBytes += (p.bytes || 0));
+  const estMB = (photoBytes * 1.37 / (1024 * 1024)).toFixed(1);
+  const pChecked = photoCount > 0 ? 'checked' : 'disabled';
+  const pLabel = t('includePhotosLbl').replace('{n}', photoCount).replace('{size}', estMB);
+  const pWarn = (photoBytes * 1.37 > 100 * 1024 * 1024) ? `<div style="color:var(--warn); font-size:11px; margin-top:4px;">⚠️ ${t('backupLargeWarn')}</div>` : '';
+
   return `
   <div class="topline"><div><h2>${t('export')}</h2></div></div>
  
@@ -5648,7 +5834,11 @@ async function renderExport(){
     <label class="check-item" style="margin-top:10px;">
       <input type="checkbox" id="chkIncludeOverlays" checked> ${t('includeMapTiles')}
     </label>
-    <button class="btn primary" style="margin-top:10px;" onclick="exportFullBackup()">${t('downloadFullBackup')}</button>
+    <label class="check-item" style="margin-top:8px;">
+      <input type="checkbox" id="chkIncludePhotos" ${pChecked}> ${pLabel}
+    </label>
+    ${pWarn}
+    <button class="btn primary" id="btnExportFull" style="margin-top:10px;" onclick="exportFullBackup()">${t('downloadFullBackup')}</button>
  
     <div style="border-top:1px solid var(--border-soft); margin-top:16px; padding-top:10px;">
       <label style="margin-top:0;">${t('restoreMode')}</label>
@@ -6226,7 +6416,7 @@ injectSettingsUITranslations();
 
 
 function renderSettings(){
-  setTimeout(updateStorageSettingsUI, 0); // CAMBIO: Actualizar datos de almacenamiento asíncronamente
+  setTimeout(updateStorageSettingsUI, 0); 
   
   let wlState = '';
   let wlDisabled = '';
@@ -6342,7 +6532,6 @@ function renderSettings(){
     '</div>' +
   '</details>' +
   
-  // CAMBIO: Nueva sección de Datos y almacenamiento persistente
   '<details class="settings-sec" open>' +
     '<summary>' +
       '<div class="sum-text">💾 ' + t('secStorage') + '</div>' +
@@ -6362,7 +6551,7 @@ function renderSettings(){
         '<div class="set-sub" id="lastBackupTxt" style="font-family:var(--mono); margin-top:4px;">Cargando...</div>' +
       '</div>' +
       '<div id="storageWarnBox" style="display:none; background:var(--warn); color:var(--accent-text); padding:10px; border-radius:8px; font-size:12px; margin-top:10px; font-weight:600;"></div>' +
-      '<div style="font-size:11.5px; color:var(--text-dim); margin-top:8px;">' + t('backupPhotosWarn') + '</div>' + // CAMBIO: Aviso de respaldo de fotos
+      '<div style="font-size:11.5px; color:var(--text-dim); margin-top:8px;">' + t('backupPhotosActive') + '</div>' + // CAMBIO: Usar texto instando a activar el respaldo
       '<button class="btn primary" id="btnReqStorage" style="display:none; margin-top:14px; min-height:44px; width:100%;" onclick="handleRequestStorage()">' + t('reqProtectionBtn') + '</button>' +
     '</div>' +
   '</details>';
