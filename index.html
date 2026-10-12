@@ -825,6 +825,8 @@ function injectMapLayerTranslations() {
 // CAMBIO: Estilos de la galería de fotos y visor
 const photoStyles = document.createElement('style');
 photoStyles.textContent = `
+.photo-btn-row { display: flex; gap: 10px; align-items: stretch; margin-top: 8px; }
+.photo-btn-row .photo-btn { flex: 1; margin: 0 !important; height: 44px; min-height: 44px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; text-align: center; }
 .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; margin-top: 10px; }
 .photo-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-soft); cursor: pointer; background: var(--surface-2); }
 .photo-thumb-wrap { position: relative; }
@@ -3767,8 +3769,8 @@ async function renderStationDetail(){
   </div>
   <div class="card" style="cursor:default;">
     <div class="card-sub" style="font-family:var(--mono);font-size:12px;">${coords}</div>
-    ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM \${esc(utmInfo.text)}</div>` : ''}
-    ${st.notes? `<p style="margin-top:6px;font-size:13px;">\${esc(st.notes)}</p>`:''}
+    ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>` : ''}
+    ${st.notes? `<p style="margin-top:6px;font-size:13px;">${esc(st.notes)}</p>`:''}
     <div class="btn-row" style="margin-top:10px;">
       <button class="btn ghost small" onclick="Nav.editStation('${st.id}','${st.campaignId}')">✎ ${t('editStation')}</button>
       <button class="btn primary small" onclick="Nav.stereonet('${st.campaignId}','${st.id}')">🌐 Estereograma</button>
@@ -3948,12 +3950,12 @@ function renderPhotoSectionUI(ownerKind, ownerId, stationId) {
   const pId = ownerKind === 'measurement' ? 'measPendingGrid' : 'stationPendingGrid';
   return `
   <div class="section-hdr"><h3>${t('photos')}</h3></div>
-  <div class="btn-row">
-    <label class="btn ghost small" style="flex:1; min-height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+  <div class="photo-btn-row">
+    <label class="btn ghost small photo-btn">
       📷 ${t('takePhoto')}
       <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoCapture(event, '${ownerKind}', '${ownerId}', '${stationId}')">
     </label>
-    <label class="btn ghost small" style="flex:1; min-height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+    <label class="btn ghost small photo-btn">
       🖼️ ${t('gallery')}
       <input type="file" accept="image/*" style="display:none;" onchange="handlePhotoCapture(event, '${ownerKind}', '${ownerId}', '${stationId}')">
     </label>
