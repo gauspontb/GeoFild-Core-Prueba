@@ -325,6 +325,10 @@
 /* CAMBIO: Aumentar área táctil de los botones de la tarjeta de medición a 44px */
 .mini-actions .icon-sm { min-width: 44px; min-height: 44px; font-size: 16px; }
 
+/* CAMBIO: Ocultar filas del panel de sensores según el modo activo */
+.sensor-box[data-mode="planar"] .live-row-linear { display: none !important; }
+.sensor-box[data-mode="linear"] .live-row-planar { display: none !important; }
+
   /* UI-R1 */
 
 /* a) CHIPS: Contenedores flex, responsivos y con resaltado basado en estado */
@@ -4362,11 +4366,11 @@ function renderSensorPanel(mode, formKey){
       <div class="dial-wrap" style="flex-wrap:wrap; justify-content:center;">
         <svg id="dial_${formKey}" viewBox="0 0 140 140" width="${dSize}" height="${dSize}"></svg>
         <div class="dial-readout" style="min-width:140px;">
-          <!-- CAMBIO: Se agregaron IDs a los span para actualizar los rótulos dinámicamente -->
-          <div class="readout-line"><span id="lbl_live_dipdir_${formKey}">Dip Dir.</span><b id="live_dipdir_${formKey}">—</b></div>
-          <div class="readout-line"><span id="lbl_live_dip_${formKey}">${currentLang==='es'?'Manteo':'Dip'}</span><b id="live_dip_${formKey}">—</b></div>
-          <div class="readout-line"><span>Trend</span><b id="live_trend_${formKey}">—</b></div>
-          <div class="readout-line"><span>Plunge</span><b id="live_plunge_${formKey}">—</b></div>
+          <!-- CAMBIO: Se agregaron IDs a las filas y clases para ocultarlas dinámicamente -->
+          <div class="readout-line live-row-planar" id="live_row_dipdir_${formKey}"><span id="lbl_live_dipdir_${formKey}">Dip Dir.</span><b id="live_dipdir_${formKey}">—</b></div>
+          <div class="readout-line live-row-planar" id="live_row_dip_${formKey}"><span id="lbl_live_dip_${formKey}">${currentLang==='es'?'Manteo':'Dip'}</span><b id="live_dip_${formKey}">—</b></div>
+          <div class="readout-line live-row-linear" id="live_row_trend_${formKey}"><span>Trend</span><b id="live_trend_${formKey}">—</b></div>
+          <div class="readout-line live-row-linear" id="live_row_plunge_${formKey}"><span>Plunge</span><b id="live_plunge_${formKey}">—</b></div>
         </div>
       </div>
       <button type="button" class="btn primary" style="margin-top:10px;" onclick="captureSensorReading('${formKey}','${mode}')">${t('captureSensor')}</button>
