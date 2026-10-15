@@ -229,6 +229,36 @@
   .sensor-head b{ font-size:13px; }
   .dial-wrap{ display:flex; gap:14px; align-items:center; margin-top:10px; }
   .dial-readout{ flex:1; }
+  /* CAMBIO: Separar la barra inferior del dial sin modificar su tamaño. */
+.sensor-box .dial-wrap > svg[id^="dial_"] {
+  overflow: visible;
+  margin-bottom: 36px;
+}
+
+/* CAMBIO: Mover exclusivamente los dos rectángulos de la barra. */
+.sensor-box .dial-wrap > svg[id^="dial_"] > rect:nth-last-of-type(-n+2) {
+  transform-box: view-box;
+}
+
+/* CAMBIO: Dial de 90 px. */
+.sensor-box .dial-wrap > svg[id^="dial_"][width="90"] > rect:nth-last-of-type(-n+2) {
+  transform: translateY(41px);
+}
+
+/* CAMBIO: Dial de 120 px. */
+.sensor-box .dial-wrap > svg[id^="dial_"][width="120"] > rect:nth-last-of-type(-n+2) {
+  transform: translateY(36px);
+}
+
+/* CAMBIO: Dial de 160 px. */
+.sensor-box .dial-wrap > svg[id^="dial_"][width="160"] > rect:nth-last-of-type(-n+2) {
+  transform: translateY(33px);
+}
+
+/* CAMBIO: Dial de 210 px. */
+.sensor-box .dial-wrap > svg[id^="dial_"][width="210"] > rect:nth-last-of-type(-n+2) {
+  transform: translateY(31px);
+}
   .readout-line{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:12.5px; padding:3px 0; border-bottom:1px dashed var(--border-soft); }
   .readout-line b{ color:var(--accent); font-size:15px; }
 
@@ -465,6 +495,37 @@ details.settings-sec > summary::-webkit-details-marker {
 details.settings-sec[open] > summary {
   border-bottom: 1px solid var(--border-soft);
 }
+
+/* CAMBIO: Conservar el aspecto de los títulos convertidos en etiquetas. */
+.settings-sec label.set-title {
+  display: block;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: normal;
+  color: var(--text);
+}
+
+/* CAMBIO: Etiquetas accesibles sin duplicar textos visibles. */
+.settings-sec .settings-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* CAMBIO: Desactivar la animación para movimiento reducido. */
+@media (prefers-reduced-motion: reduce) {
+  details.settings-sec .sum-icon {
+    transition: none;
+  }
+}
+
 details.settings-sec .sum-icon {
   color: var(--text-faint);
   transition: transform 0.2s;
@@ -493,6 +554,20 @@ details.settings-sec[open] .sum-icon {
   color: var(--text-dim);
   margin-top: 4px;
 }
+
+
+/* CAMBIO: Mostrar claramente el botón ZIP deshabilitado. */
+#btnExportPhotosZip:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+/* CAMBIO: Reservar espacio para el progreso de exportación. */
+#photoZipProgress {
+  min-height: 18px;
+  margin-top: 8px;
+}
+
 
 </style>
 </head>
@@ -3678,6 +3753,20 @@ function captureGpsIntoStation(){
   utmFromLatLon();
 }
 
+// CAMBIO: Consultar coincidencias de nombre dentro de la misma campaña.
+async function stationNameExists(campaignId, name, excludeId) {
+  const normalizedName = String(name ?? '').trim().toLocaleLowerCase();
+  if (!normalizedName) return false;
+
+  const stations = await dbGetByCampaign(campaignId);
+
+  return stations.some(station =>
+    station.id !== excludeId &&
+    station.campaignId === campaignId &&
+    String(station.name ?? '').trim().toLocaleLowerCase() === normalizedName
+  );
+}
+
 async function saveStation(id, isNew){
   // CAMBIO: Limpiar errores previos en campos de estación
   document.querySelectorAll('.error-msg').forEach(function(e){ e.remove(); });
@@ -3716,6 +3805,10 @@ async function saveStation(id, isNew){
   }
 
   const name = document.getElementById('f_name').value.trim() || id;
+    // CAMBIO: Pedir confirmación solamente cuando existe otra estación homónima.
+  if (await stationNameExists(state.campId, name, isNew ? null : id)) {
+    if (!confirm(t('stationDuplicateWarning'))) return;
+  }
   const dt = document.getElementById('f_dt').value;
   const alt = parseInt(document.getElementById('f_alt').value, 10);
   const notes = document.getElementById('f_notes').value;
@@ -3732,7 +3825,8 @@ async function saveStation(id, isNew){
   };
   
   await dbPut('stations', obj);
-  toast(currentLang === 'es' ? 'Estación guardada' : 'Station saved');
+    // CAMBIO: Usar traducción centralizada para el guardado.
+  toast(t('stationSavedPolish'));
   Nav.station(id, state.campId);
 }
 
@@ -3798,8 +3892,8 @@ async function renderStationDetail(){
   </div>
   <div class="card" style="cursor:default;">
     <div class="card-sub" style="font-family:var(--mono);font-size:12px;">${coords}</div>
-    ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM \${esc(utmInfo.text)}</div>` : ''}
-    ${st.notes? `<p style="margin-top:6px;font-size:13px;">\${esc(st.notes)}</p>`:''}
+    ${utmInfo ? `<div class="card-sub" style="font-family:var(--mono);font-size:11px;">UTM ${esc(utmInfo.text)}</div>` : ''}
+    ${st.notes? `<p style="margin-top:6px;font-size:13px;">${esc(st.notes)}</p>`:''}
     <div class="btn-row" style="margin-top:10px;">
       <button class="btn ghost small" onclick="Nav.editStation('${st.id}','${st.campaignId}')">✎ ${t('editStation')}</button>
       <button class="btn primary small" onclick="Nav.stereonet('${st.campaignId}','${st.id}')">🌐 Estereograma</button>
@@ -5783,14 +5877,464 @@ async function handleRestoreFileSelect(e) {
   e.target.value = '';
 }
 
+
+ // CAMBIO: Traducciones del nuevo exportador fotográfico.
+function injectPhotoZipTranslations() {
+  Object.assign(I18N.es, {
+    zipExportButton: '⇩ Exportar fotos (ZIP)',
+    zipStats: '{n} fotos · ~{mb} MB',
+    zipHelp: 'Los nombres de Photo_Files coinciden con los del ZIP de fotos.',
+    zipProgress: 'Preparando fotos {i}/{n}',
+    zipLargeConfirm: 'El ZIP contiene más de 150 MB de fotos. ¿Continuar?',
+    zipLimitError: 'No se puede crear un ZIP sin ZIP64: límite de 60000 fotos o 3,5 GB.',
+    zipExportError: 'No se pudo exportar el ZIP de fotos: {error}',
+    zipEmpty: 'No hay fotos para exportar en este alcance.',
+    zipExportDone: 'ZIP de fotos exportado.',
+    zipReadError: 'Falta el archivo JPEG de una foto.'
+  });
+  Object.assign(I18N.en, {
+    zipExportButton: '⇩ Export photos (ZIP)',
+    zipStats: '{n} photos · ~{mb} MB',
+    zipHelp: 'Photo_Files names match those in the photo ZIP.',
+    zipProgress: 'Preparing photos {i}/{n}',
+    zipLargeConfirm: 'The ZIP contains more than 150 MB of photos. Continue?',
+    zipLimitError: 'Cannot create a ZIP without ZIP64: limit of 60000 photos or 3.5 GB.',
+    zipExportError: 'Could not export photo ZIP: {error}',
+    zipEmpty: 'There are no photos to export within this scope.',
+    zipExportDone: 'Photo ZIP exported.',
+    zipReadError: 'A photo has no JPEG file.'
+  });
+}
+injectPhotoZipTranslations();
+
+
+// CAMBIO: Mismo formato para el contador visual y las pruebas.
+function formatPhotoZipStats(count, bytes) {
+  return t('zipStats').replace('{n}', String(count)).replace('{mb}', (bytes / (1024 * 1024)).toFixed(1));
+}
+
+
+// CAMBIO: Preparar el contexto de nombres, orden y alcance compartido.
+async function getPhotoExportContext() {
+  const scoped = await getFilteredData();
+  const allStations = await dbGetAll('stations');
+  const stationNames = {};
+  const usedNames = new Set();
+  const safe = value => {
+    const v = String(value ?? '').replace(/[/\\:*?"<>|\s]/g, '_');
+    return !v || v === '.' || v === '..' ? '_' : v;
+  };
+  const lexCompare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+
+  allStations.slice().sort((a, b) => lexCompare(String(a.id), String(b.id))).forEach(st => {
+    const base = safe(st.name || st.id);
+    let result = base;
+    let suffix = 2;
+    while (usedNames.has(result)) result = base + '-' + suffix++;
+    usedNames.add(result);
+    stationNames[st.id] = result;
+  });
+
+  const measById = {};
+  const measIndices = {};
+  const grouped = new Map();
+
+  scoped.measurements.forEach(m => {
+    measById[m.id] = m;
+    const key = JSON.stringify([m.stationId, m.type]);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(m);
+  });
+
+  const dateCompare = (a, b, prop) => {
+    const ax = Date.parse(a[prop]);
+    const bx = Date.parse(b[prop]);
+    const av = Number.isFinite(ax) ? ax : 0;
+    const bv = Number.isFinite(bx) ? bx : 0;
+    return av - bv || lexCompare(String(a.id), String(b.id));
+  };
+
+  grouped.forEach(group => {
+    group.sort((a, b) => dateCompare(a, b, 'timestamp'));
+    group.forEach((m, i) => { measIndices[m.id] = i + 1; });
+  });
+
+  const scopedIds = new Set(scoped.stations.map(s => s.id));
+  const photos = await new Promise((resolve, reject) => {
+    const result = [];
+    const request = tx('photos', 'readonly').openCursor();
+
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) {
+        resolve(result);
+        return;
+      }
+
+      const p = cursor.value;
+      if (scopedIds.has(p.stationId)) {
+        result.push({
+          id: p.id,
+          ownerKind: p.ownerKind,
+          ownerId: p.ownerId,
+          stationId: p.stationId,
+          createdAt: p.createdAt,
+          width: p.width,
+          height: p.height,
+          bytes: p.blob instanceof Blob ? p.blob.size : Number(p.bytes) || 0
+        });
+      }
+      cursor.continue();
+    };
+
+    request.onerror = () => reject(request.error);
+  });
+
+  const photoIndices = {};
+  const owned = new Map();
+
+  photos.forEach(p => {
+    const key = JSON.stringify([p.ownerKind, p.ownerId]);
+    if (!owned.has(key)) owned.set(key, []);
+    owned.get(key).push(p);
+  });
+
+  owned.forEach(group => {
+    group.sort((a, b) => dateCompare(a, b, 'createdAt'));
+    group.forEach((p, i) => { photoIndices[p.id] = i + 1; });
+  });
+
+  const ctx = {
+    ...scoped,
+    photos,
+    stationNames,
+    measById,
+    measIndices,
+    photoIndices
+  };
+
+  photos.sort((a, b) => lexCompare(photoFileName(a, ctx), photoFileName(b, ctx)));
+  return ctx;
+}
+
+
+// CAMBIO: Generar nombres puros, deterministas y compartidos.
+function photoFileName(photo, ctx) {
+  const safe = value => {
+    const result = String(value ?? '').replace(/[/\\:*?"<>|\s]/g, '_');
+    return !result || result === '.' || result === '..' ? '_' : result;
+  };
+
+  const station = ctx.stationNames[photo.stationId];
+  const n = ctx.photoIndices[photo.id];
+
+  if (!station || !Number.isInteger(n) || n < 1) {
+    throw new Error('Foto sin estación o índice: ' + photo.id);
+  }
+
+  const pad = value => String(value).padStart(2, '0');
+
+  if (photo.ownerKind === 'station') {
+    if (photo.ownerId !== photo.stationId) {
+      throw new Error('Propietario de foto de estación incoherente: ' + photo.id);
+    }
+    return station + '/' + station + '_estacion_f' + pad(n) + '.jpg';
+  }
+
+  if (photo.ownerKind === 'measurement') {
+    const m = ctx.measById[photo.ownerId];
+    const index = ctx.measIndices[photo.ownerId];
+
+    if (!m || m.stationId !== photo.stationId || !Number.isInteger(index)) {
+      throw new Error('Foto sin medición válida: ' + photo.id);
+    }
+
+    return station + '/' + station + '_' + safe(m.type) + '_m' + pad(index) + '_f' + pad(n) + '.jpg';
+  }
+
+  throw new Error('Tipo de propietario de foto no reconocido: ' + photo.ownerKind);
+}
+
+
+// CAMBIO: CRC-32 IEEE propio sobre los bytes originales.
+function photoZipCRC32(bytes) {
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) {
+    crc ^= bytes[i];
+    for (let j = 0; j < 8; j++) {
+      crc = (crc >>> 1) ^ ((crc & 1) ? 0xEDB88320 : 0);
+    }
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+
+// CAMBIO: Construir ZIP clásico sin compresión, ZIP64 ni bibliotecas.
+async function buildPhotoZip(ctx, onProgress) {
+  const maxBytes = 3.5 * 1024 * 1024 * 1024;
+  if (ctx.photos.length > 60000) throw new Error(t('zipLimitError'));
+
+  const byteTotal = ctx.photos.reduce((sum, p) => sum + p.bytes, 0);
+  if (byteTotal > maxBytes) throw new Error(t('zipLimitError'));
+
+  const encoder = new TextEncoder();
+  const parts = [];
+  const centralParts = [];
+  let offset = 0;
+  let entries = 0;
+  let centralSize = 0;
+
+  const dosDateTime = iso => {
+    const parsed = new Date(iso);
+    const valid = Number.isFinite(parsed.getTime());
+    const year = valid ? Math.max(1980, Math.min(2107, parsed.getUTCFullYear())) : 1980;
+    const month = valid ? parsed.getUTCMonth() + 1 : 1;
+    const day = valid ? parsed.getUTCDate() : 1;
+    const hour = valid ? parsed.getUTCHours() : 0;
+    const minute = valid ? parsed.getUTCMinutes() : 0;
+    const second = valid ? parsed.getUTCSeconds() : 0;
+
+    return {
+      date: ((year - 1980) << 9) | (month << 5) | day,
+      time: (hour << 11) | (minute << 5) | Math.floor(second / 2)
+    };
+  };
+
+  const addEntry = async (filename, data, date) => {
+    const nameBytes = encoder.encode(filename);
+
+    if (nameBytes.length > 65535 || !(data instanceof Blob)) {
+      throw new Error(t('zipLimitError'));
+    }
+
+    const length = data.size;
+    if (length > 0xFFFFFFFF) throw new Error(t('zipLimitError'));
+
+    const crc = photoZipCRC32(new Uint8Array(await data.arrayBuffer()));
+    const dos = dosDateTime(date);
+
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lh = new DataView(local.buffer);
+
+    lh.setUint32(0, 0x04034b50, true);
+    lh.setUint16(4, 20, true);
+    lh.setUint16(6, 0x0800, true);
+    lh.setUint16(8, 0, true);
+    lh.setUint16(10, dos.time, true);
+    lh.setUint16(12, dos.date, true);
+    lh.setUint32(14, crc, true);
+    lh.setUint32(18, length, true);
+    lh.setUint32(22, length, true);
+    lh.setUint16(26, nameBytes.length, true);
+    lh.setUint16(28, 0, true);
+    local.set(nameBytes, 30);
+
+    const central = new Uint8Array(46 + nameBytes.length);
+    const ch = new DataView(central.buffer);
+
+    ch.setUint32(0, 0x02014b50, true);
+    ch.setUint16(4, 20, true);
+    ch.setUint16(6, 20, true);
+    ch.setUint16(8, 0x0800, true);
+    ch.setUint16(10, 0, true);
+    ch.setUint16(12, dos.time, true);
+    ch.setUint16(14, dos.date, true);
+    ch.setUint32(16, crc, true);
+    ch.setUint32(20, length, true);
+    ch.setUint32(24, length, true);
+    ch.setUint16(28, nameBytes.length, true);
+    ch.setUint16(30, 0, true);
+    ch.setUint16(32, 0, true);
+    ch.setUint16(34, 0, true);
+    ch.setUint16(36, 0, true);
+    ch.setUint32(38, 0, true);
+    ch.setUint32(42, offset, true);
+    central.set(nameBytes, 46);
+
+    offset += local.length + length;
+    centralSize += central.length;
+
+    if (offset + centralSize + 22 > maxBytes) {
+      throw new Error(t('zipLimitError'));
+    }
+
+    parts.push(local, data);
+    centralParts.push(central);
+    entries++;
+  };
+
+  const indexRows = [[
+    'Photo_File',
+    'Station_ID',
+    'Owner_Kind',
+    'Meas_Type',
+    'Meas_Index',
+    'Photo_Index',
+    'Created_At',
+    'Width',
+    'Height',
+    'Bytes'
+  ].join(',')];
+
+  for (let i = 0; i < ctx.photos.length; i++) {
+    const p = ctx.photos[i];
+    const file = photoFileName(p, ctx);
+    const measured = p.ownerKind === 'measurement' ? ctx.measById[p.ownerId] : null;
+    const station = ctx.stMap[p.stationId];
+
+    if (!station) throw new Error('Estación inexistente: ' + p.stationId);
+
+    indexRows.push([
+      file,
+      station.id,
+      p.ownerKind,
+      measured ? measured.type : '',
+      measured ? String(ctx.measIndices[p.ownerId]).padStart(2, '0') : '',
+      String(ctx.photoIndices[p.id]).padStart(2, '0'),
+      p.createdAt || '',
+      p.width ?? '',
+      p.height ?? '',
+      p.bytes
+    ].map(csvEsc).join(','));
+
+    const original = await dbGet('photos', p.id);
+    if (!(original?.blob instanceof Blob)) {
+      throw new Error(t('zipReadError'));
+    }
+
+    if (original.blob.size !== p.bytes) {
+      throw new Error('El tamaño de una foto cambió durante la exportación: ' + p.id);
+    }
+
+    await addEntry(file, original.blob, p.createdAt);
+    if (onProgress) onProgress(i + 1, ctx.photos.length);
+  }
+
+  const indexBlob = new Blob(
+    ['\uFEFF' + indexRows.join('\r\n')],
+    { type: 'text/csv;charset=utf-8' }
+  );
+  await addEntry('indice_fotos.csv', indexBlob, '1980-01-01T00:00:00.000Z');
+
+  const centralOffset = offset;
+  for (const centralPart of centralParts) parts.push(centralPart);
+
+  const end = new Uint8Array(22);
+  const eocd = new DataView(end.buffer);
+
+  eocd.setUint32(0, 0x06054b50, true);
+  eocd.setUint16(4, 0, true);
+  eocd.setUint16(6, 0, true);
+  eocd.setUint16(8, entries, true);
+  eocd.setUint16(10, entries, true);
+  eocd.setUint32(12, centralSize, true);
+  eocd.setUint32(16, centralOffset, true);
+  eocd.setUint16(20, 0, true);
+  parts.push(end);
+
+  const archive = new Blob(parts, { type: 'application/zip' });
+  if (archive.size > maxBytes) throw new Error(t('zipLimitError'));
+  return archive;
+}
+
+
+// CAMBIO: Actualizar disponibilidad, cantidad y bytes reales del ZIP.
+async function refreshPhotoZipButton() {
+  const button = document.getElementById('btnExportPhotosZip');
+  const stats = document.getElementById('photoZipButtonStats');
+
+  if (!button || !stats || button.dataset.busy === '1') return;
+
+  const scope = document.getElementById('exportCampSelect')?.value || 'ALL';
+  button.disabled = true;
+
+  try {
+    const ctx = await getPhotoExportContext();
+    if (document.getElementById('exportCampSelect')?.value !== scope || button.dataset.busy === '1') return;
+
+    const bytes = ctx.photos.reduce((sum, p) => sum + p.bytes, 0);
+    stats.textContent = formatPhotoZipStats(ctx.photos.length, bytes);
+    button.disabled = ctx.photos.length === 0;
+  } catch (err) {
+    const progress = document.getElementById('photoZipProgress');
+    if (progress) {
+      progress.textContent = t('zipExportError').replace('{error}', err.message);
+    }
+  }
+}
+
+
+// CAMBIO: Exportar únicamente después de construir correctamente el ZIP completo.
+async function exportPhotosZIP() {
+  const button = document.getElementById('btnExportPhotosZip');
+  const status = document.getElementById('photoZipProgress');
+
+  if (!button || button.disabled || button.dataset.busy === '1') return;
+
+  button.dataset.busy = '1';
+  button.disabled = true;
+
+  try {
+    const ctx = await getPhotoExportContext();
+    if (!ctx.photos.length) throw new Error(t('zipEmpty'));
+
+    if (
+      ctx.photos.length > 60000 ||
+      ctx.photos.reduce((sum, p) => sum + p.bytes, 0) > 3.5 * 1024 * 1024 * 1024
+    ) {
+      throw new Error(t('zipLimitError'));
+    }
+
+    const bytes = ctx.photos.reduce((sum, p) => sum + p.bytes, 0);
+    if (bytes > 150 * 1024 * 1024 && !confirm(t('zipLargeConfirm'))) return;
+
+    const zip = await buildPhotoZip(ctx, (i, n) => {
+      if (status) {
+        status.textContent = t('zipProgress')
+          .replace('{i}', i)
+          .replace('{n}', n);
+      }
+    });
+
+    const url = URL.createObjectURL(zip);
+
+    try {
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'GeoFieldCore_fotos_' + dateStamp() + '.zip';
+      document.body.appendChild(anchor);
+
+      try {
+        anchor.click();
+      } finally {
+        anchor.remove();
+      }
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    }
+
+    if (status) status.textContent = t('zipExportDone');
+  } catch (err) {
+    console.error(err);
+    if (status) {
+      status.textContent = t('zipExportError').replace('{error}', err.message);
+    }
+    alert(t('zipExportError').replace('{error}', err.message));
+  } finally {
+    button.dataset.busy = '0';
+    await refreshPhotoZipButton();
+  }
+}
+
+
 /* =========================================================
    IMPORTADOR Y EXPORTADOR DE ARCHIVOS
    ========================================================= */
-async function renderExport(){
+async function renderExport() {
   const camps = await dbGetAll('campaigns');
   const stations = await dbGetAll('stations');
   const meas = await dbGetAll('measurements');
- 
+
   const lastBackup = localStorage.getItem('geo_last_backup');
   const lastBackupPhotos = localStorage.getItem('geo_last_backup_photos');
   let lastBackupStr = t('never');
@@ -5798,13 +6342,13 @@ async function renderExport(){
      const pStr = lastBackupPhotos === '1' ? t('backupWithPhotos') : t('backupWithoutPhotos');
      lastBackupStr = fmtDate(lastBackup) + ' (' + pStr + ')';
   }
- 
+
   let persistMsg = 'Desconocido';
   if (navigator.storage && navigator.storage.persisted) {
     const isPersisted = await navigator.storage.persisted();
     persistMsg = isPersisted ? '✅ Seguro (Activado)' : '❌ Volátil (Podría limpiarse)';
   }
- 
+
   // CAMBIO: Cálculo de fotos y validación de tamaño
   const allPhotos = await dbGetAll('photos');
   const photoCount = allPhotos.length;
@@ -5815,22 +6359,28 @@ async function renderExport(){
   const pLabel = t('includePhotosLbl').replace('{n}', photoCount).replace('{size}', estMB);
   const pWarn = (photoBytes * 1.37 > 100 * 1024 * 1024) ? `<div style="color:var(--warn); font-size:11px; margin-top:4px;">⚠️ ${t('backupLargeWarn')}</div>` : '';
 
+  // CAMBIO: Conteo ZIP por estación existente y tamaño real de cada Blob, sin alterar el respaldo.
+  const zipStationIds = new Set(stations.map(s => s.id));
+  const zipPhotos = allPhotos.filter(p => zipStationIds.has(p.stationId));
+  const zipBytes = zipPhotos.reduce((sum, p) => sum + (p.blob instanceof Blob ? p.blob.size : Number(p.bytes) || 0), 0);
+  const zipStats = formatPhotoZipStats(zipPhotos.length, zipBytes);
+
   return `
   <div class="topline"><div><h2>${t('export')}</h2></div></div>
- 
+
   <div class="card" style="cursor:default;">
     <div class="card-title">📥 Importar Archivos (.txt / .csv / FaultKin)</div>
     <div class="card-sub">Carga archivos tabulados de FaultKin, Stereonet o CSV estructurados</div>
     <input type="file" id="importFileInput" accept=".txt,.csv,.tsv" style="margin-top:10px; display:none;" onchange="handleFileImport(event)">
     <button class="btn primary" style="margin-top:10px;" onclick="document.getElementById('importFileInput').click()">📂 Seleccionar y subir archivo</button>
   </div>
- 
+
   <div class="card" style="cursor:default;">
     <div class="card-title">💾 ${t('backupRestore')}</div>
     <div class="card-sub">${t('statsCamp')}: ${camps.length} | ${t('statsStat')}: ${stations.length} | ${t('statsMeas')}: ${meas.length}</div>
     <div class="card-sub" style="margin-top:4px;">${t('lastBackup')}: <b>${lastBackupStr}</b></div>
     <div class="card-sub">${t('persistentStorage')}: ${persistMsg}</div>
- 
+
     <label class="check-item" style="margin-top:10px;">
       <input type="checkbox" id="chkIncludeOverlays" checked> ${t('includeMapTiles')}
     </label>
@@ -5839,7 +6389,7 @@ async function renderExport(){
     </label>
     ${pWarn}
     <button class="btn primary" id="btnExportFull" style="margin-top:10px;" onclick="exportFullBackup()">${t('downloadFullBackup')}</button>
- 
+
     <div style="border-top:1px solid var(--border-soft); margin-top:16px; padding-top:10px;">
       <label style="margin-top:0;">${t('restoreMode')}</label>
       <select id="restoreMode" onchange="document.getElementById('overwriteBlock').style.display = this.value==='merge'?'block':'none'">
@@ -5855,10 +6405,10 @@ async function renderExport(){
       <button class="btn primary" style="margin-top:12px; background:var(--accent-dim); color:var(--text);" onclick="document.getElementById('restoreFileInput').click()">🔄 ${t('restoreData')}</button>
     </div>
   </div>
- 
+
   <div class="card" style="cursor:default;">
     <label style="margin-top:0;">${t('exportScope')}</label>
-    <select id="exportCampSelect">
+    <select id="exportCampSelect" onchange="refreshPhotoZipButton()"> <!-- CAMBIO: sincronizar ZIP con el alcance -->
       <option value="ALL">📁 ${t('exportAll')}</option>
       ${camps.map(c=>`<option value="${c.id}">📂 ${esc(c.name)}</option>`).join('')}
     </select>
@@ -5867,10 +6417,23 @@ async function renderExport(){
     <div class="card-title">CSV (Excel / FaultKin / Stereonet)</div>
     <div class="card-sub">${currentLang==='es'?'Valores numéricos redondeados a enteros':'Integer values ready for GIS/Excel'}</div>
     <button class="btn primary" style="margin-top:12px;" onclick="exportCSV()">${t('exportCsv')}</button>
+    <!-- CAMBIO: Ayuda para vincular filas CSV con el ZIP. -->
+    <div class="hint">${t('zipHelp')}</div>
   </div>
   <div class="card" style="cursor:default;">
     <div class="card-title">GeoJSON (QGIS / ArcGIS)</div>
     <button class="btn primary" style="margin-top:12px;" onclick="exportGeoJSON()">${t('exportGeoJson')}</button>
+    <!-- CAMBIO: Ayuda para vincular features GeoJSON con el ZIP. -->
+    <div class="hint">${t('zipHelp')}</div>
+  </div>
+  <!-- CAMBIO: Descarga ZIP del mismo alcance seleccionado para CSV y GeoJSON. -->
+  <div class="card" style="cursor:default;">
+    <div class="card-title">${t('zipExportButton')}</div>
+    <button class="btn primary" id="btnExportPhotosZip" style="margin-top:12px;" onclick="exportPhotosZIP()" ${zipPhotos.length ? '' : 'disabled'}>
+      <span>${t('zipExportButton')}</span>
+      <span id="photoZipButtonStats">${zipStats}</span>
+    </button>
+    <div class="hint" id="photoZipProgress" aria-live="polite"></div>
   </div>
   `;
 }
@@ -5894,12 +6457,23 @@ async function getFilteredData(){
 
 async function exportCSV(){
   const { measurements, stMap, campMap } = await getFilteredData();
-  const headers=['Campaign','Station_ID','Timestamp','Lat','Lon','Alt','UTM_Zone','UTM_Hemisphere','UTM_Easting','UTM_Northing','Struct_Type','Kind','Strike','Dip','DipDir','Trend','Plunge','Rake','Rake_Quad','Sense','True_Thickness','Vein_Thick','Vein_Unit','Alteration','Notes'];
+
+  // CAMBIO: Aplicar exactamente el mismo contexto de nombres usado por el ZIP.
+  const photoCtx = await getPhotoExportContext();
+  const photosByOwner = new Map();
+  photoCtx.photos.forEach(p => {
+    if (p.ownerKind !== 'measurement') return;
+    if (!photosByOwner.has(p.ownerId)) photosByOwner.set(p.ownerId, []);
+    photosByOwner.get(p.ownerId).push(photoFileName(p, photoCtx));
+  });
+
+  const headers=['Campaign','Station_ID','Timestamp','Lat','Lon','Alt','UTM_Zone','UTM_Hemisphere','UTM_Easting','UTM_Northing','Struct_Type','Kind','Strike','Dip','DipDir','Trend','Plunge','Rake','Rake_Quad','Sense','True_Thickness','Vein_Thick','Vein_Unit','Alteration','Notes','Photo_Count','Photo_Files']; // CAMBIO: dos columnas al final
   const rows=[headers.join(',')];
   measurements.forEach(m=>{
     const st=stMap[m.stationId]||{};
     const camp=campMap[st.campaignId]||{};
     const u = utmLabel(st.lat, st.lon);
+    const ownPhotos = photosByOwner.get(m.id) || []; // CAMBIO: fotos únicamente de esta medición
     rows.push([
       csvEsc(camp.name||''), csvEsc(st.name||st.id||''), csvEsc(m.timestamp||st.timestamp||''),
       st.lat??'', st.lon??'', st.alt??'',
@@ -5908,7 +6482,8 @@ async function exportCSV(){
       m.strike!=null?roundInt(m.strike):'', m.dip!=null?roundInt(m.dip):'', m.dipDir!=null?roundInt(m.dipDir):'',
       m.trend!=null?roundInt(m.trend):'', m.plunge!=null?roundInt(m.plunge):'', m.rake!=null?roundInt(m.rake):'', csvEsc(m.rakeQuadrant||''),
       csvEsc(m.sense||''), m.trueThickness!=null?roundInt(m.trueThickness):'', m.veinThickness!=null?roundInt(m.veinThickness):'', csvEsc(m.veinUnit||''),
-      csvEsc((m.alteration||[]).join('; ')), csvEsc(m.notes||'')
+      csvEsc((m.alteration||[]).join('; ')), csvEsc(m.notes||''),
+      ownPhotos.length, csvEsc(ownPhotos.join(' | ')) // CAMBIO: nuevas columnas al final
     ].join(','));
   });
   downloadFile('\uFEFF'+rows.join('\r\n'), 'GeoFieldCore_'+dateStamp()+'.csv', 'text/csv;charset=utf-8');
@@ -5917,6 +6492,15 @@ async function exportCSV(){
 
 async function exportGeoJSON(){
   const { measurements, stMap, campMap } = await getFilteredData();
+
+  // CAMBIO: Las propiedades fotográficas reúnen estación y mediciones, sin alterar features existentes.
+  const photoCtx = await getPhotoExportContext();
+  const photoNamesByStation = new Map();
+  photoCtx.photos.forEach(p => {
+    if (!photoNamesByStation.has(p.stationId)) photoNamesByStation.set(p.stationId, []);
+    photoNamesByStation.get(p.stationId).push(photoFileName(p, photoCtx));
+  });
+
   const features=measurements.filter(m=>{ const s=stMap[m.stationId]; return s && s.lat!=null && s.lon!=null; }).map(m=>{
     const st=stMap[m.stationId];
     const camp=campMap[st.campaignId]||{};
@@ -5933,7 +6517,9 @@ async function exportGeoJSON(){
         Trend: m.trend!=null?roundInt(m.trend):null, Plunge: m.plunge!=null?roundInt(m.plunge):null, Rake: m.rake!=null?roundInt(m.rake):null, Rake_Quad: m.rakeQuadrant||null,
         Sense: m.sense||null, True_Thickness: m.trueThickness!=null?roundInt(m.trueThickness):null,
         Vein_Thick: m.veinThickness!=null?roundInt(m.veinThickness):null, Vein_Unit: m.veinUnit||null,
-        Alteration: (m.alteration||[]).join('; ')||null, Notes: m.notes||null
+        Alteration: (m.alteration||[]).join('; ')||null, Notes: m.notes||null,
+        Photo_Count: (photoNamesByStation.get(st.id) || []).length, // CAMBIO: nueva propiedad al final
+        Photo_Files: (photoNamesByStation.get(st.id) || []).join(' | ') // CAMBIO: nueva propiedad al final
       }
     };
   });
@@ -6399,7 +6985,70 @@ function injectStorageTranslations() {
     storageDeniedMsg: 'The browser denied it. Install the app (Add to Home Screen) and backup frequently.'
   });
 }
-  
+
+// CAMBIO: Traducciones del pulido de Ajustes y estaciones.
+function injectPolishTranslations() {
+  Object.assign(I18N.es, {
+    quadrantAngleRange: 'El ángulo debe estar entre 0° y 90°',
+    stationDuplicateWarning: 'Ya existe una estación con ese nombre en esta campaña. ¿Guardar de todos modos?',
+    stationSavedPolish: 'Estación guardada',
+    settingsSolarHint: 'Selecciona una paleta de alto contraste para luz solar',
+    settingsThemeSun: '☀️ Sol Directo (Blanco / Alto Contraste)',
+    settingsThemeDark: '🌙 Noche / Campamento (Dark Slate)',
+    settingsThemeEarth: '🏜️ Geológico Tierra / Ocre',
+    settingsThemeForest: '🌲 Bosque / Oliva',
+    settingsSmall: 'Pequeño / Small',
+    settingsMedium: 'Medio / Medium',
+    settingsLarge: 'Grande / Large',
+    settingsExtraLarge: 'Extra Grande / Extra Large',
+    settingsNormal: 'Normal',
+    settingsLargeRecommended: 'Grande (Recomendado)',
+    settingsExtraLargeLower: 'Extra grande',
+    settingsDipDirection: 'Dip Direction / Dip (ej. 135 / 45)',
+    settingsStrike: 'Strike RHR / Dip (ej. 045 / 45)',
+    settingsQuadrant: 'Cuadrante / Dip (ej. N45°E / 45)',
+    settingsQuadrantNS: 'Norte y Sur (ej. N30°E y S45°O)',
+    settingsQuadrantNorth: 'Solo Norte (ej. N30°E y N135°O)',
+    settingsNeedleDip: 'Dirección de Manteo (Dip Direction)',
+    settingsNeedleStrike: 'Rumbo / Strike (Regla mano derecha)',
+    settingsEstimateDeclination: '📍 Calcular declinación desde GPS actual',
+    settingsSensorsPermissions: 'Sensores / Permisos',
+    settingsActivateSensors: '📡 Activar / Re-calibrar Sensores',
+    settingsLoading: 'Cargando...',
+    settingsCalibrationExample: 'ej. -5 o 8'
+  });
+
+  Object.assign(I18N.en, {
+    quadrantAngleRange: 'The angle must be between 0° and 90°',
+    stationDuplicateWarning: 'A station with this name already exists in this campaign. Save anyway?',
+    stationSavedPolish: 'Station saved',
+    settingsSolarHint: 'Choose a high-contrast palette for sunlight',
+    settingsThemeSun: '☀️ Direct Sunlight (White / High Contrast)',
+    settingsThemeDark: '🌙 Night / Camp (Dark Slate)',
+    settingsThemeEarth: '🏜️ Geological Earth / Ochre',
+    settingsThemeForest: '🌲 Forest / Olive',
+    settingsSmall: 'Small',
+    settingsMedium: 'Medium',
+    settingsLarge: 'Large',
+    settingsExtraLarge: 'Extra Large',
+    settingsNormal: 'Normal',
+    settingsLargeRecommended: 'Large (Recommended)',
+    settingsExtraLargeLower: 'Extra large',
+    settingsDipDirection: 'Dip Direction / Dip (e.g. 135 / 45)',
+    settingsStrike: 'Strike RHR / Dip (e.g. 045 / 45)',
+    settingsQuadrant: 'Quadrant / Dip (e.g. N45°E / 45)',
+    settingsQuadrantNS: 'North and South (e.g. N30°E and S45°W)',
+    settingsQuadrantNorth: 'North Only (e.g. N30°E and N135°W)',
+    settingsNeedleDip: 'Dip Direction',
+    settingsNeedleStrike: 'Strike (Right-Hand Rule)',
+    settingsEstimateDeclination: '📍 Calculate declination from current GPS',
+    settingsSensorsPermissions: 'Sensors / Permissions',
+    settingsActivateSensors: '📡 Enable / Recalibrate Sensors',
+    settingsLoading: 'Loading...',
+    settingsCalibrationExample: 'e.g. -5 or 8'
+  });
+}
+
 function injectSettingsUITranslations() {
   Object.assign(I18N.es, {
     secAppearance: 'Apariencia',
@@ -6414,10 +7063,120 @@ function injectSettingsUITranslations() {
 }
 injectSettingsUITranslations();
 
+// CAMBIO: Etiquetas accesibles, traducciones y persistencia de Ajustes.
+function setupSettingsPolish() {
+  const app = document.getElementById('app');
+  if (!app || !app.querySelector('details.settings-sec')) return;
+
+  const sections = Array.from(app.querySelectorAll('details.settings-sec'));
+
+  const translatedTexts = new Map([
+    ['Selecciona una paleta de alto contraste para luz solar', 'settingsSolarHint'],
+    ['☀️ Sol Directo (Blanco / Alto Contraste)', 'settingsThemeSun'],
+    ['🌙 Noche / Campamento (Dark Slate)', 'settingsThemeDark'],
+    ['🏜️ Geológico Tierra / Ocre', 'settingsThemeEarth'],
+    ['🌲 Bosque / Oliva', 'settingsThemeForest'],
+    ['Pequeño / Small', 'settingsSmall'],
+    ['Medio / Medium', 'settingsMedium'],
+    ['Grande / Large', 'settingsLarge'],
+    ['Extra Grande / Extra Large', 'settingsExtraLarge'],
+    ['Normal', 'settingsNormal'],
+    ['Grande (Recomendado)', 'settingsLargeRecommended'],
+    ['Extra grande', 'settingsExtraLargeLower'],
+    ['Dip Direction / Dip (ej. 135 / 45)', 'settingsDipDirection'],
+    ['Strike RHR / Dip (ej. 045 / 45)', 'settingsStrike'],
+    ['Cuadrante / Dip (ej. N45°E / 45)', 'settingsQuadrant'],
+    ['Norte y Sur (ej. N30°E y S45°O)', 'settingsQuadrantNS'],
+    ['Solo Norte (ej. N30°E y N135°O)', 'settingsQuadrantNorth'],
+    ['Dirección de Manteo (Dip Direction)', 'settingsNeedleDip'],
+    ['Rumbo / Strike (Regla mano derecha)', 'settingsNeedleStrike'],
+    ['📍 Calcular declinación desde GPS actual', 'settingsEstimateDeclination'],
+    ['Sensores / Permisos', 'settingsSensorsPermissions'],
+    ['📡 Activar / Re-calibrar Sensores', 'settingsActivateSensors'],
+    ['Cargando...', 'settingsLoading']
+  ]);
+
+  // CAMBIO: Traducir exclusivamente textos del panel Ajustes.
+  app.querySelectorAll('.settings-sec option, .settings-sec .set-sub, .settings-sec .set-title, .settings-sec button').forEach(el => {
+    const key = translatedTexts.get(el.textContent.trim());
+    if (key) el.textContent = t(key);
+  });
+
+  // CAMBIO: Traducir el marcador de posición de calibración.
+  const calibration = app.querySelector('#magOffsetInput');
+  if (calibration) calibration.placeholder = t('settingsCalibrationExample');
+
+  // CAMBIO: Crear asociaciones explícitas para controles existentes.
+  app.querySelectorAll('.settings-sec select, .settings-sec input[id]').forEach((control, index) => {
+    if (!control.id) control.id = 'geoSettingsControl' + index;
+
+    if (app.querySelector('.settings-sec label[for="' + control.id + '"]')) return;
+
+    const item = control.closest('.set-item');
+    const title = item ? item.querySelector('.set-title') : null;
+
+    if (title && title.tagName !== 'LABEL') {
+      const label = document.createElement('label');
+      label.className = title.className;
+      label.htmlFor = control.id;
+      label.textContent = title.textContent;
+      title.replaceWith(label);
+    } else if (title && title.tagName === 'LABEL') {
+      title.htmlFor = control.id;
+    } else {
+      const label = document.createElement('label');
+      label.className = 'settings-sr-only';
+      label.htmlFor = control.id;
+      label.textContent = t('settings');
+      control.parentElement.insertBefore(label, control);
+    }
+  });
+
+  // CAMBIO: Restaurar el estado de cada sección de forma segura.
+  let saved = {};
+  try {
+    const raw = localStorage.getItem('geo_settings_open');
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        saved = parsed;
+      }
+    }
+  } catch (e) {
+    saved = {};
+  }
+
+  sections.forEach((section, index) => {
+    const key = String(index);
+    section.open = typeof saved[key] === 'boolean' ? saved[key] : true;
+
+    // CAMBIO: Guardar el estado individual de las cuatro secciones.
+    section.addEventListener('toggle', () => {
+      let current = {};
+      try {
+        const raw = localStorage.getItem('geo_settings_open');
+        if (raw !== null) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            current = parsed;
+          }
+        }
+        current[key] = section.open;
+        localStorage.setItem('geo_settings_open', JSON.stringify(current));
+      } catch (e) {
+        // CAMBIO: Mantener el funcionamiento sin almacenamiento disponible.
+      }
+    });
+  });
+}
 
 function renderSettings(){
-  setTimeout(updateStorageSettingsUI, 0); 
-  
+  // CAMBIO: Aplicar etiquetas, traducciones y estado persistente tras dibujar Ajustes.
+  setTimeout(() => {
+    updateStorageSettingsUI();
+    setupSettingsPolish();
+  }, 0);
+
   let wlState = '';
   let wlDisabled = '';
   if (!('wakeLock' in navigator) || !window.isSecureContext) {
@@ -6618,7 +7377,8 @@ function validateField(kind, value, isRequired) {
     const strike = parseQuadrantToStrike(String(value));
     if (strike === null) return { ok: false, value: value, message: t('valQuad') };
     const nums = String(value).match(/\d+(?:[.,]\d+)?/g) || [];
-    if (nums.some(n => parseFloat(n.replace(',', '.')) > 90)) return { ok: false, value: value, message: t('valQuad') };
+    // CAMBIO: Distinguir un ángulo superior a 90° de un formato incorrecto.
+    if (nums.some(n => parseFloat(n.replace(',', '.')) > 90)) return { ok: false, value: value, message: t('quadrantAngleRange') };
     return { ok: true, value: String(value) };
   }
   
@@ -6704,6 +7464,8 @@ injectStereoTranslations();
   injectWakeLockTranslations(); 
   injectPhotosTranslations(); // CAMBIO: Inicializar diccionario de fotos
   injectStorageTranslations();
+    // CAMBIO: Registrar traducciones antes del primer renderizado.
+  injectPolishTranslations();
   requestPersistentStorage().catch(function(){});
   initGPS();
   initSensors();
