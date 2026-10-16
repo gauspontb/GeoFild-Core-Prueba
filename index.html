@@ -48,7 +48,7 @@
     --text-faint:#78909c;
     --accent:#d87a00;
     --accent-dim:#ffe0b2;
-    --accent-text:#ffffff;
+    --accent-text:#0a0c0e;
     --danger:#c62828;
     --danger-dim:#ffcdd2;
     --ok:#2e7d32;
@@ -71,22 +71,43 @@
     --ok:#689f38;
     --warn:#f57c00;
   }
-  body.theme-forest{
-    --bg:#121815;
-    --surface:#19221e;
-    --surface-2:#222e28;
-    --border:#33423a;
-    --border-soft:#29362f;
-    --text:#edf5f0;
-    --text-dim:#94ab9e;
-    --text-faint:#5e7367;
-    --accent:#52b788;
-    --accent-dim:#214d38;
-    --accent-text:#081c12;
-    --danger:#e65c5c;
-    --danger-dim:#4d1f1f;
-    --ok:#40916c;
-    --warn:#d4a373;
+  
+    /* CAMBIO: Paleta Amarillo, con acento accesible sobre fondo oscuro. */
+  body.theme-yellow{
+    --bg:#171916;
+    --surface:#22251e;
+    --surface-2:#303429;
+    --border:#4c5141;
+    --border-soft:#3e4436;
+    --text:#f5f5e8;
+    --text-dim:#c4c8ad;
+    --text-faint:#929b81;
+    --accent:#F2C94C;
+    --accent-dim:#68551a;
+    --accent-text:#1a1400;
+    --danger:#e0645c;
+    --danger-dim:#4a2422;
+    --ok:#5fb583;
+    --warn:#F2C94C;
+  }
+
+  /* CAMBIO: Paleta Rosado, con acento accesible sobre fondo oscuro. */
+  body.theme-pink{
+    --bg:#1c1720;
+    --surface:#29212c;
+    --surface-2:#372c3a;
+    --border:#58475c;
+    --border-soft:#47384b;
+    --text:#f9edf5;
+    --text-dim:#d5b9cb;
+    --text-faint:#a98da1;
+    --accent:#F28DB2;
+    --accent-dim:#75415a;
+    --accent-text:#25101d;
+    --danger:#ed7777;
+    --danger-dim:#532830;
+    --ok:#73ba91;
+    --warn:#e8b65f;
   }
 
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -273,6 +294,42 @@
   .toast{ position:fixed; left:50%; bottom:calc(var(--navbar-h) + var(--safe-b) + 16px); transform:translateX(-50%); background:var(--surface-2); border:1px solid var(--accent-dim); color:var(--text); padding:10px 16px; border-radius:20px; font-size:13px; z-index:50; box-shadow:0 4px 16px rgba(0,0,0,.4); }
   .guide-box{ background:var(--surface-2); border:1px solid var(--border-soft); border-radius:8px; padding:12px; font-size:13px; line-height:1.5; color:var(--text); margin-top:8px; }
   .guide-box ul{ padding-left:18px; margin:6px 0; }
+    /* CAMBIO: Lectura cómoda de la Guía en dispositivos móviles. */
+  .guide-section .guide-content{
+    color:var(--text);
+    font-size:14px;
+    line-height:1.65;
+  }
+
+  .guide-section .guide-content h3{
+    color:var(--accent);
+    font-size:14px;
+    margin:18px 0 8px;
+  }
+
+  .guide-section .guide-content h3:first-child{
+    margin-top:6px;
+  }
+
+  .guide-section .guide-content ul,
+  .guide-section .guide-content ol{
+    padding-left:22px;
+    margin:8px 0 14px;
+  }
+
+  .guide-section .guide-content li{
+    padding-left:3px;
+    margin-bottom:9px;
+  }
+
+  .guide-section .guide-content strong{
+    color:var(--text);
+    font-weight:700;
+  }
+
+  .guide-section > summary{
+    min-height:48px;
+  }
 
   .canvas-wrapper{ position:relative; width:100%; display:flex; justify-content:center; align-items:center; margin-top:10px; }
   #stereoCanvas{ background:var(--surface-2); border-radius:50%; box-shadow:0 6px 20px rgba(0,0,0,0.4); touch-action:none; }
@@ -711,10 +768,20 @@ let boxScale = localStorage.getItem('geo_box_scale') || 'md';
 let quadrantPref = localStorage.getItem('geo_quadrant_pref') || 'NS';
 let needleMode = localStorage.getItem('geo_needle_mode') || 'dipdir';
 let magOffset = parseFloat(localStorage.getItem('geo_mag_offset') || '0') || 0;
+const THEME_IDS = ['dark', 'sun', 'earth', 'yellow', 'pink'];
 let colorTheme = localStorage.getItem('geo_theme') || 'dark';
 let inputNotation = localStorage.getItem('geo_input_notation') || 'dipdir';
 
 function applyTheme(){
+  // CAMBIO: Recuperar la paleta predeterminada ante valores antiguos o inválidos.
+  if (!THEME_IDS.includes(colorTheme)) {
+    colorTheme = 'dark';
+    try {
+      localStorage.setItem('geo_theme', colorTheme);
+    } catch (e) {
+      console.warn('No se pudo guardar la paleta predeterminada', e);
+    }
+  }
   document.body.className = colorTheme === 'dark' ? '' : 'theme-' + colorTheme;
 }
 
@@ -1412,7 +1479,12 @@ const Nav={
   },
   exportView(){ state.view='export'; render(); },
   settings(){ state.view='settings'; render(); },
+    // CAMBIO: Abrir la Guía desde Ajustes sin añadir una pestaña inferior.
+  guide(){ state.view='guide'; render(); },
   back(){
+    // CAMBIO: La Guía vuelve a Ajustes, sin modificar las demás rutas.
+    if(state.view==='guide') Nav.settings();
+    else
     if(state.view==='measForm') Nav.station(state.stationId, state.campId);
     else if(state.view==='stationForm') { if(state.stationId) Nav.station(state.stationId, state.campId); else Nav.campaign(state.campId); }
     else if(state.view==='stationDetail') { if(state.campId) Nav.campaign(state.campId); else Nav.home(); }
@@ -1462,6 +1534,8 @@ async function render(){
   else if(state.view==='mapView'){ app.innerHTML = renderMapGISView(); initGISMap(); }
   else if(state.view==='export') app.innerHTML = await renderExport();
   else if(state.view==='settings') app.innerHTML = renderSettings();
+    // CAMBIO: Registrar la nueva vista de Guía.
+  else if(state.view==='guide') app.innerHTML = renderGuide();
   
   if(state.view!=='mapView'){ window.scrollTo(0,0); app.scrollTop=0; }
 }
@@ -5907,6 +5981,20 @@ function injectPhotoZipTranslations() {
 }
 injectPhotoZipTranslations();
 
+// CAMBIO: Traducciones de las exportaciones fotográficas V2.
+function injectPhotoExportV2Translations() {
+  Object.assign(I18N.es, {
+    photoExportMissingCampaign: 'No se encontró la campaña de una fotografía.',
+    photoCsvExportDone: 'CSV exportado',
+    photoGeoJSONExportDone: 'GeoJSON exportado'
+  });
+  Object.assign(I18N.en, {
+    photoExportMissingCampaign: 'A photo has no valid campaign.',
+    photoCsvExportDone: 'CSV exported',
+    photoGeoJSONExportDone: 'GeoJSON exported'
+  });
+}
+injectPhotoExportV2Translations();
 
 // CAMBIO: Mismo formato para el contador visual y las pruebas.
 function formatPhotoZipStats(count, bytes) {
@@ -5918,16 +6006,32 @@ function formatPhotoZipStats(count, bytes) {
 async function getPhotoExportContext() {
   const scoped = await getFilteredData();
   const allStations = await dbGetAll('stations');
+  // CAMBIO: Resolver campañas antes de las estaciones, de forma estable por ID.
   const stationNames = {};
-  const usedNames = new Set();
+  const campaignNames = {};
+  const usedCampaignNames = new Set();
+  const usedStationNames = new Map();
   const safe = value => {
     const v = String(value ?? '').replace(/[/\\:*?"<>|\s]/g, '_');
     return !v || v === '.' || v === '..' ? '_' : v;
   };
   const lexCompare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 
+  // CAMBIO: Truncar cada base a 30 caracteres antes del sufijo de colisión.
+  Object.values(scoped.campMap).sort((a, b) => lexCompare(String(a.id), String(b.id))).forEach(camp => {
+    const base = Array.from(safe(camp.name || camp.id)).slice(0, 30).join('');
+    let result = base;
+    let suffix = 2;
+    while (usedCampaignNames.has(result)) result = base + '-' + suffix++;
+    usedCampaignNames.add(result);
+    campaignNames[camp.id] = result;
+  });
+
   allStations.slice().sort((a, b) => lexCompare(String(a.id), String(b.id))).forEach(st => {
-    const base = safe(st.name || st.id);
+    // CAMBIO: Las colisiones de estación se resuelven dentro de cada campaña.
+    if (!usedStationNames.has(st.campaignId)) usedStationNames.set(st.campaignId, new Set());
+    const usedNames = usedStationNames.get(st.campaignId);
+    const base = Array.from(safe(st.name || st.id)).slice(0, 30).join('');
     let result = base;
     let suffix = 2;
     while (usedNames.has(result)) result = base + '-' + suffix++;
@@ -6008,6 +6112,8 @@ async function getPhotoExportContext() {
     ...scoped,
     photos,
     stationNames,
+    // CAMBIO: Compartir las campañas saneadas con ZIP, CSV y GeoJSON.
+    campaignNames,
     measById,
     measIndices,
     photoIndices
@@ -6026,11 +6132,15 @@ function photoFileName(photo, ctx) {
   };
 
   const station = ctx.stationNames[photo.stationId];
+  // CAMBIO: Usar el segmento de campaña calculado en el contexto compartido.
+  const campaign = ctx.campaignNames[ctx.stMap[photo.stationId]?.campaignId];
   const n = ctx.photoIndices[photo.id];
 
   if (!station || !Number.isInteger(n) || n < 1) {
     throw new Error('Foto sin estación o índice: ' + photo.id);
   }
+  // CAMBIO: Detectar estaciones sin campaña válida antes de nombrar un archivo.
+  if (!campaign) throw new Error(t('photoExportMissingCampaign'));
 
   const pad = value => String(value).padStart(2, '0');
 
@@ -6038,7 +6148,8 @@ function photoFileName(photo, ctx) {
     if (photo.ownerId !== photo.stationId) {
       throw new Error('Propietario de foto de estación incoherente: ' + photo.id);
     }
-    return station + '/' + station + '_estacion_f' + pad(n) + '.jpg';
+    // CAMBIO: Ruta Campaña/Estación y prefijo Campaña_Estación.
+    return campaign + '/' + station + '/' + campaign + '_' + station + '_estacion_f' + pad(n) + '.jpg';
   }
 
   if (photo.ownerKind === 'measurement') {
@@ -6049,7 +6160,8 @@ function photoFileName(photo, ctx) {
       throw new Error('Foto sin medición válida: ' + photo.id);
     }
 
-    return station + '/' + station + '_' + safe(m.type) + '_m' + pad(index) + '_f' + pad(n) + '.jpg';
+    // CAMBIO: Conservar el sufijo de tipo, medición y foto.
+    return campaign + '/' + station + '/' + campaign + '_' + station + '_' + safe(m.type) + '_m' + pad(index) + '_f' + pad(n) + '.jpg';
   }
 
   throw new Error('Tipo de propietario de foto no reconocido: ' + photo.ownerKind);
@@ -6165,6 +6277,7 @@ async function buildPhotoZip(ctx, onProgress) {
 
   const indexRows = [[
     'Photo_File',
+    'Campaign',
     'Station_ID',
     'Owner_Kind',
     'Meas_Type',
@@ -6186,6 +6299,7 @@ async function buildPhotoZip(ctx, onProgress) {
 
     indexRows.push([
       file,
+      ctx.campMap[station.campaignId]?.name || '',
       station.id,
       p.ownerKind,
       measured ? measured.type : '',
@@ -6456,24 +6570,29 @@ async function getFilteredData(){
 }
 
 async function exportCSV(){
-  const { measurements, stMap, campMap } = await getFilteredData();
-
-  // CAMBIO: Aplicar exactamente el mismo contexto de nombres usado por el ZIP.
+  // CAMBIO: Un único contexto garantiza nombres y alcance idénticos al ZIP.
   const photoCtx = await getPhotoExportContext();
+  const { measurements, stations, stMap, campMap } = photoCtx;
   const photosByOwner = new Map();
+  const stationPhotosByOwner = new Map();
   photoCtx.photos.forEach(p => {
-    if (p.ownerKind !== 'measurement') return;
-    if (!photosByOwner.has(p.ownerId)) photosByOwner.set(p.ownerId, []);
-    photosByOwner.get(p.ownerId).push(photoFileName(p, photoCtx));
+    // CAMBIO: Distinguir fotografías de medición de fotografías propias de estación.
+    const target = p.ownerKind === 'station' ? stationPhotosByOwner : photosByOwner;
+    if (p.ownerKind !== 'station' && p.ownerKind !== 'measurement') return;
+    if (!target.has(p.ownerId)) target.set(p.ownerId, []);
+    target.get(p.ownerId).push(photoFileName(p, photoCtx));
   });
 
-  const headers=['Campaign','Station_ID','Timestamp','Lat','Lon','Alt','UTM_Zone','UTM_Hemisphere','UTM_Easting','UTM_Northing','Struct_Type','Kind','Strike','Dip','DipDir','Trend','Plunge','Rake','Rake_Quad','Sense','True_Thickness','Vein_Thick','Vein_Unit','Alteration','Notes','Photo_Count','Photo_Files']; // CAMBIO: dos columnas al final
+  // CAMBIO: Las 25 columnas originales y Photo_* permanecen en su posición.
+  const headers=['Campaign','Station_ID','Timestamp','Lat','Lon','Alt','UTM_Zone','UTM_Hemisphere','UTM_Easting','UTM_Northing','Struct_Type','Kind','Strike','Dip','DipDir','Trend','Plunge','Rake','Rake_Quad','Sense','True_Thickness','Vein_Thick','Vein_Unit','Alteration','Notes','Photo_Count','Photo_Files','Station_Photo_Count','Station_Photo_Files','Record_Type'];
   const rows=[headers.join(',')];
   measurements.forEach(m=>{
     const st=stMap[m.stationId]||{};
     const camp=campMap[st.campaignId]||{};
     const u = utmLabel(st.lat, st.lon);
-    const ownPhotos = photosByOwner.get(m.id) || []; // CAMBIO: fotos únicamente de esta medición
+    const ownPhotos = photosByOwner.get(m.id) || [];
+    // CAMBIO: Agregar fotos propias de estación y tipo al final.
+    const stationPhotos = stationPhotosByOwner.get(st.id) || [];
     rows.push([
       csvEsc(camp.name||''), csvEsc(st.name||st.id||''), csvEsc(m.timestamp||st.timestamp||''),
       st.lat??'', st.lon??'', st.alt??'',
@@ -6483,28 +6602,50 @@ async function exportCSV(){
       m.trend!=null?roundInt(m.trend):'', m.plunge!=null?roundInt(m.plunge):'', m.rake!=null?roundInt(m.rake):'', csvEsc(m.rakeQuadrant||''),
       csvEsc(m.sense||''), m.trueThickness!=null?roundInt(m.trueThickness):'', m.veinThickness!=null?roundInt(m.veinThickness):'', csvEsc(m.veinUnit||''),
       csvEsc((m.alteration||[]).join('; ')), csvEsc(m.notes||''),
-      ownPhotos.length, csvEsc(ownPhotos.join(' | ')) // CAMBIO: nuevas columnas al final
+      ownPhotos.length, csvEsc(ownPhotos.join(' | ')),
+      stationPhotos.length, csvEsc(stationPhotos.join(' | ')), 'measurement'
+    ].join(','));
+  });
+  // CAMBIO: Añadir una fila por estación sin mediciones, incluso sin coordenadas.
+  const measuredStationIds = new Set(measurements.map(m => m.stationId));
+  stations.filter(st => !measuredStationIds.has(st.id)).forEach(st => {
+    const camp = campMap[st.campaignId] || {};
+    const u = isValidLatLon(st.lat, st.lon) ? utmLabel(st.lat, st.lon) : null;
+    const stationPhotos = stationPhotosByOwner.get(st.id) || [];
+    rows.push([
+      csvEsc(camp.name||''), csvEsc(st.name||st.id||''), csvEsc(st.timestamp||''),
+      st.lat??'', st.lon??'', st.alt??'',
+      u? u.zoneNumber:'', u? u.hemisphere:'', u? u.easting:'', u? u.northing:'',
+      ...Array(14).fill(''), csvEsc(st.notes||''),
+      0, '', stationPhotos.length, csvEsc(stationPhotos.join(' | ')), 'station'
     ].join(','));
   });
   downloadFile('\uFEFF'+rows.join('\r\n'), 'GeoFieldCore_'+dateStamp()+'.csv', 'text/csv;charset=utf-8');
-  toast('CSV exportado');
+  // CAMBIO: Mensaje traducido al idioma activo.
+  toast(t('photoCsvExportDone'));
 }
 
 async function exportGeoJSON(){
-  const { measurements, stMap, campMap } = await getFilteredData();
-
-  // CAMBIO: Las propiedades fotográficas reúnen estación y mediciones, sin alterar features existentes.
+  // CAMBIO: Contexto compartido con CSV y ZIP.
   const photoCtx = await getPhotoExportContext();
+  const { measurements, stations, stMap, campMap } = photoCtx;
+  const photoNamesByMeasurement = new Map();
   const photoNamesByStation = new Map();
   photoCtx.photos.forEach(p => {
-    if (!photoNamesByStation.has(p.stationId)) photoNamesByStation.set(p.stationId, []);
-    photoNamesByStation.get(p.stationId).push(photoFileName(p, photoCtx));
+    // CAMBIO: Evitar mezclar fotos de medición y de estación.
+    const target = p.ownerKind === 'station' ? photoNamesByStation : photoNamesByMeasurement;
+    if (p.ownerKind !== 'station' && p.ownerKind !== 'measurement') return;
+    if (!target.has(p.ownerId)) target.set(p.ownerId, []);
+    target.get(p.ownerId).push(photoFileName(p, photoCtx));
   });
 
   const features=measurements.filter(m=>{ const s=stMap[m.stationId]; return s && s.lat!=null && s.lon!=null; }).map(m=>{
     const st=stMap[m.stationId];
     const camp=campMap[st.campaignId]||{};
     const u = utmLabel(st.lat, st.lon);
+    // CAMBIO: Photo_* solo de esta medición y Station_Photo_* de la estación.
+    const ownPhotos = photoNamesByMeasurement.get(m.id) || [];
+    const stationPhotos = photoNamesByStation.get(st.id) || [];
     return {
       type:'Feature',
       geometry:{ type:'Point', coordinates:[Number(st.lon), Number(st.lat), st.alt!=null?Number(st.alt):0] },
@@ -6518,13 +6659,45 @@ async function exportGeoJSON(){
         Sense: m.sense||null, True_Thickness: m.trueThickness!=null?roundInt(m.trueThickness):null,
         Vein_Thick: m.veinThickness!=null?roundInt(m.veinThickness):null, Vein_Unit: m.veinUnit||null,
         Alteration: (m.alteration||[]).join('; ')||null, Notes: m.notes||null,
-        Photo_Count: (photoNamesByStation.get(st.id) || []).length, // CAMBIO: nueva propiedad al final
-        Photo_Files: (photoNamesByStation.get(st.id) || []).join(' | ') // CAMBIO: nueva propiedad al final
+        Photo_Count: ownPhotos.length,
+        Photo_Files: ownPhotos.join(' | '),
+        // CAMBIO: Propiedades añadidas exclusivamente al final.
+        Station_Photo_Count: stationPhotos.length,
+        Station_Photo_Files: stationPhotos.join(' | '),
+        Record_Type: 'measurement'
       }
     };
   });
+
+  // CAMBIO: Conservar estaciones sin mediciones solo con coordenadas válidas.
+  const measuredStationIds = new Set(measurements.map(m => m.stationId));
+  stations.filter(st => !measuredStationIds.has(st.id) && isValidLatLon(st.lat, st.lon)).forEach(st => {
+    const camp = campMap[st.campaignId] || {};
+    const u = utmLabel(st.lat, st.lon);
+    const stationPhotos = photoNamesByStation.get(st.id) || [];
+    features.push({
+      type:'Feature',
+      geometry:{ type:'Point', coordinates:[Number(st.lon), Number(st.lat), st.alt!=null?Number(st.alt):0] },
+      properties:{
+        Campaign: camp.name||null, Station_ID: st.name||st.id, Timestamp: st.timestamp,
+        UTM_Zone: u? u.zoneNumber:null, UTM_Hemisphere: u? u.hemisphere:null,
+        UTM_Easting: u? u.easting:null, UTM_Northing: u? u.northing:null,
+        Struct_Type:null, Kind:null,
+        Strike:null, Dip:null, DipDir:null,
+        Trend:null, Plunge:null, Rake:null, Rake_Quad:null,
+        Sense:null, True_Thickness:null,
+        Vein_Thick:null, Vein_Unit:null,
+        Alteration:null, Notes:st.notes||null,
+        Photo_Count:0, Photo_Files:'',
+        Station_Photo_Count:stationPhotos.length,
+        Station_Photo_Files:stationPhotos.join(' | '),
+        Record_Type:'station'
+      }
+    });
+  });
   downloadFile(JSON.stringify({ type:'FeatureCollection', features },null,2), 'GeoFieldCore_'+dateStamp()+'.geojson', 'application/geo+json');
-  toast('GeoJSON exportado');
+  // CAMBIO: Mensaje traducido al idioma activo.
+  toast(t('photoGeoJSONExportDone'));
 }
 
 function injectImportTranslations() {
@@ -7170,6 +7343,40 @@ function setupSettingsPolish() {
   });
 }
 
+// CAMBIO: Registro extensible de secciones de la Guía.
+const GUIDE_SECTIONS = [
+  {
+    id: 'install',
+    titleKey: 'guideInstallTitle',
+    contentKey: 'guideInstallContent'
+  }
+];
+
+// CAMBIO: Vista autónoma y sin conexión de la Guía de uso.
+function renderGuide(){
+  return `
+    <div class="topline">
+      <button class="back-btn" id="btnGuideBack" onclick="Nav.back()" aria-label="${esc(t('guideBack'))}">←</button>
+      <div>
+        <h2>${esc(t('guideTitle'))}</h2>
+      </div>
+    </div>
+    <div id="guideSections">
+      ${GUIDE_SECTIONS.map(section => `
+        <details class="accordion guide-section" data-guide-id="${esc(section.id)}">
+          <summary>
+            <span class="sum-l">${esc(t(section.titleKey))}</span>
+            <span class="chev" aria-hidden="true">❯</span>
+          </summary>
+          <div class="accordion-body guide-content">
+            ${t(section.contentKey)}
+          </div>
+        </details>
+      `).join('')}
+    </div>
+  `;
+}
+
 function renderSettings(){
   // CAMBIO: Aplicar etiquetas, traducciones y estado persistente tras dibujar Ajustes.
   setTimeout(() => {
@@ -7207,12 +7414,13 @@ function renderSettings(){
       '</div>' +
       '<div class="set-item">' +
         '<div class="set-title">' + t('colorTheme') + '</div>' +
-        '<div class="set-sub">Selecciona una paleta de alto contraste para luz solar</div>' +
-        '<select onchange="changeColorTheme(this.value)" style="margin-top:8px;">' +
-          '<option value="sun" ' + (colorTheme==='sun'?'selected':'') + '>☀️ Sol Directo (Blanco / Alto Contraste)</option>' +
-          '<option value="dark" ' + (colorTheme==='dark'?'selected':'') + '>🌙 Noche / Campamento (Dark Slate)</option>' +
-          '<option value="earth" ' + (colorTheme==='earth'?'selected':'') + '>🏜️ Geológico Tierra / Ocre</option>' +
-          '<option value="forest" ' + (colorTheme==='forest'?'selected':'') + '>🌲 Bosque / Oliva</option>' +
+        '<div class="set-sub">' + t('themeHelp') + '</div>' +
+        '<select id="geoThemeSelect" onchange="changeColorTheme(this.value)" style="margin-top:8px;">' +
+          '<option value="sun" ' + (colorTheme==='sun'?'selected':'') + '>' + t('themeSun') + '</option>' +
+          '<option value="dark" ' + (colorTheme==='dark'?'selected':'') + '>' + t('themeDark') + '</option>' +
+          '<option value="earth" ' + (colorTheme==='earth'?'selected':'') + '>' + t('themeEarth') + '</option>' +
+          '<option value="yellow" ' + (colorTheme==='yellow'?'selected':'') + '>' + t('themeYellow') + '</option>' +
+          '<option value="pink" ' + (colorTheme==='pink'?'selected':'') + '>' + t('themePink') + '</option>' +
         '</select>' +
       '</div>' +
       '<div class="set-item">' +
@@ -7313,7 +7521,9 @@ function renderSettings(){
       '<div style="font-size:11.5px; color:var(--text-dim); margin-top:8px;">' + t('backupPhotosActive') + '</div>' + // CAMBIO: Usar texto instando a activar el respaldo
       '<button class="btn primary" id="btnReqStorage" style="display:none; margin-top:14px; min-height:44px; width:100%;" onclick="handleRequestStorage()">' + t('reqProtectionBtn') + '</button>' +
     '</div>' +
-  '</details>';
+  '</details>' +
+  // CAMBIO: Acceso independiente a la Guía sin alterar el acordeón existente.
+  '<button class="btn ghost" id="btnOpenGuide" style="margin-top:8px;" onclick="Nav.guide()">' + t('guideOpen') + '</button>';
 }
 
 function autoEstimateDeclination(){
@@ -7325,7 +7535,13 @@ function autoEstimateDeclination(){
   toast(`Declinación estimada: ${est}° aplicada`);
 }
 
-function changeColorTheme(theme){ colorTheme=theme; localStorage.setItem('geo_theme', theme); render(); }
+function changeColorTheme(theme){
+  // CAMBIO: Impedir que se guarden paletas inexistentes.
+  colorTheme = THEME_IDS.includes(theme) ? theme : 'dark';
+  localStorage.setItem('geo_theme', colorTheme);
+  render();
+}
+
 function changeInputNotation(not){ inputNotation=not; localStorage.setItem('geo_input_notation', not); render(); }
 function changeLanguage(lang){ currentLang=lang; localStorage.setItem('geo_lang', lang); render(); }
 function changeCompassScale(scale){ compassScale=scale; localStorage.setItem('geo_compass_scale', scale); render(); }
@@ -7430,6 +7646,99 @@ function injectStereoTranslations() {
   });
 }
 
+// CAMBIO: Traducciones independientes para las paletas y la nueva Guía.
+function injectThemesGuideTranslations(){
+  Object.assign(I18N.es, {
+    themeHelp: 'Selecciona una paleta de alto contraste para luz solar',
+    themeSun: '☀️ Sol Directo (Blanco / Alto Contraste)',
+    themeDark: '🌙 Noche / Campamento (Oscuro)',
+    themeEarth: '🏜️ Geológico Tierra / Ocre',
+    themeYellow: '🌕 Amarillo',
+    themePink: '🌸 Rosado',
+    guideTitle: 'Guía de uso',
+    guideOpen: '📖 Abrir Guía de uso',
+    guideBack: 'Volver a Ajustes',
+    guideInstallTitle: 'Instalar la app',
+    guideInstallContent: `
+      <h3>Antes de instalar</h3>
+      <ul>
+        <li>Abre la app con internet, desde su dirección https, al menos una vez para que quede guardada y funcione sin conexión.</li>
+        <li>El GPS y los sensores solo funcionan desde esa dirección https, no desde un archivo guardado en el teléfono.</li>
+      </ul>
+
+      <h3>Android (Chrome o Edge)</h3>
+      <ol>
+        <li>Abre la dirección de la app.</li>
+        <li>Abre el menú ⋮ y elige <strong>"Instalar app"</strong> o <strong>"Añadir a pantalla de inicio"</strong>.</li>
+        <li>Confirma con <strong>"Instalar"</strong>.</li>
+        <li>Abre la app desde el ícono nuevo y acepta los permisos de ubicación y de sensores.</li>
+        <li>Antes de salir a terreno, pruébala una vez en modo avión.</li>
+      </ol>
+
+      <h3>iPhone (Safari)</h3>
+      <ol>
+        <li>Abre la dirección de la app en Safari.</li>
+        <li>Toca el botón Compartir (cuadrado con una flecha hacia arriba).</li>
+        <li>Elige <strong>"Añadir a pantalla de inicio"</strong> y toca <strong>"Añadir"</strong>.</li>
+        <li>Abre siempre la app desde ese ícono.</li>
+        <li>Si el sistema pide permiso para los sensores de movimiento y orientación, toca <strong>"Permitir"</strong>.</li>
+        <li>En iPhone, la app instalada y Safari suelen guardar los datos por separado. Si ya tomaste datos en Safari, haz un respaldo (Exportar / Importar) y restáuralo dentro de la app instalada.</li>
+      </ol>
+
+      <h3>Antes de cada salida</h3>
+      <ul>
+        <li>Haz un respaldo con la casilla <strong>"Incluir fotos"</strong> activada.</li>
+        <li>Los nombres exactos de los menús pueden variar según tu versión de Android, iOS o del navegador.</li>
+      </ul>
+    `
+  });
+
+  Object.assign(I18N.en, {
+    themeHelp: 'Choose a high-contrast palette for sunlight',
+    themeSun: '☀️ Direct Sunlight (White / High Contrast)',
+    themeDark: '🌙 Night / Camp (Dark)',
+    themeEarth: '🏜️ Geological Earth / Ochre',
+    themeYellow: '🌕 Yellow',
+    themePink: '🌸 Pink',
+    guideTitle: 'User Guide',
+    guideOpen: '📖 Open User Guide',
+    guideBack: 'Back to Settings',
+    guideInstallTitle: 'Install the app',
+    guideInstallContent: `
+      <h3>Before installing</h3>
+      <ul>
+        <li>Open the app with an internet connection, from its https address, at least once so it can be saved and work offline.</li>
+        <li>GPS and sensors only work from that https address, not from a file saved on your phone.</li>
+      </ul>
+
+      <h3>Android (Chrome or Edge)</h3>
+      <ol>
+        <li>Open the app's address.</li>
+        <li>Open the ⋮ menu and choose <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</li>
+        <li>Confirm by tapping <strong>"Install"</strong>.</li>
+        <li>Open the app from the new icon and allow location and sensor permissions.</li>
+        <li>Before going into the field, test it once in airplane mode.</li>
+      </ol>
+
+      <h3>iPhone (Safari)</h3>
+      <ol>
+        <li>Open the app's address in Safari.</li>
+        <li>Tap the Share button (a square with an upward arrow).</li>
+        <li>Choose <strong>"Add to Home Screen"</strong> and tap <strong>"Add"</strong>.</li>
+        <li>Always open the app from that icon.</li>
+        <li>If the system requests permission for motion and orientation sensors, tap <strong>"Allow"</strong>.</li>
+        <li>On iPhone, the installed app and Safari usually store data separately. If you have already collected data in Safari, create a backup (Export / Import) and restore it inside the installed app.</li>
+      </ol>
+
+      <h3>Before every field trip</h3>
+      <ul>
+        <li>Create a backup with the <strong>"Include photos"</strong> checkbox enabled.</li>
+        <li>The exact menu names may vary depending on your Android, iOS, or browser version.</li>
+      </ul>
+    `
+  });
+}
+
 // CAMBIO: Nueva función de traducciones UI-R2 (se llamará en init)
 function injectStereoUITranslations() {
   Object.assign(I18N.es, {
@@ -7464,8 +7773,8 @@ injectStereoTranslations();
   injectWakeLockTranslations(); 
   injectPhotosTranslations(); // CAMBIO: Inicializar diccionario de fotos
   injectStorageTranslations();
-    // CAMBIO: Registrar traducciones antes del primer renderizado.
   injectPolishTranslations();
+  injectThemesGuideTranslations();
   requestPersistentStorage().catch(function(){});
   initGPS();
   initSensors();
