@@ -7838,22 +7838,30 @@ function injectThemesGuideTranslations(){
 
 // CAMBIO: Nombres de las seis paletas elegidas en español e inglés.
 function injectNewFieldPaletteTranslations(){
+  // CAMBIO: Nombres geológicos sin emojis para las nueve paletas en español.
   Object.assign(I18N.es, {
-    themeYellow: '🧊 Carbón y azul hielo',
-    themeEarth: '🌹 Obsidiana rosé',
-    themeCobalt: '🔷 Cobalto eléctrico',
-    themeLime: '🍃 Ceniza y lima suave',
-    themeClay: '🪨 Arcilla y celeste',
-    themeAmethyst: '💎 Amatista mineral'
+    themeSun: 'Cuarzo lechoso',
+    themeDark: 'Obsidiana',
+    themeEarth: 'Andesita',
+    themeYellow: 'Aquamarina',
+    themePink: 'Rodocrosita',
+    themeCobalt: 'Cobalto',
+    themeLime: 'Epidota',
+    themeClay: 'Lutita',
+    themeAmethyst: 'Amatista'
   });
 
+  // CAMBIO: Equivalentes ingleses sin emojis con las mismas claves I18N.
   Object.assign(I18N.en, {
-    themeYellow: '🧊 Charcoal & Ice Blue',
-    themeEarth: '🌹 Rosé Obsidian',
-    themeCobalt: '🔷 Electric Cobalt',
-    themeLime: '🍃 Ash & Soft Lime',
-    themeClay: '🪨 Clay & Sky Blue',
-    themeAmethyst: '💎 Mineral Amethyst'
+    themeSun: 'Milky Quartz',
+    themeDark: 'Obsidian',
+    themeEarth: 'Andesite',
+    themeYellow: 'Aquamarine',
+    themePink: 'Rhodochrosite',
+    themeCobalt: 'Cobalt',
+    themeLime: 'Epidote',
+    themeClay: 'Lutite',
+    themeAmethyst: 'Amethyst'
   });
 }
 
