@@ -1224,12 +1224,41 @@ function faultRakeToSlipVector(strike, dip, rake, rakeQuad) {
   const sR = toRad(strike), dR = toRad(dip), rR = toRad(rake);
   const strikeVec = [Math.sin(sR), Math.cos(sR), 0];
   const dipVec = [Math.cos(sR) * Math.cos(dR), -Math.sin(sR) * Math.cos(dR), Math.sin(dR)];
-  const strikeQuad = dipDirQuadrant(strike);
+  // CAMBIO: Convertir los ocho cuadrantes del selector a azimuts.
+  const quadAzimuths = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SO: 225, O: 270, NO: 315 };
   let rakeFromStrikeStart = true;
-  if (rakeQuad && rakeQuad !== strikeQuad) rakeFromStrikeStart = false;
+  // CAMBIO: Elegir el extremo más cercano; con cuadrante vacío o desconocido se conserva s.
+  if (Object.prototype.hasOwnProperty.call(quadAzimuths, rakeQuad)) {
+    const ref = quadAzimuths[rakeQuad], s = norm360(strike);
+    const distS = Math.abs(((s - ref + 540) % 360) - 180);
+    const distOpp = Math.abs(((s + 180 - ref + 540) % 360) - 180);
+    // CAMBIO: En un empate de 90°/90°, prevalece el extremo s (RHR).
+    if (distOpp < distS) rakeFromStrikeStart = false;
+  }
   const sign = rakeFromStrikeStart ? 1 : -1;
   const slip = V3.add(V3.scale(strikeVec, sign * Math.cos(rR)), V3.scale(dipVec, Math.sin(rR)));
   return V3.norm(slip);
+}
+
+// CAMBIO: Resolver todos los alias hacia un único código interno sin modificar el dato guardado.
+function canonicalSense(raw) {
+  if (raw == null) return null;
+  const key = String(raw).toLowerCase().replace(/\s+/g, '');
+  const aliases = {
+    normal: 'normal', n: 'normal',
+        // CAMBIO: Reconocer explícitamente la ausencia de sentido cinemático determinado.
+    undetermined: 'undetermined',
+    sindeterminar: 'undetermined',
+    indeterminado: 'undetermined',
+    inverso: 'reverse', inversa: 'reverse', reverse: 'reverse', thrust: 'reverse', t: 'reverse',
+    dextral: 'dextral', rl: 'dextral',
+    sinistral: 'sinistral', ll: 'sinistral',
+    'dextral-normal': 'normal_dextral', nr: 'normal_dextral', normal_dextral: 'normal_dextral',
+    'sinistral-normal': 'normal_sinistral', nl: 'normal_sinistral', normal_sinistral: 'normal_sinistral',
+    'dextral-inverso': 'reverse_dextral', tr: 'reverse_dextral', reverse_dextral: 'reverse_dextral',
+    'sinistral-inverso': 'reverse_sinistral', tl: 'reverse_sinistral', reverse_sinistral: 'reverse_sinistral'
+  };
+  return Object.prototype.hasOwnProperty.call(aliases, key) ? aliases[key] : null;
 }
 
 function computeFaultKinematics(f) {
@@ -1237,7 +1266,7 @@ function computeFaultKinematics(f) {
   const strike = f.strike != null ? f.strike : norm360((f.dipDir || 0) - 90);
   const dip = f.dip != null ? f.dip : 0;
   const dipDir = norm360(strike + 90);
-  
+
   const sR = toRad(strike);
   const dR = toRad(dip);
   const dipDirR = toRad(dipDir);
@@ -1266,24 +1295,20 @@ function computeFaultKinematics(f) {
   const uLine = V3.norm(uPlane);
 
   // 5. Mapeo estricto de sentido cinemático (dipComponent, strikeComponent)
+  // CAMBIO: El mapa contiene solamente códigos internos resueltos por canonicalSense.
   const senseMap = {
     'normal': [1, 0],
-    'n': [1, 0],
-    'inverso': [-1, 0],
-    'thrust': [-1, 0],
-    'tr': [-1, 0],
-    't': [-1, 0],
+    'reverse': [-1, 0],
     'dextral': [0, 1],
-    'rl': [0, 1],
     'sinistral': [0, -1],
-    'll': [0, -1],
-    'dextral-normal': [1, 1],
-    'dextral-inverso': [-1, 1],
-    'sinistral-normal': [1, -1],
-    'sinistral-inverso': [-1, -1]
+    'normal_dextral': [1, 1],
+    'reverse_dextral': [-1, 1],
+    'normal_sinistral': [1, -1],
+    'reverse_sinistral': [-1, -1]
   };
 
-  const rawSense = String(f.sense || '').toLowerCase().replace(/\s+/g, '');
+  // CAMBIO: Para lo desconocido, conservar la advertencia y el valor normal predeterminado.
+  const rawSense = canonicalSense(f.sense) || String(f.sense || '').toLowerCase().replace(/\s+/g, '');
   let dipComp = 1, strikeComp = 0; // Default: normal
 
   if (senseMap.hasOwnProperty(rawSense)) {
@@ -1647,6 +1672,28 @@ function injectNotationTranslations() {
 }
 // Ejecutar inmediatamente para inyectar en el entorno actual
 injectNotationTranslations();
+
+// CAMBIO: Rótulo numérico para la dirección de manteo en las equivalencias del formulario.
+function injectDerivedDipDirectionTranslations(){
+  Object.assign(I18N.es, { derivedDipDirection: 'Dirección de manteo' });
+  Object.assign(I18N.en, { derivedDipDirection: 'Dip direction' });
+}
+injectDerivedDipDirectionTranslations();
+
+// CAMBIO: Traducciones de la dirección de manteo seleccionable en notación cuadrantal.
+function injectQuadrantDipSideTranslations(){
+  Object.assign(I18N.es, {
+    quadDipSideLabel: 'Dirección de manteo (elegir lado)',
+    quadDipSidePending: 'Introduce primero el rumbo cuadrantal',
+    quadDipSideHelp: 'Selecciona el lado real del manteo; el rumbo RHR se calcula automáticamente.'
+  });
+  Object.assign(I18N.en, {
+    quadDipSideLabel: 'Dip direction (choose side)',
+    quadDipSidePending: 'Enter the quadrant strike first',
+    quadDipSideHelp: 'Choose the actual dip side; the RHR strike updates automatically.'
+  });
+}
+injectQuadrantDipSideTranslations();
 
 function formatPlaneReadout(dipDir, dip, notation, quadrantPref) {
   if (dipDir == null || dip == null || isNaN(dipDir) || isNaN(dip)) {
@@ -2632,16 +2679,22 @@ function drawGeologicalSymbol(ctx, cx, cy, m){
     ctx.stroke();
  
     // Flechas de cizalle según cinemática (Dextral / Sinistral)
-    const sense = (m.sense || '').toLowerCase();
-    if(sense.includes('dextral') || sense.includes('rl')){
+
+        // CAMBIO: Normalizar el sentido guardado sin alterar su valor original.
+    const sense = canonicalSense(m.sense);
+    // CAMBIO: Activar las flechas dextrales también en fallas mixtas.
+    if(sense === 'dextral' || sense === 'normal_dextral' || sense === 'reverse_dextral'){
       // Flecha arriba hacia la derecha, abajo hacia la izquierda
       drawArrowHead(ctx, 6, -4, 0);
       drawArrowHead(ctx, -6, 4, Math.PI);
-    } else if(sense.includes('sinistral') || sense.includes('ll')){
+    } else if(sense === 'sinistral' || sense === 'normal_sinistral' || sense === 'reverse_sinistral'){
+      // CAMBIO: Activar las flechas sinistrales también en fallas mixtas.
       // Flecha arriba hacia la izquierda, abajo hacia la derecha
       drawArrowHead(ctx, -6, -4, Math.PI);
       drawArrowHead(ctx, 6, 4, 0);
-    } else if(sense.includes('invers') || sense.includes('thrust')){
+    }
+    // CAMBIO: Dibujar la componente inversa por separado, incluso si hay flechas laterales.
+    if(sense === 'reverse' || sense === 'reverse_dextral' || sense === 'reverse_sinistral'){
       // Dientes de cabalgamiento
       ctx.fillStyle = '#e0645c';
       ctx.beginPath();
@@ -3321,7 +3374,8 @@ function parseQuadrantToStrike(qStr){
   else if(ns==='N' && ew==='W') strike = 360 - ang;
   else if(ns==='S' && ew==='E') strike = 180 - ang;
   else if(ns==='S' && ew==='W') strike = 180 + ang;
-  return roundInt(norm360(strike));
+  // CAMBIO: Normalizar el rumbo cuadrantal como línea axial; la dirección RHR se establece por convención al introducirlo.
+  return roundInt(norm360(strike) % 180);
 }
 
 // Constante que contiene los coeficientes del WMM2025 (Grado y Orden 12)
@@ -3544,7 +3598,7 @@ function toQuadrant(strikeAz){
   if(strikeAz==null||isNaN(strikeAz)) return '—';
   let s = norm360(strikeAz);
   const wChar = currentLang==='es'?'O':'W';
-  
+
   if(quadrantPref==='N_ONLY'){
     let half = s % 180;
     if(half<=90) return `N${Math.round(half)}°E`;
@@ -3552,10 +3606,10 @@ function toQuadrant(strikeAz){
   } else {
     let sNorm = s % 180;
     let ns, ew, angle;
-    if(sNorm<=90){ ns='N'; ew='E'; angle=sNorm; } else { ns='S'; ew=wChar; angle=180-sNorm; }
+    // CAMBIO: En el segundo sector axial, usar N y O/W para conservar el rumbo al reinterpretarlo.
+    if(sNorm<=90){ ns='N'; ew='E'; angle=sNorm; } else { ns='N'; ew=wChar; angle=180-sNorm; }
     angle=Math.round(angle);
-    if(angle===0) return 'N-S';
-    if(angle===90) return `E-${wChar}`;
+    // CAMBIO: Evitar N-S y E-O/E-W; el parser requiere N0°E y N90°E.
     return ns+angle+'°'+ew;
   }
 }
@@ -3573,6 +3627,21 @@ function dipDirQuadrant(dipDirAz){
   return best[0];
 }
 
+// CAMBIO: Convertir un azimut al cuadrante válido más cercano del selector de rake.
+function nearestRakeQuad(az){
+  const options = [['N',0],['NE',45],['E',90],['SE',135],['S',180],['SO',225],['O',270],['NO',315]];
+  const target = norm360(az);
+  let best = options[0], bestDistance = Infinity;
+  for(const option of options){
+    const distance = Math.abs(((target - option[1] + 540) % 360) - 180);
+    if(distance < bestDistance || (distance === bestDistance && option[1] < best[1])){
+      best = option;
+      bestDistance = distance;
+    }
+  }
+  return best[0];
+}
+
 function calculateRakeFromTP(dipDir, dip, trend, plunge){
   if(dip==null || trend==null || plunge==null || dip===0) return null;
   const sinR = Math.sin(toRad(plunge)) / Math.sin(toRad(dip));
@@ -3582,7 +3651,8 @@ function calculateRakeFromTP(dipDir, dip, trend, plunge){
   let diff1 = Math.abs(trend - strike); if(diff1>180) diff1 = 360-diff1;
   let diff2 = Math.abs(trend - strikeOpp); if(diff2>180) diff2 = 360-diff2;
   const refAz = diff1 <= diff2 ? strike : strikeOpp;
-  const quad = dipDirQuadrant(refAz);
+  // CAMBIO: Utilizar exclusivamente las ocho direcciones del selector de rake.
+  const quad = nearestRakeQuad(refAz);
   return { rake: rakeDeg, quadrant: quad };
 }
 
@@ -3591,6 +3661,11 @@ function calculateRakeFromTP(dipDir, dip, trend, plunge){
    ========================================================= */
 function renderPlanarInputBlocks(formKey, strikeVal, dipVal, dipDirVal){
   const quadVal = strikeVal != null ? toQuadrant(strikeVal) : '';
+  // CAMBIO: Preparar las dos direcciones perpendiculares posibles, conservando la dirección ya guardada al editar.
+  const quadAxial = quadVal ? parseQuadrantToStrike(quadVal) : null;
+  const quadDipA = quadAxial == null ? null : roundInt(norm360(quadAxial + 90));
+  const quadDipB = quadAxial == null ? null : roundInt(norm360(quadAxial + 270));
+  const quadSide = quadDipB != null && dipDirVal != null && roundInt(norm360(dipDirVal)) === quadDipB ? 'opposite' : 'canonical';
   return `
   <div style="margin-top:10px;">
     <label style="margin-top:0;">Formato de entrada manual</label>
@@ -3617,9 +3692,16 @@ function renderPlanarInputBlocks(formKey, strikeVal, dipVal, dipDirVal){
 
   <div id="box_quad_${formKey}" style="display:${inputNotation==='quadrant'?'block':'none'};">
     <div class="numfield-row">
-      <div><label>Rumbo Cuadrante (ej. N30E)</label><input type="text" id="quad_${formKey}" value="${quadVal}" placeholder="N30E" oninput="onOrientationInputChange('${formKey}','quadrant')"></div>
+      <div><label>Rumbo Cuadrante (ej. N30E)</label><input type="text" id="quad_${formKey}" value="${quadVal}" placeholder="N30E" oninput="onOrientationInputChange('${formKey}','quadrant',true)"></div>
       <div><label>Dip / Manteo (0–90°)</label><input type="number" step="1" id="dip3_${formKey}" min="0" max="90" value="${dipVal??''}" oninput="syncDip('${formKey}', this.value)"></div>
     </div>
+    <!-- CAMBIO: Selector de lado de manteo solo para notación cuadrantal. -->
+    <label for="quadDipSide_${formKey}">${t('quadDipSideLabel')}</label>
+    <select id="quadDipSide_${formKey}" onchange="onOrientationInputChange('${formKey}','quadrant',true)" ${quadAxial == null ? 'disabled' : ''}>
+      <option value="canonical" ${quadSide === 'canonical' ? 'selected' : ''}>${quadDipA == null ? t('quadDipSidePending') : pad3(quadDipA) + '° (' + dipDirQuadrant(quadDipA) + ')'}</option>
+      <option value="opposite" ${quadSide === 'opposite' ? 'selected' : ''}>${quadDipB == null ? t('quadDipSidePending') : pad3(quadDipB) + '° (' + dipDirQuadrant(quadDipB) + ')'}</option>
+    </select>
+    <div class="hint">${t('quadDipSideHelp')}</div>
   </div>
 
   <div class="derived" id="derived_${formKey}">Strike RHR: — · Cuadrante: —</div>
@@ -3635,9 +3717,11 @@ function switchInputNotation(formKey, mode){
     const el = document.getElementById(`box_${m==='quadrant'?'quad':m}_${formKey}`);
     if(el) el.style.display = (m === mode) ? 'block' : 'none';
   });
-  
+
   // CAMBIO: Forzar la actualización del panel de lectura en vivo para reflejar los nuevos rótulos
   updateLiveDial();
+  // CAMBIO: Actualizar las equivalencias desde el azimut existente sin reinterpretar el cuadrante al cambiar de vista.
+  onOrientationInputChange(formKey, 'dipdir');
 }
 
 function syncDip(formKey, val){
@@ -3647,7 +3731,7 @@ function syncDip(formKey, val){
   onOrientationInputChange(formKey, 'dipdir');
 }
 
-function onOrientationInputChange(formKey, fromSource){
+function onOrientationInputChange(formKey, fromSource, isManualQuadrant = false){ // CAMBIO: Distinguir entrada humana y sincronización interna.
   let dipDir = parseInt(document.getElementById('dipDir_'+formKey)?.value, 10);
   let dip = parseInt(document.getElementById('dip_'+formKey)?.value, 10);
   let strike = parseInt(document.getElementById('strike_'+formKey)?.value, 10);
@@ -3659,15 +3743,22 @@ function onOrientationInputChange(formKey, fromSource){
       setVal('dipDir_'+formKey, dipDir);
       setVal('quad_'+formKey, toQuadrant(strike));
     }
-  } else if(fromSource === 'quadrant'){
+  } else if(fromSource === 'quadrant' && isManualQuadrant){ // CAMBIO: Respetar el lado de manteo que el usuario selecciona explícitamente.
     const parsedStrike = parseQuadrantToStrike(quad);
     if(parsedStrike != null){
-      strike = parsedStrike;
+      // CAMBIO: El cuadrante define una línea axial; la dirección de manteo determina cuál rumbo cumple RHR.
+      const opposite = document.getElementById('quadDipSide_'+formKey)?.value === 'opposite';
+      strike = roundInt(norm360(parsedStrike + (opposite ? 180 : 0)));
       dipDir = roundInt(norm360(strike + 90));
       setVal('strike_'+formKey, strike);
       setVal('dipDir_'+formKey, dipDir);
+    } else { // CAMBIO: Evitar mostrar equivalencias de una entrada cuadrantal inválida.
+      strike = NaN;
+      dipDir = NaN;
+      setVal('strike_'+formKey, '');
+      setVal('dipDir_'+formKey, '');
     }
-  } else if(fromSource === 'dipdir'){
+  } else if(fromSource === 'dipdir' || fromSource === 'quadrant'){ // CAMBIO: No invertir rumbos procedentes de sensores, registros o guardado.
     if(!isNaN(dipDir)){
       strike = roundInt(norm360(dipDir - 90));
       setVal('strike_'+formKey, strike);
@@ -3675,10 +3766,42 @@ function onOrientationInputChange(formKey, fromSource){
     }
   }
 
+  // CAMBIO: Actualizar las dos opciones y sincronizar el selector sin alterar el rumbo RHR actual.
+  const sideEl = document.getElementById('quadDipSide_'+formKey);
+  if(sideEl){
+    const axial = parseQuadrantToStrike(document.getElementById('quad_'+formKey)?.value);
+    sideEl.disabled = axial == null;
+    if(axial != null){
+      const dipA = roundInt(norm360(axial + 90));
+      const dipB = roundInt(norm360(axial + 270));
+      sideEl.options[0].textContent = pad3(dipA) + '° (' + dipDirQuadrant(dipA) + ')';
+      sideEl.options[1].textContent = pad3(dipB) + '° (' + dipDirQuadrant(dipB) + ')';
+      if(!isNaN(dipDir)) sideEl.value = roundInt(norm360(dipDir)) === dipB ? 'opposite' : 'canonical';
+    } else {
+      sideEl.options[0].textContent = t('quadDipSidePending');
+      sideEl.options[1].textContent = t('quadDipSidePending');
+    }
+  }
+
   const out = document.getElementById('derived_'+formKey);
   if(!out) return;
-  if(isNaN(dipDir) || isNaN(dip)){ out.textContent='Strike RHR: — · '+t('quadrant')+': —'; return; }
-  out.innerHTML = `${t('strikeRHR')}: <b style="color:var(--accent)">${strike}°</b> &nbsp;·&nbsp; ${t('quadrant')}: <b style="color:var(--accent)">${toQuadrant(strike)}</b> &nbsp;·&nbsp; ${t('dipTowards')}: <b style="color:var(--accent)">${dipDirQuadrant(dipDir)}</b>`;
+  // CAMBIO: Mostrar siempre las otras dos notaciones, sin repetir el modo seleccionado.
+  const mode = document.getElementById('notSel_'+formKey)?.value || inputNotation;
+  const labels = mode === 'quadrant' ? [t('strikeRHR'), t('derivedDipDirection')]
+               : mode === 'strike' ? [t('derivedDipDirection'), t('quadrant')]
+               : [t('strikeRHR'), t('quadrant')];
+  if(isNaN(dipDir) || isNaN(dip) || isNaN(strike)){
+    out.textContent = labels[0]+': — · '+labels[1]+': —';
+    return;
+  }
+  const highlighted = (label, value) => `${label}: <b style="color:var(--accent)">${value}</b>`;
+  const strikeDisplay = highlighted(t('strikeRHR'), `${strike}°`);
+  const quadrantDisplay = highlighted(t('quadrant'), toQuadrant(strike));
+  const dipDirectionDisplay = highlighted(t('derivedDipDirection'), `${dipDir}°`);
+  const otherFormats = mode === 'quadrant' ? [strikeDisplay, dipDirectionDisplay]
+                    : mode === 'strike' ? [dipDirectionDisplay, quadrantDisplay]
+                    : [strikeDisplay, quadrantDisplay];
+  out.innerHTML = otherFormats.join(' &nbsp;·&nbsp; ') + ' &nbsp;·&nbsp; ' + highlighted(t('dipTowards'), dipDirQuadrant(dipDir));
 }
 
 function setVal(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
@@ -3689,7 +3812,8 @@ function pad2(v){ return v==null?'—':String(roundInt(v)).padStart(2,'0'); }
 
 const PLANAR_SUBTYPES = ['Estratificación (S0)','Foliación (S1)','Foliación (S2)','Diaclasa / Fractura','Clivaje','Lineación mineral','Eje de pliegue'];
 const LINEAR_SUBTYPES = ['Lineación mineral','Eje de pliegue'];
-const FAULT_SENSES = ['Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso','TR','LL','RL','N','T'];
+// CAMBIO: Incorporar el sentido indeterminado sin alterar las 13 opciones existentes.
+const FAULT_SENSES = ['Sin determinar','Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso','TR','LL','RL','N','T'];
 const KIN_QUALITY = ['Definida','Probable','Posible'];
 const KIN_CRITERIA = ['Fibras minerales','Escalones de crecimiento','Estructuras S-C','Estilolitos','Brechas','Estrías simples','Otro'];
 const CONTACT_TYPES = ['Concordante','Discordante angular','Discordante erosiva','Falla','Intrusivo','Transicional'];
@@ -4328,6 +4452,10 @@ function onPlanarSubtypeChange(){
 
 function renderFaultFields(m){
   const rakeMode = m.striaeMode!=='trendplunge';
+  // CAMBIO: Usar 'Sin determinar' únicamente para sentidos ausentes.
+  const selectedSense = m.sense == null || m.sense === '' ? 'Sin determinar' : String(m.sense);
+  // CAMBIO: Para valores ajenos a la lista, renderizar una opción extra con el texto exacto escapado para HTML.
+  const hasExtraSense = !FAULT_SENSES.includes(selectedSense);
   return `
   <label>Plano de falla</label>
   ${renderSensorPanel('planar','fp')}
@@ -4338,7 +4466,7 @@ function renderFaultFields(m){
     <label class="opt ${rakeMode?'on':''}"><input type="radio" name="striaeMode" value="rake" ${rakeMode?'checked':''} onchange="onStriaeModeChange(this)">Rake / Pitch directo</label>
     <label class="opt ${!rakeMode?'on':''}"><input type="radio" name="striaeMode" value="trendplunge" ${!rakeMode?'checked':''} onchange="onStriaeModeChange(this)">Trend / Plunge (Sensor)</label>
   </div>
-  
+
   <div id="rakeBlock" style="display:${rakeMode?'':'none'}">
     <div class="numfield-row">
       <div><label>Rake (0–90°)</label><input type="number" step="1" id="f_rake" min="0" max="90" value="${m.rake??''}"></div>
@@ -4358,7 +4486,7 @@ function renderFaultFields(m){
   </div>
 
   <label>Sentido de movimiento</label>
-  <select id="f_sense">${FAULT_SENSES.map(s=>`<option ${m.sense===s?'selected':''}>${s}</option>`).join('')}</select>
+  <select id="f_sense">${FAULT_SENSES.map(s=>`<option ${selectedSense===s?'selected':''}>${s}</option>`).join('')}${hasExtraSense?`<option value="${esc(selectedSense)}" selected>${esc(selectedSense)}</option>`:''}</select>
 
   <label>Calidad cinemática</label>
   <select id="f_senseQuality">${KIN_QUALITY.map(s=>`<option ${m.senseQuality===s?'selected':''}>${s}</option>`).join('')}</select>
@@ -4369,6 +4497,7 @@ function renderFaultFields(m){
   </div>
   `;
 }
+
 function onStriaeModeChange(inputEl){
   const mode=inputEl.value;
   const row=inputEl.closest('.radio-row');
@@ -4378,6 +4507,7 @@ function onStriaeModeChange(inputEl){
   document.getElementById('tpBlock').style.display = mode==='trendplunge'?'':'none';
   if(mode==='trendplunge') autoCalcRakeIfReady();
 }
+
 function autoCalcRakeIfReady(){
   const dipDir = parseInt(document.getElementById('dipDir_fp')?.value, 10);
   const dip = parseInt(document.getElementById('dip_fp')?.value, 10);
@@ -4389,7 +4519,13 @@ function autoCalcRakeIfReady(){
   if(res && out){
     out.innerHTML = `Rake geométrico: <b style="color:var(--accent)">${res.rake}°</b> (desde el extremo <b style="color:var(--accent)">${res.quadrant}</b>)`;
     setVal('f_rake', res.rake);
-    const qEl=document.getElementById('f_rakeQuad'); if(qEl) qEl.value=res.quadrant;
+    const qEl=document.getElementById('f_rakeQuad');
+    if(qEl){
+      // CAMBIO: Solo asignar opciones existentes y recuperar una selección válida si estaba vacía.
+      const validOptions = Array.from(qEl.options).map(option=>option.value);
+      if(validOptions.includes(res.quadrant)) qEl.value=res.quadrant;
+      else if(!validOptions.includes(qEl.value) && qEl.options.length) qEl.selectedIndex=0;
+    }
   }
 }
 
@@ -4940,31 +5076,8 @@ async function initStereonetCanvas(){
 
 // CAMBIO: Función pura para normalizar códigos de sentido cinemático
 function normalizeSenseCode(raw) {
-  if (raw == null) return null;
-  const s = String(raw).trim().toLowerCase();
-  if (s === '') return null;
-
-  const map = {
-    'n': 'normal',
-    't': 'inverso',
-    'nr': 'dextral-normal',
-    'nl': 'sinistral-normal',
-    'tr': 'dextral-inverso',
-    'tl': 'sinistral-inverso'
-  };
-
-  if (map.hasOwnProperty(s)) return map[s];
-
-  if (s === 'r' || s === 'l') return null;
-
-  // Si ya pertenece al vocabulario base admitido
-  const appVocab = [
-    'normal', 'inverso', 'thrust', 'dextral', 'sinistral', 'rl', 'll',
-    'dextral-normal', 'dextral-inverso', 'sinistral-normal', 'sinistral-inverso'
-  ];
-  if (appVocab.includes(s)) return raw;
-
-  return null;
+  // CAMBIO: Resolver el mismo código interno usado por computeFaultKinematics.
+  return canonicalSense(raw);
 }
 
 // CAMBIO: Wrapper para aislar la llamada, aplicar la normalización en lectura 
@@ -4972,6 +5085,8 @@ function normalizeSenseCode(raw) {
 const warnedSenses = new Set();
 function getFaultKinematicsNormalized(f) {
   const norm = normalizeSenseCode(f.sense);
+    // CAMBIO: No calcular cinemática cuando el sentido está sin determinar.
+  if (norm === 'undetermined') return null;
   if (norm === null && f.sense) {
     const rawStr = String(f.sense).trim();
     if (rawStr !== '' && !warnedSenses.has(rawStr)) {
@@ -5018,7 +5133,8 @@ async function drawStereonet(){
   if(stereoState.showBeachball){
     meas.filter(m => m.type === 'fault' && (m.strike != null || m.dipDir != null)).forEach(f => {
       const kin = getFaultKinematicsNormalized(f); // CAMBIO: Usar wrapper normalizado
-      drawBeachballQuadrants(ctx, cx, cy, R, stereoState.proj, kin);
+            // CAMBIO: Omitir el mecanismo focal cuando no hay cinemática determinada.
+      if (kin) drawBeachballQuadrants(ctx, cx, cy, R, stereoState.proj, kin);
     });
   }
 
@@ -5069,14 +5185,28 @@ async function drawStereonet(){
     }
 
     if(m.type === 'fault' && (strike != null || m.dipDir != null)){
-      faultRecords.push(m);
+      
       const kin = getFaultKinematicsNormalized(m); // CAMBIO: Usar wrapper normalizado
+      // CAMBIO: Registrar únicamente fallas con una solución cinemática válida.
+      if (kin) faultRecords.push(m);
 
       if(stereoState.showFaults){
         drawGreatCircle(ctx, cx, cy, R, stereoState.proj, strike, dip, '#e0645c', 2, false);
-        drawGreatCircle(ctx, cx, cy, R, stereoState.proj, kin.auxStrike, kin.auxDip, 'rgba(224,100,92,0.4)', 1, true);
+                // CAMBIO: El plano auxiliar solo existe cuando hay cinemática determinada.
+        if (kin) drawGreatCircle(ctx, cx, cy, R, stereoState.proj, kin.auxStrike, kin.auxDip, 'rgba(224,100,92,0.4)', 1, true);
 
-        const stPt = project3D(kin.u, stereoState.proj, R);
+                // CAMBIO: Obtener la estría desde sus datos geométricos si la cinemática es indeterminada.
+        const striaeVec = kin ? kin.u :
+          (m.trend != null && m.plunge != null)
+            ? trendPlungeToVector(m.trend, m.plunge)
+            : (m.rake != null && dip != null)
+              ? faultRakeToSlipVector(strike, dip, m.rake, m.rakeQuadrant)
+              : null;
+
+        // CAMBIO: Dibujar el punto solamente si hay datos de estría.
+        if (striaeVec) {
+          const stPt = project3D(striaeVec, stereoState.proj, R);
+
         const sx = cx + stPt.x, sy = cy + stPt.y;
         ctx.beginPath();
         ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
@@ -5086,14 +5216,21 @@ async function drawStereonet(){
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        drawKinematicArrow(ctx, cx, cy, R, stereoState.proj, strike, dip, kin);
+        // CAMBIO: Mantener el bloque de estría abierto hasta registrar el punto interactivo.
+        // CAMBIO: No dibujar flecha cinemática para fallas indeterminadas.
+        // CAMBIO: Dibujar flecha solamente cuando hay cinemática válida.
+        if (kin) drawKinematicArrow(ctx, cx, cy, R, stereoState.proj, strike, dip, kin);
         stereoState.interactiveItems.push({
           x: sx, y: sy, radius: 14, data: m,
           label: `Falla ${m.sense||''}: ${pad3(strike)}/${pad2(dip)} | Rake: ${m.rake??'—'}°`
         });
+        // CAMBIO: Cerrar el dibujo opcional de estría después de registrar el punto.
+        }
+
       }
 
-      if(stereoState.showPT){
+            // CAMBIO: Los ejes P/T requieren una solución cinemática válida.
+      if(stereoState.showPT && kin){
         const pPt = project3D(kin.P, stereoState.proj, R);
         const pX = cx + pPt.x, pY = cy + pPt.y;
         ctx.beginPath();
@@ -5186,7 +5323,8 @@ function drawGreatCircle(ctx, cx, cy, R, projType, strike, dip, color, lineWidth
 
   const sR = toRad(strike), dR = toRad(dip);
   const strikeVec = [Math.sin(sR), Math.cos(sR), 0];
-  const dipVec = [Math.cos(sR) * Math.sin(dR), -Math.sin(sR) * Math.sin(dR), Math.cos(dR)];
+  // CAMBIO: Vector de máxima pendiente perpendicular al polo, con inmersión igual al manteo.
+  const dipVec = [Math.cos(sR) * Math.cos(dR), -Math.sin(sR) * Math.cos(dR), Math.sin(dR)];
 
   let first = true;
   for(let alpha = 0; alpha <= 180; alpha += 2){
@@ -5381,9 +5519,13 @@ function updateStereoStats(mean, faults, totalMeas){
     html += `Polo medio (N=${mean.count}): <b>Trend/Plunge ${pad3(mean.trend)}/${pad2(mean.plunge)}</b><br>`;
     html += `Plano medio equivalente: <b>${pad3(mean.strike)}/${pad2(mean.dip)} (RHR)</b> · DipDir <b>${pad3(mean.dipDir)}</b><br>`;
   }
-  if(faults.length > 0){
-    html += `Fallas cinemáticas activas: <b>${faults.length}</b> (FaultKin P/T calculado)`;
+
+  // CAMBIO: Excluir explícitamente los sentidos sin determinar del contador cinemático.
+  const kineticFaults = faults.filter(m => canonicalSense(m.sense) !== 'undetermined');
+  if(kineticFaults.length > 0){
+    html += `Fallas cinemáticas activas: <b>${kineticFaults.length}</b> (FaultKin P/T calculado)`;
   }
+
   el.innerHTML = html;
 }
 
