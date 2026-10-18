@@ -1643,9 +1643,88 @@ async function render(){
   if(state.view!=='mapView'){ window.scrollTo(0,0); app.scrollTop=0; }
 }
 
-/* =========================================================
-   MÓDULO MAPA GIS
-   ========================================================= */
+// CAMBIO: Etiquetas traducidas del selector de sentido sin modificar los valores guardados.
+function injectFaultSenseTranslations() {
+  Object.assign(I18N.es, {
+    faultSenseUndetermined: 'Sin determinar',
+    faultSenseNormal: 'Normal',
+    faultSenseReverse: 'Inversa',
+    faultSenseDextral: 'Dextral',
+    faultSenseSinistral: 'Sinistral',
+    faultSenseNormalDextral: 'Normal con componente dextral',
+    faultSenseReverseDextral: 'Inversa con componente dextral',
+    faultSenseNormalSinistral: 'Normal con componente sinistral',
+    faultSenseReverseSinistral: 'Inversa con componente sinistral'
+  });
+  Object.assign(I18N.en, {
+    faultSenseUndetermined: 'Undetermined',
+    faultSenseNormal: 'Normal',
+    faultSenseReverse: 'Reverse',
+    faultSenseDextral: 'Right-lateral',
+    faultSenseSinistral: 'Left-lateral',
+    faultSenseNormalDextral: 'Normal with right-lateral component',
+    faultSenseReverseDextral: 'Reverse with right-lateral component',
+    faultSenseNormalSinistral: 'Normal with left-lateral component',
+    faultSenseReverseSinistral: 'Reverse with left-lateral component'
+  });
+}
+
+// CAMBIO: Registrar las nuevas traducciones junto a los inyectores existentes.
+injectFaultSenseTranslations();
+
+// CAMBIO: Traducir etiquetas de calidad sin alterar sus valores persistidos.
+function injectFaultQualityTranslations() {
+  Object.assign(I18N.es, {
+    faultQualityUndetermined: 'Sin determinar',
+    faultQualityDefinite: 'Definida',
+    faultQualityProbable: 'Probable',
+    faultQualityPossible: 'Posible'
+  });
+  Object.assign(I18N.en, {
+    faultQualityUndetermined: 'Undetermined',
+    faultQualityDefinite: 'Definite',
+    faultQualityProbable: 'Probable',
+    faultQualityPossible: 'Possible'
+  });
+}
+// CAMBIO: Registrar traducciones antes del primer renderizado.
+injectFaultQualityTranslations();
+
+// CAMBIO: Traducir las etiquetas sin alterar los valores persistidos de los criterios.
+function injectKinCriteriaTranslations() {
+  Object.assign(I18N.es, {
+    faultCriteriaTitle: 'Criterio cinemático observado',
+    faultCriteriaFibres: 'Fibras minerales',
+    faultCriteriaSteps: 'Escalones de crecimiento',
+    faultCriteriaSC: 'Estructuras S-C',
+    faultCriteriaOther: 'Otro',
+    faultCriteriaOtherLabel: 'Descripción del indicador',
+    faultCriteriaOtherPlaceholder: 'Describe el indicador (si marcaste Otro)',
+    faultObsTitle: 'Otras observaciones de falla',
+    faultObsNote: 'Estas observaciones no determinan por sí solas el sentido de movimiento.',
+    faultObsStylolites: 'Estilolitos',
+    faultObsBreccia: 'Brecha de falla',
+    faultObsSlickenlines: 'Estrías simples (sin indicador de polaridad)',
+    faultLegacyTitle: 'Otros valores guardados'
+  });
+  Object.assign(I18N.en, {
+    faultCriteriaTitle: 'Observed kinematic indicator',
+    faultCriteriaFibres: 'Mineral fibres',
+    faultCriteriaSteps: 'Growth steps',
+    faultCriteriaSC: 'S-C structures',
+    faultCriteriaOther: 'Other',
+    faultCriteriaOtherLabel: 'Indicator description',
+    faultCriteriaOtherPlaceholder: 'Describe the indicator (if you selected Other)',
+    faultObsTitle: 'Other fault observations',
+    faultObsNote: 'These observations do not determine the slip sense on their own.',
+    faultObsStylolites: 'Stylolites',
+    faultObsBreccia: 'Fault breccia',
+    faultObsSlickenlines: 'Slickenlines without polarity indicator',
+    faultLegacyTitle: 'Other saved values'
+  });
+}
+// CAMBIO: Registrar traducciones antes del primer formulario.
+injectKinCriteriaTranslations();
 
 function injectMapPanelTranslations() {
   Object.assign(I18N.es, {
@@ -3988,10 +4067,14 @@ function pad2(v){ return v==null?'—':String(roundInt(v)).padStart(2,'0'); }
 
 const PLANAR_SUBTYPES = ['Estratificación (S0)','Foliación (S1)','Foliación (S2)','Diaclasa / Fractura','Clivaje','Lineación mineral','Eje de pliegue'];
 const LINEAR_SUBTYPES = ['Lineación mineral','Eje de pliegue'];
-// CAMBIO: Incorporar el sentido indeterminado sin alterar las 13 opciones existentes.
-const FAULT_SENSES = ['Sin determinar','Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso','TR','LL','RL','N','T'];
-const KIN_QUALITY = ['Definida','Probable','Posible'];
-const KIN_CRITERIA = ['Fibras minerales','Escalones de crecimiento','Estructuras S-C','Estilolitos','Brechas','Estrías simples','Otro'];
+// CAMBIO: Mantener solo los nueve sentidos oficiales y conservar sus valores persistidos.
+const FAULT_SENSES = ['Sin determinar','Normal','Inverso','Dextral','Sinistral','Dextral-Normal','Dextral-Inverso','Sinistral-Normal','Sinistral-Inverso'];
+// CAMBIO: Incorporar calidad no determinada como opción inicial.
+const KIN_QUALITY = ['Sin determinar','Definida','Probable','Posible'];
+// CAMBIO: Conservar exclusivamente los indicadores de sentido en el grupo cinemático.
+const KIN_CRITERIA = ['Fibras minerales','Escalones de crecimiento','Estructuras S-C','Otro'];
+// CAMBIO: Separar las observaciones que no determinan por sí solas la polaridad.
+const FAULT_OBSERVATIONS = ['Estilolitos','Brechas','Estrías simples'];
 const CONTACT_TYPES = ['Concordante','Discordante angular','Discordante erosiva','Falla','Intrusivo','Transicional'];
 const VEIN_TEXTURES = ['Masiva','Bandeada','Brechosa','Peine (comb)','Coloforme','Otro'];
 const VEIN_MINERALS = ['Cuarzo','Calcita','Pirita','Calcopirita','Turmalina','Especularita','Yeso','Clorita','Epidota'];
@@ -4632,6 +4715,60 @@ function renderFaultFields(m){
   const selectedSense = m.sense == null || m.sense === '' ? 'Sin determinar' : String(m.sense);
   // CAMBIO: Para valores ajenos a la lista, renderizar una opción extra con el texto exacto escapado para HTML.
   const hasExtraSense = !FAULT_SENSES.includes(selectedSense);
+  // CAMBIO: Asociar cada valor persistido con una clave de traducción.
+  const senseLabelKeys = {
+    'Sin determinar': 'faultSenseUndetermined',
+    'Normal': 'faultSenseNormal',
+    'Inverso': 'faultSenseReverse',
+    'Dextral': 'faultSenseDextral',
+    'Sinistral': 'faultSenseSinistral',
+    'Dextral-Normal': 'faultSenseNormalDextral',
+    'Dextral-Inverso': 'faultSenseReverseDextral',
+    'Sinistral-Normal': 'faultSenseNormalSinistral',
+    'Sinistral-Inverso': 'faultSenseReverseSinistral'
+  };
+  // CAMBIO: Resolver alias antiguos únicamente para la etiqueta visible.
+  const canonicalLabelKeys = {
+    undetermined: 'faultSenseUndetermined',
+    normal: 'faultSenseNormal',
+    reverse: 'faultSenseReverse',
+    dextral: 'faultSenseDextral',
+    sinistral: 'faultSenseSinistral',
+    normal_dextral: 'faultSenseNormalDextral',
+    reverse_dextral: 'faultSenseReverseDextral',
+    normal_sinistral: 'faultSenseNormalSinistral',
+    reverse_sinistral: 'faultSenseReverseSinistral'
+  };
+  const legacyLabelKey = hasExtraSense ? canonicalLabelKeys[canonicalSense(selectedSense)] : null;
+    // CAMBIO: Restaurar la interpolación de la etiqueta heredada.
+  const legacyLabel = legacyLabelKey ? `${selectedSense} (${t(legacyLabelKey)})` : selectedSense;
+    // CAMBIO: Preservar calidades antiguas y normalizar únicamente los valores ausentes.
+  const selectedQuality = m.senseQuality == null || m.senseQuality === '' ? 'Sin determinar' : String(m.senseQuality);
+  // CAMBIO: Vincular cada valor guardado a su etiqueta traducida.
+  const qualityLabelKeys = {
+    'Sin determinar': 'faultQualityUndetermined',
+    'Definida': 'faultQualityDefinite',
+    'Probable': 'faultQualityProbable',
+    'Posible': 'faultQualityPossible'
+  };
+
+    // CAMBIO: Preservar los criterios antiguos y preparar etiquetas traducidas seguras.
+  const criteriaSaved = Array.isArray(m.criteria) ? m.criteria : [];
+  const criteriaLabelKeys = {
+    'Fibras minerales': 'faultCriteriaFibres',
+    'Escalones de crecimiento': 'faultCriteriaSteps',
+    'Estructuras S-C': 'faultCriteriaSC',
+    'Otro': 'faultCriteriaOther',
+    'Estilolitos': 'faultObsStylolites',
+    'Brechas': 'faultObsBreccia',
+    'Estrías simples': 'faultObsSlickenlines'
+  };
+  // CAMBIO: Construir ambos grupos con la misma clase y los valores originales escapados.
+  const criteriaCheckboxes = values => values.map(c => '<label class="check-item"><input type="checkbox" class="crit-chk" value="' + esc(c) + '"' + (criteriaSaved.includes(c) ? ' checked' : '') + '>' + esc(t(criteriaLabelKeys[c])) + '</label>').join('');
+  // CAMBIO: Mantener marcados los valores importados que no pertenecen a ningún grupo.
+  const legacyCriteria = criteriaSaved.filter(c => !KIN_CRITERIA.includes(c) && !FAULT_OBSERVATIONS.includes(c));
+  const legacyCheckboxes = legacyCriteria.map(c => '<label class="check-item"><input type="checkbox" class="crit-chk" value="' + esc(c) + '" checked>' + esc(c) + '</label>').join('');
+
   return `
   <label>Plano de falla</label>
   ${renderSensorPanel('planar','fp')}
@@ -4662,15 +4799,25 @@ function renderFaultFields(m){
   </div>
 
   <label>Sentido de movimiento</label>
-  <select id="f_sense">${FAULT_SENSES.map(s=>`<option ${selectedSense===s?'selected':''}>${s}</option>`).join('')}${hasExtraSense?`<option value="${esc(selectedSense)}" selected>${esc(selectedSense)}</option>`:''}</select>
-
+  <select id="f_sense">${FAULT_SENSES.map(s=>`<option value="${esc(s)}" ${selectedSense===s?'selected':''}>${esc(t(senseLabelKeys[s]))}</option>`).join('')}${hasExtraSense?`<option value="${esc(selectedSense)}" selected>${esc(legacyLabel)}</option>`:''}</select>
   <label>Calidad cinemática</label>
-  <select id="f_senseQuality">${KIN_QUALITY.map(s=>`<option ${m.senseQuality===s?'selected':''}>${s}</option>`).join('')}</select>
+  <select id="f_senseQuality">${KIN_QUALITY.map(s => '<option value="' + esc(s) + '" ' + (selectedQuality === s ? 'selected' : '') + '>' + esc(t(qualityLabelKeys[s])) + '</option>').join('')}${!KIN_QUALITY.includes(selectedQuality) ? '<option value="' + esc(selectedQuality) + '" selected>' + esc(selectedQuality) + '</option>' : ''}</select>
 
-  <label>Criterio cinemático observado</label>
+  <label>${esc(t('faultCriteriaTitle'))}</label>
+
   <div class="check-grid">
-    ${KIN_CRITERIA.map(c=>`<label class="check-item"><input type="checkbox" value="${c}" ${((m.criteria||[]).includes(c))?'checked':''} class="crit-chk">${c}</label>`).join('')}
+  ${criteriaCheckboxes(KIN_CRITERIA)}
   </div>
+  
+  <!-- CAMBIO: Campo libre opcional y segundo grupo, sin cambiar m.criteria. -->
+  <label for="f_criteriaOther">${esc(t('faultCriteriaOtherLabel'))}</label>
+  <input type="text" id="f_criteriaOther" value="${esc(m.criteriaOther??'')}" placeholder="${esc(t('faultCriteriaOtherPlaceholder'))}">
+  <label>${esc(t('faultObsTitle'))}</label>
+  <div class="hint">${esc(t('faultObsNote'))}</div>
+  <div class="check-grid" id="f_faultObsGroup">
+  ${criteriaCheckboxes(FAULT_OBSERVATIONS)}
+  </div>
+  ${legacyCriteria.length ? '<div id="f_legacyCriteriaGroup"><label>' + esc(t('faultLegacyTitle')) + '</label><div class="check-grid">' + legacyCheckboxes + '</div></div>' : ''}
   `;
 }
 
@@ -4899,6 +5046,8 @@ async function saveMeasurement(id, isNew){
     obj.sense = document.getElementById('f_sense').value;
     obj.senseQuality = document.getElementById('f_senseQuality').value;
     obj.criteria = Array.from(document.querySelectorAll('.crit-chk:checked')).map(function(c){ return c.value; });
+        // CAMBIO: Guardar el texto libre recortado sin exigir que esté completo.
+    obj.criteriaOther = document.getElementById('f_criteriaOther')?.value.trim() || '';
   } else if (type === 'contact') {
     obj.contactType = document.getElementById('f_contactType').value;
     obj.dipDir = intOrNull('dipDir_c1');
