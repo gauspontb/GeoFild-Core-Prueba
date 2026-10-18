@@ -2866,83 +2866,195 @@ function drawMapScaleBar(ctx, x, y, maxW){
    GESTOS TÁCTILES Y HIT-TESTING DEL MAPA
    ========================================================= */
 function setupGISMapEvents(canvas){
+  // CAMBIO: Rastrear pointerId y bloquear el arrastre mientras haya varios contactos.
+  const activePointers = new Map();
+  let touchCount = 0;
+  let pointerHadMulti = false;
+  let touchHadMulti = false;
+
   canvas.onpointerdown = (e) => {
+    if(activePointers.size === 0 && touchCount < 2 && !touchHadMulti) pointerHadMulti = false;
+    activePointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if(activePointers.size >= 2 || touchCount >= 2){
+      pointerHadMulti = true;
+      gisTouchState.dragging = false;
+      gisTouchState.lastTap = 0;
+      return;
+    }
     gisTouchState.dragging = true;
     gisTouchState.startX = e.clientX;
     gisTouchState.startY = e.clientY;
     gisTouchState.lastX = e.clientX;
     gisTouchState.lastY = e.clientY;
   };
- 
+
   canvas.onpointermove = (e) => {
-    if(!gisTouchState.dragging) return;
-    const dx = e.clientX - gisTouchState.lastX;
-    const dy = e.clientY - gisTouchState.lastY;
+    if(!activePointers.has(e.pointerId)) return;
+    activePointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if(!gisTouchState.dragging || activePointers.size !== 1 || touchCount >= 2) return;
+    // CAMBIO: Convertir el desplazamiento del puntero a píxeles lógicos.
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const dx = (e.clientX - gisTouchState.lastX) * (rect.width ? canvas.width / dpr / rect.width : 1);
+    const dy = (e.clientY - gisTouchState.lastY) * (rect.height ? canvas.height / dpr / rect.height : 1);
     mapState.panX += dx;
     mapState.panY += dy;
     gisTouchState.lastX = e.clientX;
     gisTouchState.lastY = e.clientY;
     drawGISMap();
   };
- 
+
   const endDrag = (e) => {
-    if(!gisTouchState.dragging) return;
-    gisTouchState.dragging = false;
+    if(!activePointers.has(e.pointerId)) return;
+    const wasDragging = gisTouchState.dragging;
     const dist = Math.hypot(e.clientX - gisTouchState.startX, e.clientY - gisTouchState.startY);
-    if(dist < 6){
+    const hadMulti = pointerHadMulti || touchHadMulti || activePointers.size >= 2 || touchCount >= 2;
+    activePointers.delete(e.pointerId);
+    if(activePointers.size === 1){
+      // CAMBIO: Al quedar un dedo, reiniciar el origen para evitar saltos de pan.
+      const remaining = activePointers.values().next().value;
+      gisTouchState.dragging = true;
+      gisTouchState.startX = remaining.x;
+      gisTouchState.startY = remaining.y;
+      gisTouchState.lastX = remaining.x;
+      gisTouchState.lastY = remaining.y;
+      return;
+    }
+    gisTouchState.dragging = false;
+    if(activePointers.size === 0) pointerHadMulti = false;
+    if(e.type === 'pointerup' && wasDragging && !hadMulti && dist < 6){
       handleMapClick(e.clientX, e.clientY);
     }
   };
   canvas.onpointerup = endDrag;
   canvas.onpointercancel = endDrag;
- 
+
   canvas.addEventListener('touchstart', (e)=>{
-    if(e.touches.length === 2){
-      gisTouchState.pinchDist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
+    touchCount = e.touches.length;
+    if(touchCount >= 2){
+      // CAMBIO: Un pellizco nunca se interpreta como clic o doble toque.
+      touchHadMulti = true;
+      pointerHadMulti = true;
+      gisTouchState.dragging = false;
+      gisTouchState.lastTap = 0;
     }
+    gisTouchState.pinchDist = touchCount === 2 ? Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    ) : 0;
   }, {passive:true});
- 
+
   canvas.addEventListener('touchmove', (e)=>{
-    if(e.touches.length === 2){
+    touchCount = e.touches.length;
+    if(touchCount >= 2){
+      gisTouchState.dragging = false;
+      touchHadMulti = true;
+      pointerHadMulti = true;
+      gisTouchState.lastTap = 0;
+    }
+    if(touchCount === 2){
       const dist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
-      if(gisTouchState.pinchDist > 0){
-        const factor = dist / gisTouchState.pinchDist;
-        const currentMpp = mapState.zoom / mapState.scale;
-        mapState.scale = mapState.zoom / clampMapResolution(currentMpp / factor);
-        gisTouchState.pinchDist = dist;
+      if(gisTouchState.pinchDist > 0 && dist > 0){
+        // CAMBIO: Anclar el zoom al punto medio de los dos dedos.
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.width / dpr;
+        const h = canvas.height / dpr;
+        const mx = (e.touches[0].clientX + e.touches[1].clientX)/2;
+        const my = (e.touches[0].clientY + e.touches[1].clientY)/2;
+        const ax = (mx - rect.left) * (rect.width ? w / rect.width : 1);
+        const ay = (my - rect.top) * (rect.height ? h / rect.height : 1);
+        zoomAtAnchor(dist / gisTouchState.pinchDist, ax, ay, w, h);
         drawGISMap();
       }
+      gisTouchState.pinchDist = dist;
+    } else {
+      gisTouchState.pinchDist = 0;
     }
   }, {passive:true});
- 
+
   canvas.addEventListener('touchend', (e)=>{
+    const oldTouchCount = touchCount;
+    touchCount = e.touches.length;
+    gisTouchState.pinchDist = touchCount === 2 ? Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    ) : 0;
+    if(touchCount === 1 && (oldTouchCount >= 2 || touchHadMulti)){
+      // CAMBIO: Reanudar el arrastre desde el dedo que permanece en pantalla.
+      const remaining = e.touches[0];
+      gisTouchState.startX = remaining.clientX;
+      gisTouchState.startY = remaining.clientY;
+      gisTouchState.lastX = remaining.clientX;
+      gisTouchState.lastY = remaining.clientY;
+      gisTouchState.dragging = activePointers.size <= 1;
+      gisTouchState.lastTap = 0;
+      return;
+    }
+    if(touchCount !== 0) return;
+    if(touchHadMulti || oldTouchCount >= 2 || e.changedTouches.length !== 1){
+      gisTouchState.lastTap = 0;
+      touchHadMulti = false;
+      if(activePointers.size === 0) pointerHadMulti = false;
+      return;
+    }
     const now = Date.now();
-    if(now - gisTouchState.lastTap < 300 && e.changedTouches.length === 1){
+    if(now - gisTouchState.lastTap < 300){
+      // CAMBIO: Mantener el doble toque original (recentrar y acercar 1.4).
       const t = e.changedTouches[0];
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
-      const geo = screenToGeo(t.clientX - rect.left, t.clientY - rect.top, canvas.width/dpr, canvas.height/dpr);
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
+      const ax = (t.clientX - rect.left) * (rect.width ? w / rect.width : 1);
+      const ay = (t.clientY - rect.top) * (rect.height ? h / rect.height : 1);
+      const geo = screenToGeo(ax, ay, w, h);
       mapState.centerLat = geo.lat;
       mapState.centerLon = geo.lon;
       mapState.panX = 0; mapState.panY = 0;
       const currentMpp = mapState.zoom / mapState.scale;
       mapState.scale = mapState.zoom / clampMapResolution(currentMpp / 1.4);
       drawGISMap();
+      gisTouchState.lastTap = 0;
+    } else {
+      gisTouchState.lastTap = now;
     }
-    gisTouchState.lastTap = now;
+    touchHadMulti = false;
   });
+
+  canvas.addEventListener('touchcancel', (e)=>{
+    // CAMBIO: Cancelar el pellizco y reanclar el dedo restante, si existe.
+    touchCount = e.touches.length;
+    gisTouchState.pinchDist = 0;
+    gisTouchState.lastTap = 0;
+    if(touchCount === 1){
+      const remaining = e.touches[0];
+      gisTouchState.startX = remaining.clientX;
+      gisTouchState.startY = remaining.clientY;
+      gisTouchState.lastX = remaining.clientX;
+      gisTouchState.lastY = remaining.clientY;
+      gisTouchState.dragging = activePointers.size <= 1;
+    } else if(touchCount === 0){
+      gisTouchState.dragging = false;
+      touchHadMulti = false;
+      if(activePointers.size === 0) pointerHadMulti = false;
+    }
+  }, {passive:true});
 
   canvas.addEventListener('wheel', (e)=>{
     e.preventDefault();
+    // CAMBIO: Usar el cursor como anclaje del zoom de rueda.
     const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-    const currentMpp = mapState.zoom / mapState.scale;
-    mapState.scale = mapState.zoom / clampMapResolution(currentMpp / factor);
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
+    const ax = (e.clientX - rect.left) * (rect.width ? w / rect.width : 1);
+    const ay = (e.clientY - rect.top) * (rect.height ? h / rect.height : 1);
+    zoomAtAnchor(factor, ax, ay, w, h);
     drawGISMap();
   }, {passive:false});
 }
@@ -3037,10 +3149,28 @@ function closeMapSheet(){
 /* =========================================================
    CONTROLES DE MAPA (ZOOM / PAN / AJUSTE DE EXTENSIÓN)
    ========================================================= */
+// CAMBIO: Ajustar el zoom alrededor de un anclaje usando el factor efectivo tras el límite.
+function zoomAtAnchor(factor, ax, ay, width, height){
+  if(!Number.isFinite(factor) || factor <= 0) return 1;
+  const mpp = mapState.zoom / mapState.scale;
+  const newMpp = clampMapResolution(mpp / factor);
+  const r = mpp / newMpp;
+  mapState.scale = mapState.zoom / newMpp;
+  if(r !== 1){
+    mapState.panX = ax - width/2 - r * (ax - width/2 - mapState.panX);
+    mapState.panY = ay - height/2 - r * (ay - height/2 - mapState.panY);
+  }
+  return r;
+}
+
 function gisZoom(factor){
-  const currentMpp = mapState.zoom / mapState.scale;
-  const targetMpp = currentMpp / factor;
-  mapState.scale = mapState.zoom / clampMapResolution(targetMpp);
+  // CAMBIO: Los botones acercan o alejan alrededor del centro lógico del canvas.
+  const canvas = document.getElementById('gisCanvas');
+  if(!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width / dpr;
+  const h = canvas.height / dpr;
+  zoomAtAnchor(factor, w/2, h/2, w, h);
   drawGISMap();
 }
  
