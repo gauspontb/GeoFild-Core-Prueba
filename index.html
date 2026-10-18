@@ -1948,18 +1948,49 @@ function renderMapGISView(){
   </div>
   `;
 }
- 
+
+// CAMBIO: Sincronizar el búfer del mapa con su tamaño CSS sin alterar la vista.
+function resizeGISCanvas(){
+  if(state.view !== 'mapView') return;
+
+  const canvas = document.getElementById('gisCanvas');
+  const container = document.getElementById('mapContainer');
+  if(!canvas || !container) return;
+
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  if(width <= 0 || height <= 0) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const newWidth = Math.round(width * dpr);
+  const newHeight = Math.round(height * dpr);
+
+  // CAMBIO: Evitar borrar el canvas cuando el búfer ya tiene el tamaño correcto.
+  if(canvas.width === newWidth && canvas.height === newHeight) return;
+
+  if(canvas.width !== newWidth) canvas.width = newWidth;
+  if(canvas.height !== newHeight) canvas.height = newHeight;
+
+  // CAMBIO: Redibujar únicamente después de un cambio efectivo de tamaño.
+  drawGISMap();
+}
+
 let gisTouchState = { dragging:false, startX:0, startY:0, lastX:0, lastY:0, pinchDist:0, lastTap:0 };
+
+// CAMBIO: Recordar únicamente en memoria si el Mapa ya fue inicializado.
+let mapViewInitialized = false;
+// CAMBIO: Identificar la campaña cuyo encuadre ya fue aplicado durante esta sesión.
+let mapLastFittedCampId = null;
  
 async function initGISMap(){
   const canvas = document.getElementById('gisCanvas');
   if(!canvas) return;
- 
+
   const dpr = window.devicePixelRatio || 1;
   const container = document.getElementById('mapContainer');
   canvas.width = container.clientWidth * dpr;
   canvas.height = container.clientHeight * dpr;
- 
+
   const camps = await dbGetAll('campaigns');
   const sel = document.getElementById('mapCampSelect');
   if(sel){
@@ -1990,7 +2021,7 @@ async function initGISMap(){
       });
       layerSel.appendChild(offGrp);
     }
-    
+
     if(MAP_ONLINE_LAYERS.length > 0) {
       const onGrp = document.createElement('optgroup');
       onGrp.label = t('onlineLayers');
@@ -2001,7 +2032,7 @@ async function initGISMap(){
         onGrp.appendChild(opt);
       });
       layerSel.appendChild(onGrp);
-      
+
       if(!document.getElementById('onlineLayerWarning')) {
         layerSel.parentElement.style.flexWrap = 'wrap';
         const warnDiv = document.createElement('div');
@@ -2017,21 +2048,27 @@ async function initGISMap(){
       }
     }
   }
- 
+
   await loadSavedMapOverlay();
   if(layerSel && mapState.overlayMeta) {
     layerSel.value = mapState.overlayMeta.id;
   }
- 
+
   await loadMapData();
- 
-  if(mapState.stationsCache.length > 0){
-    gisFitBounds();
-  } else if(gpsState.lat != null){
-    mapState.centerLat = gpsState.lat;
-    mapState.centerLon = gpsState.lon;
+
+  // CAMBIO: Reencuadrar al entrar por primera vez o al cambiar de campaña desde Libreta.
+  if(!mapViewInitialized || mapLastFittedCampId !== mapState.campId){
+    if(mapState.stationsCache.length > 0){
+      gisFitBounds();
+    } else if(!mapViewInitialized && gpsState.lat != null){
+      mapState.centerLat = gpsState.lat;
+      mapState.centerLon = gpsState.lon;
+    }
+    // CAMBIO: Registrar la campaña ya encuadrada y conservar la vista en futuras entradas.
+    mapViewInitialized = true;
+    mapLastFittedCampId = mapState.campId;
   }
- 
+
   setupGISMapEvents(canvas);
   drawGISMap();
 }
@@ -2051,7 +2088,13 @@ async function loadMapData(){
 function onMapCampChange(val){
   mapState.campId = val;
   if (typeof updateMapSummaryText === 'function') updateMapSummaryText(); // CAMBIO: Actualizar texto superior
-  loadMapData().then(()=>{ gisFitBounds(); drawGISMap(); });
+  // CAMBIO: Sincronizar el encuadre del selector con el de las entradas desde Libreta.
+  return loadMapData().then(()=>{
+    if(mapState.campId !== val) return;
+    gisFitBounds();
+    mapLastFittedCampId = val;
+    drawGISMap();
+  });
 }
 
 function onMapLayerFilter(val){
@@ -2866,6 +2909,9 @@ function drawMapScaleBar(ctx, x, y, maxW){
    GESTOS TÁCTILES Y HIT-TESTING DEL MAPA
    ========================================================= */
 function setupGISMapEvents(canvas){
+  // CAMBIO: Impedir listeners duplicados cuando initGISMap reutiliza el canvas.
+  if(canvas.__gisEventsInstalled) return;
+  canvas.__gisEventsInstalled = true;
   // CAMBIO: Rastrear pointerId y bloquear el arrastre mientras haya varios contactos.
   const activePointers = new Map();
   let touchCount = 0;
@@ -8156,6 +8202,49 @@ function injectStereoUITranslations() {
 }
 
 injectStereoTranslations();
+
+// CAMBIO: Evitar registros duplicados de los eventos de tamaño del mapa.
+let mapResizeListenersInstalled = false;
+
+// CAMBIO: Registrar una sola vez los listeners del mapa a nivel de ventana.
+if(!mapResizeListenersInstalled){
+  mapResizeListenersInstalled = true;
+
+  let mapResizeTimer = null;
+
+  const scheduleGISResize = () => {
+    clearTimeout(mapResizeTimer);
+
+    // CAMBIO: Esperar a que finalice la actualización del layout.
+    mapResizeTimer = setTimeout(() => {
+      mapResizeTimer = null;
+
+      if(state.view !== 'mapView') return;
+
+      const container = document.getElementById('mapContainer');
+      if(!container) return;
+
+      if(container.clientWidth <= 0 || container.clientHeight <= 0){
+        // CAMBIO: Reintentar exactamente una vez si el layout aún mide cero.
+        mapResizeTimer = setTimeout(() => {
+          mapResizeTimer = null;
+          resizeGISCanvas();
+        }, 150);
+        return;
+      }
+
+      resizeGISCanvas();
+    }, 150);
+  };
+
+  window.addEventListener('resize', scheduleGISResize);
+  window.addEventListener('orientationchange', scheduleGISResize);
+
+  // CAMBIO: Cubrir también cambios del viewport visual en dispositivos móviles.
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', scheduleGISResize);
+  }
+}
 
 (async function init(){
   await openDB();
