@@ -1854,6 +1854,19 @@ function injectOrientationSourceTranslations(){
 // CAMBIO: Registrar junto a los demás inyectores antes del primer render.
 injectOrientationSourceTranslations();
 
+// CAMBIO: Explicar el convenio de declinación magnética en ambos idiomas.
+function injectDeclinationConventionTranslations(){
+  Object.assign(I18N.es, {
+    declinationConvention: 'Declinación = ángulo del norte magnético respecto al verdadero. Este positivo, Oeste negativo (ej. 7 o -5).'
+  });
+  Object.assign(I18N.en, {
+    declinationConvention: 'Declination = angle of magnetic north relative to true north. East positive, West negative (e.g. 7 or -5).'
+  });
+}
+
+// CAMBIO: Registrar las traducciones antes de renderizar Ajustes.
+injectDeclinationConventionTranslations();
+
 // CAMBIO: Traducciones del cálculo B3 sin modificar otros diccionarios.
 function injectTrueThicknessTranslations(){
   Object.assign(I18N.es, {
@@ -4004,7 +4017,8 @@ function estimateDeclination(lat, lon) {
 }
 
 function computeOrientation(alphaDeg, betaDeg, gammaDeg){
-  const correctedAlpha = norm360(alphaDeg + magOffset);
+  // CAMBIO: Sumar la declinación este positiva al azimut geográfico.
+  const correctedAlpha = norm360(alphaDeg - magOffset);
   const a=toRad(correctedAlpha), b=toRad(betaDeg), g=toRad(gammaDeg);
   const cA=Math.cos(a), sA=Math.sin(a);
   const cB=Math.cos(b), sB=Math.sin(b);
@@ -4012,8 +4026,11 @@ function computeOrientation(alphaDeg, betaDeg, gammaDeg){
   const E = cA*sG + cG*sA*sB;
   const N = sA*sG - cA*cG*sB;
   const U = cB*cG;
-  const dip = toDeg(Math.acos(clamp(U,-1,1)));
-  const dipDir = norm360(toDeg(Math.atan2(E,N)) + 180);
+  // CAMBIO: Permitir normalizar el dip y su dirección antes de calcular el strike.
+  let dip = toDeg(Math.acos(clamp(U,-1,1)));
+  let dipDir = norm360(toDeg(Math.atan2(E,N)) + 180);
+  // CAMBIO: Normal invertida: dip equivalente y dirección opuesta.
+  if(U<0){ dip=180-dip; dipDir=norm360(dipDir+180); }
   const strike = norm360(dipDir - 90);
   const Ey = -cB*sA, Ny = cA*cB, Uy = sB;
   let trend = norm360(toDeg(Math.atan2(Ey,Ny)));
@@ -8484,6 +8501,8 @@ function renderSettings(){
       '</div>' +
       '<div class="set-item">' +
         '<div class="set-title">' + t('calibration') + '</div>' +
+                // CAMBIO: Mostrar el convenio sin alterar el valor ni la persistencia de magOffset.
+        '<div class="set-sub">' + t('declinationConvention') + '</div>' +
         '<input type="number" step="1" value="' + magOffset + '" id="magOffsetInput" onchange="changeMagOffset(this.value)" style="margin-top:8px;" placeholder="ej. -5 o 8">' +
         '<button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="autoEstimateDeclination()">📍 Calcular declinación desde GPS actual</button>' +
       '</div>' +
