@@ -216,6 +216,8 @@
   .status-dot{ width:9px; height:9px; border-radius:50%; display:inline-block; background:var(--text-faint); box-shadow:0 0 0 3px rgba(255,255,255,0.03); }
   .status-dot.ok{ background:var(--ok); }
   .status-dot.warn{ background:var(--warn); animation:pulse 1.4s infinite; }
+  /* CAMBIO: B4-3: quitar el parpadeo del estado amarillo del sensor sin alterar el GPS. */
+  #sensorDot.status-dot.warn{ animation:none; }
   .status-dot.err{ background:var(--danger); }
   @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
   .status-chip{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); padding:6px 8px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border-soft); }
@@ -988,6 +990,34 @@ const MAP_GUIDE = {
 <p>Tip: layers take up space on your phone and in JSON backups; only save the areas you plan to use.</p>`
 };
 
+// CAMBIO: B4-3: mensajes de los siete estados y controles de sensores.
+function injectSensorStatusTranslations(){
+  Object.assign(I18N.es,{
+    sensorSettingsTitle:'Sensores / Permisos',
+    sensorStateLabel:'Estado',
+    sensorPermissionButton:'📡 Activar sensores',
+    sensorStatus_insecure:'Los sensores requieren HTTPS o localhost.',
+    sensorStatus_unsupported:'Este navegador no admite DeviceOrientationEvent.',
+    'sensorStatus_needs-permission':'Se necesita permiso de orientación. Pulsa Activar sensores.',
+    sensorStatus_denied:'Permiso rechazado. Cierra y reabre la pestaña o revisa los permisos del sitio en el navegador.',
+    sensorStatus_pending:'Esperando la primera lectura de orientación.',
+    sensorStatus_nodata:'Sin datos de orientación. Mueve levemente el teléfono; si persiste, revisa los permisos y que el equipo tenga sensor magnético.',
+    sensorStatus_active:'Sensores activados. Lectura de orientación disponible.'
+  });
+  Object.assign(I18N.en,{
+    sensorSettingsTitle:'Sensors / Permissions',
+    sensorStateLabel:'Status',
+    sensorPermissionButton:'📡 Enable sensors',
+    sensorStatus_insecure:'Sensors require HTTPS or localhost.',
+    sensorStatus_unsupported:'This browser does not support DeviceOrientationEvent.',
+    'sensorStatus_needs-permission':'Orientation permission is required. Tap Enable sensors.',
+    sensorStatus_denied:'Permission denied. Close and reopen the tab, or check site permissions in the browser.',
+    sensorStatus_pending:'Waiting for the first orientation reading.',
+    sensorStatus_nodata:'No orientation data. Move your phone slightly; if this persists, check permissions and ensure the device has a magnetic sensor.',
+    sensorStatus_active:'Sensors enabled. Orientation reading available.'
+  });
+}
+
 function injectMapNavTranslations() {
   Object.assign(I18N.es, {
     noOfflineLayer: 'No hay una capa sin conexión cargada',
@@ -1517,23 +1547,115 @@ const mapState = {
 };
 
 const gpsState={ status:'idle', lat:null, lon:null, alt:null, accuracy:null, errorMsg:'' };
-const sensorState={ available:false, granted:null, status:'idle', errorMsg:'', last:null, meta:null }; // CAMBIO: Procedencia del norte de la última lectura.
+// CAMBIO: B4-3: conservar el estado anterior y agregar únicamente el reloj y control de primera lectura.
+const sensorState={ available:false, granted:null, status:'idle', errorMsg:'', last:null, meta:null, startedTs:null, watchdogTimer:null, successShown:false, visibilityInstalled:false }; // CAMBIO: Procedencia del norte de la última lectura.
 let dialRAF=false;
 const IS_SECURE = window.isSecureContext === true;
+// CAMBIO: B4-3: todas las constantes temporales de sensores en un solo objeto.
+const SENSOR_CONFIG = Object.freeze({ SENSOR_NODATA_MS: 4000 });
 
-function requestSensorPermission(){
-  if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
-    DeviceOrientationEvent.requestPermission().then(resp=>{
-      sensorState.granted = (resp==='granted');
-      if(sensorState.granted){ sensorState.status='pending'; attachOrientationListener(); }
-      render();
-    }).catch(()=>{ sensorState.granted=false; render(); });
-  } else {
-    sensorState.status='pending';
-    attachOrientationListener();
-    toast('Sensores activados');
+// CAMBIO: B4-3: comprobar origen y contexto seguro sin modificar IS_SECURE global.
+function isSensorSecureContext(){
+  return IS_SECURE && (location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1' || location.hostname==='[::1]');
+}
+
+// CAMBIO: B4-3: función pura para decidir el estado inicial.
+function computeInitialSensorStatus({secure, hasEvent, needsPermission}){
+  if(!secure) return 'insecure';
+  if(!hasEvent) return 'unsupported';
+  return needsPermission ? 'needs-permission' : 'pending';
+}
+
+// CAMBIO: B4-3: función pura; solamente pending puede agotar el tiempo.
+function checkSensorWatchdog(status, startedTs, nowMs){
+  return status==='pending' && Number.isFinite(startedTs) && nowMs-startedTs>=SENSOR_CONFIG.SENSOR_NODATA_MS ? 'nodata' : status;
+}
+
+// CAMBIO: B4-3: resolver los mensajes con el sistema I18N existente.
+function sensorStatusMessage(status=sensorState.status){
+  return t('sensorStatus_'+status);
+}
+
+// CAMBIO: B4-3: cambiar el estado, reiniciar solamente el temporizador pending y sincronizar Ajustes.
+function setSensorStatus(status){
+  if(sensorState.watchdogTimer!==null){
+    clearTimeout(sensorState.watchdogTimer);
+    sensorState.watchdogTimer=null;
+  }
+  sensorState.status=status;
+  sensorState.startedTs=status==='pending' ? now() : null;
+  if(status==='pending') sensorState.watchdogTimer=setTimeout(runSensorWatchdog,SENSOR_CONFIG.SENSOR_NODATA_MS);
+  updateTopbarStatus();
+  const info=document.getElementById('sensorStateInfo');
+  if(info) info.textContent=t('sensorStateLabel')+': '+sensorStatusMessage();
+  const button=document.getElementById('sensorPermissionBtn');
+  if(button) button.style.display=(status==='needs-permission'||status==='denied')?'':'none';
+}
+
+// CAMBIO: B4-3: el vigilante nunca degrada active.
+function runSensorWatchdog(){
+  const next=checkSensorWatchdog(sensorState.status,sensorState.startedTs,now());
+  if(next!==sensorState.status) setSensorStatus(next);
+}
+
+// CAMBIO: B4-3: el éxito se notifica solamente con la primera lectura válida.
+function onSensorReading(){
+  if(sensorState.status!=='active') setSensorStatus('active');
+  if(!sensorState.successShown){
+    sensorState.successShown=true;
+    toast(sensorStatusMessage());
   }
 }
+
+// CAMBIO: B4-3: al regresar de segundo plano, pedir una lectura nueva sin marcar error.
+function onSensorVisibilityChange(){
+  if(document.visibilityState==='visible' && sensorState.status==='active') setSensorStatus('pending');
+}
+
+// CAMBIO: B4-3: resolver el permiso sin invocar la API desde las pruebas.
+function applySensorPermissionResult(response, failed=false){
+  if(failed){
+    sensorState.granted=null;
+    setSensorStatus('needs-permission');
+    return;
+  }
+  sensorState.granted=(response==='granted');
+  if(sensorState.granted){
+    setSensorStatus('pending');
+    attachOrientationListener();
+  } else {
+    setSensorStatus('denied');
+  }
+}
+
+function requestSensorPermission(){
+  // CAMBIO: B4-3: no intentar activar sensores en un contexto inseguro o incompatible.
+  if(!isSensorSecureContext()){ setSensorStatus('insecure'); return; }
+  if(typeof DeviceOrientationEvent==='undefined'){ setSensorStatus('unsupported'); return; }
+  if(typeof DeviceOrientationEvent.requestPermission==='function'){
+    // CAMBIO: B4-3: mantener la solicitud iOS exclusivamente dentro del gesto del botón.
+    try{
+      Promise.resolve(DeviceOrientationEvent.requestPermission()).then(resp=>{
+        applySensorPermissionResult(resp);
+        if(sensorState.status==='denied') toast(sensorStatusMessage());
+        render();
+      }).catch(()=>{
+        applySensorPermissionResult(null,true);
+        toast(sensorStatusMessage());
+        render();
+      });
+    } catch(e){
+      // CAMBIO: B4-3: una excepción no equivale a rechazo explícito.
+      applySensorPermissionResult(null,true);
+      toast(sensorStatusMessage());
+      render();
+    }
+  } else {
+    // CAMBIO: B4-3: Android espera la primera lectura; no mostrar éxito anticipado.
+    applySensorPermissionResult('granted');
+  }
+}
+
 let orientationHandlerAttached=false;
 
 // CAMBIO: Coordinar el evento absoluto y el respaldo con un reloj sustituible.
@@ -1572,9 +1694,10 @@ function processOrientationEvent(e, eventType){
   });
   if(eventType==='deviceorientationabsolute') orientationLastAbsoluteTs=ts;
   sensorState.available=true;
-  sensorState.status='active';
+  // CAMBIO: B4-3: cambiar el estado por la ruta común sin alterar el cálculo ni los metadatos.
   sensorState.last=computeOrientation(source.alphaDeg, e.beta||0, e.gamma||0);
   sensorState.meta={source:source.source, reliable:source.reliable, ref:source.ref, ts};
+  onSensorReading();
   if(!dialRAF){
     dialRAF=true;
     requestAnimationFrame(()=>{ dialRAF=false; updateLiveDial(); updateTopbarStatus(); });
@@ -1594,15 +1717,34 @@ function attachOrientationListener(){
 }
 
 function initSensors(){
-  if(!IS_SECURE || typeof DeviceOrientationEvent==='undefined') return;
-  if(typeof DeviceOrientationEvent.requestPermission!=='function'){ sensorState.status='pending'; attachOrientationListener(); }
+  // CAMBIO: B4-3: clasificar explícitamente seguridad, soporte y necesidad de permiso.
+  const initial=computeInitialSensorStatus({
+    secure:isSensorSecureContext(),
+    hasEvent:typeof DeviceOrientationEvent!=='undefined',
+    needsPermission:typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'
+  });
+  setSensorStatus(initial);
+  // CAMBIO: B4-3: iOS no solicita permiso hasta el gesto del usuario.
+  if(initial==='pending') attachOrientationListener();
+  if(!sensorState.visibilityInstalled){
+    document.addEventListener('visibilitychange',onSensorVisibilityChange);
+    sensorState.visibilityInstalled=true;
+  }
 }
+
 function updateTopbarStatus(){
   const gDot=document.getElementById('gpsDot');
   if(gDot) gDot.className='status-dot'+(gpsState.status==='fix'?' ok':gpsState.status==='searching'?' warn':' err');
   const sDot=document.getElementById('sensorDot');
-  if(sDot) sDot.className='status-dot'+(sensorState.status==='active'?' ok':(sensorState.status==='pending')?' warn':' err');
+  // CAMBIO: B4-3: verde activo, amarillo esperando permiso/datos, rojo restante.
+  if(sDot){
+    const cls='status-dot'+(sensorState.status==='active'?' ok':(sensorState.status==='pending'||sensorState.status==='needs-permission')?' warn':' err');
+    if(sDot.className!==cls) sDot.className=cls;
+    const msg=sensorStatusMessage();
+    if(sDot.title!==msg) sDot.title=msg;
+  }
 }
+
 function initGPS(){
   if(!IS_SECURE || !navigator.geolocation) return;
   gpsState.status='searching';
@@ -5627,7 +5769,8 @@ function drawDial(svg, mode){
 }
 
 function captureSensorReading(formKey, mode){
-  if(!sensorState.last){ toast(currentLang==='es'?'Sin datos de sensor':'No sensor data yet'); return; }
+  // CAMBIO: B4-3: informar el estado exacto si no hay una lectura activa.
+  if(sensorState.status!=='active' || !sensorState.last){ toast(sensorState.status==='active' ? (currentLang==='es'?'Sin datos de sensor':'No sensor data yet') : sensorStatusMessage()); return; }
   const r=sensorState.last;
   // CAMBIO: Nunca transferir una dirección sin referencia magnética confiable.
   const reliable=sensorState.meta?.reliable===true;
@@ -8507,8 +8650,10 @@ function renderSettings(){
         '<button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="autoEstimateDeclination()">📍 Calcular declinación desde GPS actual</button>' +
       '</div>' +
       '<div class="set-item">' +
-        '<div class="set-title">Sensores / Permisos</div>' +
-        '<button class="btn primary" style="margin-top:8px;" onclick="requestSensorPermission()">📡 Activar / Re-calibrar Sensores</button>' +
+        // CAMBIO: B4-3: estado actual legible y botón solo para permiso pendiente o rechazado.
+        '<div class="set-title">' + t('sensorSettingsTitle') + '</div>' +
+        '<div class="set-sub" id="sensorStateInfo" role="status" aria-live="polite">' + t('sensorStateLabel') + ': ' + esc(sensorStatusMessage()) + '</div>' +
+        '<button class="btn primary" id="sensorPermissionBtn" style="margin-top:8px;display:' + ((sensorState.status==='needs-permission'||sensorState.status==='denied')?'inline-flex':'none') + ';" onclick="requestSensorPermission()">' + t('sensorPermissionButton') + '</button>' +
       '</div>' +
     '</div>' +
   '</details>' +
@@ -8855,6 +9000,8 @@ if(!mapResizeListenersInstalled){
   injectMapLayerTranslations();
   injectOnlineLayerTranslations();
   injectMapNavTranslations();
+    // CAMBIO: B4-3: registrar los mensajes antes de inicializar sensores.
+  injectSensorStatusTranslations();
   injectMapPanelTranslations();
   injectWakeLockTranslations(); 
   injectPhotosTranslations(); // CAMBIO: Inicializar diccionario de fotos
@@ -8867,7 +9014,8 @@ if(!mapResizeListenersInstalled){
   initGPS();
   initSensors();
   updateTopbarStatus();
-  setInterval(updateTopbarStatus, 3000);
+  // CAMBIO: B4-3: comprobar el timeout desde el temporizador existente.
+  setInterval(() => { runSensorWatchdog(); updateTopbarStatus(); }, 3000);
   render();
 })();
 
