@@ -222,6 +222,133 @@
   @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
   .status-chip{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); padding:6px 8px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border-soft); }
   .icon-btn{ width:36px; height:36px; border-radius:8px; border:1px solid var(--border-soft); background:var(--surface-2); color:var(--text); display:flex; align-items:center; justify-content:center; font-size:16px; cursor:pointer; }
+  /* CAMBIO: F4: chips táctiles, responsivos y sin animaciones. */
+#topbar {
+  height: auto;
+  min-height: calc(var(--topbar-h) + var(--safe-t));
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 5px;
+}
+
+#topbar .brand {
+  min-width: 0;
+  flex: 1 1 95px;
+}
+
+#topbar .status-chip {
+  min-height: 40px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 7px 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+  animation: none;
+}
+
+#topbar .status-chip[data-level="ok"] {
+  border-color: var(--ok);
+}
+
+#topbar .status-chip[data-level="warn"] {
+  border-color: var(--warn);
+}
+
+#topbar .status-chip[data-level="err"] {
+  border-color: var(--danger);
+}
+
+#topbar .status-chip:focus-visible,
+#statusPanel button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#topbar .status-chip .status-dot {
+  flex: 0 0 9px;
+  animation: none;
+}
+
+#topbar .status-chip .chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#statusPanel {
+  position: fixed;
+  z-index: 90;
+  top: calc(var(--topbar-h) + var(--safe-t) + 8px);
+  right: 10px;
+  width: min(330px, calc(100vw - 20px));
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 4px 16px var(--border);
+}
+
+#statusPanel[hidden] {
+  display: none;
+}
+
+#statusPanel .status-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+#statusPanel .status-panel-message {
+  margin: 10px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+#statusPanel .status-panel-close {
+  min-width: 40px;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+#statusPanel .status-panel-retry {
+  min-height: 40px;
+}
+
+/* CAMBIO: F4: respetar hidden aunque el botón utilice display de .btn. */
+#statusPanel .status-panel-retry[hidden] {
+  display: none;
+}
+
+@media (max-width: 400px) {
+  #topbar {
+    justify-content: space-between;
+  }
+
+  #topbar .brand {
+    flex-basis: calc(100% - 55px);
+  }
+
+  #topbar .status-chip {
+    flex: 1 1 100px;
+  }
+}
 
   #app{ flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px 14px calc(24px + var(--safe-b)) 14px; position:relative; }
   #app.no-pad{ padding:0; overflow:hidden; }
@@ -731,10 +858,23 @@ details.settings-sec[open] .sum-icon {
   .thickness-info .thick-assumption{color:var(--text-dim);margin-top:3px;}
   .thickness-info .thick-warning{color:var(--warn);font-weight:700;margin-top:5px;}
 
+  /* CAMBIO: F5: una línea discreta por panel con procedencia de orientación. */
+  .mini-row .ml .capture-meta-line{ display:block; margin-top:3px; color:var(--text-dim); font-size:11px; font-family:var(--sans); line-height:1.4; overflow-wrap:anywhere; }
+
   /* CAMBIO: Estado legible, sin animaciones y usando la paleta existente. */
   .orientation-ref{ margin-top:8px; padding:7px 9px; border:1px solid var(--border-soft); border-radius:8px; background:var(--surface-2); color:var(--text-dim); font-size:12px; font-weight:600; }
   .orientation-ref[data-reliable="true"]{ border-color:var(--ok); color:var(--ok); }
   .orientation-ref[data-reliable="false"]{ border-color:var(--warn); color:var(--warn); }
+
+  /* CAMBIO: F2: el nivel prevalece sobre la fiabilidad para avisar de declinaciones pendientes. */
+  .orientation-ref[data-level="ok"]{ border-color:var(--ok); color:var(--ok); }
+  .orientation-ref[data-level="warn"]{ border-color:var(--warn); color:var(--warn); }
+
+    /* CAMBIO: F1a: indicador de estabilidad sin animaciones y con colores de la paleta. */
+  .reading-stability{ margin-top:8px; padding:7px 9px; border:1px solid var(--border-soft); border-radius:8px; background:var(--surface-2); color:var(--text-dim); font-size:12px; font-weight:600; }
+  .reading-stability[data-level="ok"]{ border-color:var(--ok); color:var(--ok); }
+  .reading-stability[data-level="warn"]{ border-color:var(--warn); color:var(--warn); }
+  .reading-stability[data-level="bad"]{ border-color:var(--danger); color:var(--danger); }
 
 </style>
 </head>
@@ -742,10 +882,21 @@ details.settings-sec[open] .sum-icon {
 
   <div id="topbar">
     <div class="brand"><b>GeoField Core</b><span id="stationCountLabel">...</span></div>
-    <div class="status-chip"><span id="gpsDot" class="status-dot"></span>GPS</div>
-    <div class="status-chip"><span id="sensorDot" class="status-dot"></span>Sensor</div>
+    <!-- CAMBIO: F4: conservar los indicadores originales dentro de botones accesibles. -->
+    <button type="button" id="gpsStatusChip" class="status-chip" data-level="err" aria-label="GPS" aria-expanded="false" aria-controls="statusPanel" onclick="openStatusChip('gps')"><span id="gpsDot" class="status-dot"></span><span id="gpsChipText" class="chip-label">GPS ✖</span></button>
+    <button type="button" id="sensorStatusChip" class="status-chip" data-level="err" aria-label="Sensor" aria-expanded="false" aria-controls="statusPanel" onclick="openStatusChip('sensor')"><span id="sensorDot" class="status-dot"></span><span id="sensorChipText" class="chip-label">Sensor ✖</span></button>
     <button class="icon-btn" onclick="Nav.settings()" title="Ajustes">⚙</button>
   </div>
+
+  <!-- CAMBIO: F4: panel no modal para explicar el estado de GPS y sensores. -->
+  <section id="statusPanel" role="region" aria-label="Estado de dispositivos" hidden>
+    <div class="status-panel-head">
+      <strong id="statusPanelTitle"></strong>
+      <button type="button" id="statusPanelClose" class="status-panel-close" aria-label="Cerrar" onclick="closeStatusPanel()">✕</button>
+    </div>
+    <p id="statusPanelMessage" class="status-panel-message"></p>
+    <button type="button" id="statusPanelRetry" class="btn small status-panel-retry" hidden onclick="retryGpsFromChip()"></button>
+  </section>
 
   <main id="app"></main>
 
@@ -989,6 +1140,110 @@ const MAP_GUIDE = {
 <p>Suggested attributions: Sentinel-2: "Contains modified Copernicus Sentinel data (year)". OpenStreetMap: "© OpenStreetMap contributors". Elevation model: state your source.</p>
 <p>Tip: layers take up space on your phone and in JSON backups; only save the areas you plan to use.</p>`
 };
+
+// CAMBIO: F5: traducciones de la procedencia, con etiquetas para cada data-formkey.
+function injectCaptureMetaTranslations(){
+  Object.assign(I18N.es,{
+    captureSensorLabel:'Sensor', captureSensorEdited:'Sensor, editado', captureManualLabel:'Manual',
+    captureNorthTrue:'Norte verdadero', captureNorthMagnetic:'Norte magnético', captureNorthUnknown:'Norte desconocido',
+    captureOneReading:'1 lectura', captureManyReadings:'{n} lecturas', captureSingle:'sin promedio',
+    capturePanel_p1:'Plano', capturePanel_l1:'Lineación', capturePanel_fp:'Plano de falla',
+    capturePanel_fl:'Estría', capturePanel_c1:'Contacto', capturePanel_v1:'Veta'
+  });
+  Object.assign(I18N.en,{
+    captureSensorLabel:'Sensor', captureSensorEdited:'Sensor, edited', captureManualLabel:'Manual',
+    captureNorthTrue:'True north', captureNorthMagnetic:'Magnetic north', captureNorthUnknown:'Unknown north',
+    captureOneReading:'1 reading', captureManyReadings:'{n} readings', captureSingle:'single reading',
+    capturePanel_p1:'Plane', capturePanel_l1:'Lineation', capturePanel_fp:'Fault plane',
+    capturePanel_fl:'Striation', capturePanel_c1:'Contact', capturePanel_v1:'Vein'
+  });
+}
+
+// CAMBIO: F1a: mensajes bilingües para estabilidad y promediado de lecturas.
+function injectReadingAverageTranslations(){
+  Object.assign(I18N.es,{
+    readingStable:'Estable ✔',
+    readingMoving:'Moviéndose ⚠',
+    readingUnstable:'Muy inestable ✖',
+    readingMeasuring:'Midiendo…',
+    readingAverage:'Promedio de {n} lecturas · σ incl. {incl} · σ az. {az}',
+    readingAverageWarn:'⚠ Movimiento moderado durante la captura.',
+    readingAverageBad:'✖ Lecturas muy inestables durante la captura.',
+    readingAverageFallback:'No se pudo promediar: muestras insuficientes. Se usó la última lectura.'
+  });
+  Object.assign(I18N.en,{
+    readingStable:'Stable ✔',
+    readingMoving:'Moving ⚠',
+    readingUnstable:'Very unstable ✖',
+    readingMeasuring:'Measuring…',
+    readingAverage:'Average of {n} readings · σ incl. {incl} · σ az. {az}',
+    readingAverageWarn:'⚠ Moderate motion during capture.',
+    readingAverageBad:'✖ Very unstable readings during capture.',
+    readingAverageFallback:'Could not average: insufficient samples. Used the latest reading.'
+  });
+}
+
+// CAMBIO: F4: traducciones exclusivas de los indicadores y su panel.
+function injectStatusChipTranslations(){
+  Object.assign(I18N.es,{
+    gpsChipName:'GPS',
+    sensorChipName:'Sensor',
+    gpsChipSearching:'GPS ⚠ Buscando',
+    gpsChipUnavailable:'GPS ✖',
+    gpsChipDenied:'GPS ✖ Permiso',
+    gpsChipAccuracy:'GPS {symbol} ±{accuracy} m',
+    gpsChipNoAccuracy:'GPS ✔',
+    gpsStatusSearching:'Buscando una posición GPS.',
+    gpsStatusUnavailable:'No se pudo obtener la ubicación. Comprueba la señal y vuelve a intentarlo.',
+    gpsStatusDenied:'Permiso de ubicación denegado. Revisa los permisos de ubicación del sitio en el navegador.',
+    gpsStatusUnsupported:'La ubicación GPS no está disponible en este navegador o contexto.',
+    gpsStatusIdle:'Todavía no hay una posición GPS disponible.',
+    gpsStatusGood:'Posición GPS disponible. Precisión aproximada: ±{accuracy} m.',
+    gpsStatusPoor:'Posición GPS disponible, pero su precisión es baja: ±{accuracy} m. Espera una lectura mejor antes de registrar coordenadas.',
+    gpsStatusNoAccuracy:'Posición GPS disponible. El navegador no informó su precisión.',
+    gpsRetry:'Reintentar',
+    statusClose:'Cerrar',
+    sensorChipInactive:'Sensor ✖',
+    sensorChipPending:'Sensor ⚠ Espera',
+    sensorChipPermission:'Sensor ⚠ Permiso',
+    sensorChipNoData:'Sensor ⚠ Sin datos',
+    sensorChipTrue:'Sensor ✔ N verd.',
+    sensorChipMagnetic:'Sensor ✔ N mag.',
+    sensorChipRelative:'Sensor ⚠ rel.',
+    sensorChipNorthWarning:'Sensor ⚠ Norte',
+    sensorChipActiveUnknown:'Sensor ⚠ Norte',
+    sensorStatusIdle:'Los sensores aún no se han inicializado.'
+  });
+  Object.assign(I18N.en,{
+    gpsChipName:'GPS',
+    sensorChipName:'Sensor',
+    gpsChipSearching:'GPS ⚠ Searching',
+    gpsChipUnavailable:'GPS ✖',
+    gpsChipDenied:'GPS ✖ Permission',
+    gpsChipAccuracy:'GPS {symbol} ±{accuracy} m',
+    gpsChipNoAccuracy:'GPS ✔',
+    gpsStatusSearching:'Searching for a GPS position.',
+    gpsStatusUnavailable:'Could not obtain your location. Check the signal and try again.',
+    gpsStatusDenied:'Location permission denied. Review this site’s location permissions in your browser.',
+    gpsStatusUnsupported:'GPS location is unavailable in this browser or context.',
+    gpsStatusIdle:'No GPS position is available yet.',
+    gpsStatusGood:'GPS position available. Approximate accuracy: ±{accuracy} m.',
+    gpsStatusPoor:'GPS position available, but accuracy is low: ±{accuracy} m. Wait for a better reading before recording coordinates.',
+    gpsStatusNoAccuracy:'GPS position available. The browser did not report accuracy.',
+    gpsRetry:'Retry',
+    statusClose:'Close',
+    sensorChipInactive:'Sensor ✖',
+    sensorChipPending:'Sensor ⚠ Waiting',
+    sensorChipPermission:'Sensor ⚠ Permission',
+    sensorChipNoData:'Sensor ⚠ No data',
+    sensorChipTrue:'Sensor ✔ True N',
+    sensorChipMagnetic:'Sensor ✔ Mag. N',
+    sensorChipRelative:'Sensor ⚠ rel.',
+    sensorChipNorthWarning:'Sensor ⚠ North',
+    sensorChipActiveUnknown:'Sensor ⚠ North',
+    sensorStatusIdle:'Sensors have not been initialized yet.'
+  });
+}
 
 // CAMBIO: B4-3: mensajes de los siete estados y controles de sensores.
 function injectSensorStatusTranslations(){
@@ -1547,12 +1802,35 @@ const mapState = {
 };
 
 const gpsState={ status:'idle', lat:null, lon:null, alt:null, accuracy:null, errorMsg:'' };
+// CAMBIO: F4: umbral visual y seguimiento exclusivo del GPS general.
+const GPS_WARN_ACCURACY_M = 20;
+let gpsWatchId = null;
+gpsState.errorCode = null;
 // CAMBIO: B4-3: conservar el estado anterior y agregar únicamente el reloj y control de primera lectura.
 const sensorState={ available:false, granted:null, status:'idle', errorMsg:'', last:null, meta:null, startedTs:null, watchdogTimer:null, successShown:false, visibilityInstalled:false }; // CAMBIO: Procedencia del norte de la última lectura.
 let dialRAF=false;
 const IS_SECURE = window.isSecureContext === true;
 // CAMBIO: B4-3: todas las constantes temporales de sensores en un solo objeto.
 const SENSOR_CONFIG = Object.freeze({ SENSOR_NODATA_MS: 4000 });
+
+// CAMBIO: F2: umbrales y caché volátil de estimación de declinación.
+const NORTH_REF_CONFIG = Object.freeze({
+  DECL_UNAPPLIED_MIN:1.5, DECL_MISMATCH_MIN:2, CACHE_DEG:0.05, CACHE_MS:30000
+});
+const northDeclinationCache = {lat:null,lon:null,ts:null,value:null};
+
+// CAMBIO: F1a: parámetros comunes de ventana, límite de muestras y estabilidad.
+const READING_AVG_CONFIG = Object.freeze({
+  AVG_WINDOW_MS:2000, AVG_SKIP_LAST_MS:300, MIN_SAMPLES:5, LIVE_WINDOW_MS:1500,
+  BUFFER_WINDOW_MS:3000, MAX_SAMPLES:200,
+  OK_INCL_SD:1, OK_AZ_SD:2, WARN_INCL_SD:2.5, WARN_AZ_SD:5
+});
+
+// CAMBIO: F5: metadatos temporales por data-formkey; nunca se escribe este objeto completo en IndexedDB.
+const sensorCaptureStage = Object.create(null);
+
+// CAMBIO: F1a: historial volátil; no forma parte del esquema ni de los respaldos.
+sensorState.buffer=[];
 
 // CAMBIO: B4-3: comprobar origen y contexto seguro sin modificar IS_SECURE global.
 function isSensorSecureContext(){
@@ -1670,6 +1948,87 @@ function supportsAbsoluteOrientation(win){
   return 'ondeviceorientationabsolute' in win;
 }
 
+// CAMBIO: F2: formato este/oeste de la declinación según idioma.
+function formatNorthDeclination(value){
+  if(!Number.isFinite(value)) return '';
+  return String(Number(Math.abs(value).toFixed(2)))+'° '+t(value<0?'northWest':'northEast');
+}
+
+// CAMBIO: F2: clasificación pura, independiente del DOM y de GPS.
+function describeNorthReference({reliable,magOffset,estimatedDecl}){
+  if(reliable!==true) return {key:'unreliable',level:'warn',declination:null};
+  const applied=Number(magOffset);
+  const estimate=Number.isFinite(estimatedDecl)?estimatedDecl:null;
+  if(Number.isFinite(applied) && applied!==0){
+    const mismatch=estimate!==null && Math.abs(applied-estimate)>=NORTH_REF_CONFIG.DECL_MISMATCH_MIN;
+    return {key:mismatch?'true-mismatch':'true',level:mismatch?'warn':'ok',declination:applied};
+  }
+  const unapplied=estimate!==null && Math.abs(estimate)>=NORTH_REF_CONFIG.DECL_UNAPPLIED_MIN;
+  return {key:unapplied?'magnetic-unapplied':'magnetic',level:unapplied?'warn':'ok',declination:estimate};
+}
+
+// CAMBIO: F2: estimación GPS reutilizada hasta variar 0.05° o transcurrir 30 s.
+function getCachedEstimatedDeclination(){
+  const lat=gpsState.lat, lon=gpsState.lon;
+  if(gpsState.status!=='fix' || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat)>90 || Math.abs(lon)>180){
+    northDeclinationCache.lat=null;
+    northDeclinationCache.lon=null;
+    northDeclinationCache.ts=null;
+    northDeclinationCache.value=null;
+    return null;
+  }
+  const ts=now();
+  if(northDeclinationCache.ts===null || ts<northDeclinationCache.ts ||
+     ts-northDeclinationCache.ts>=NORTH_REF_CONFIG.CACHE_MS ||
+     Math.abs(lat-northDeclinationCache.lat)>NORTH_REF_CONFIG.CACHE_DEG ||
+     Math.abs(lon-northDeclinationCache.lon)>NORTH_REF_CONFIG.CACHE_DEG){
+    const estimated=estimateDeclination(lat,lon);
+    northDeclinationCache.lat=lat;
+    northDeclinationCache.lon=lon;
+    northDeclinationCache.ts=ts;
+    northDeclinationCache.value=Number.isFinite(estimated)?estimated:null;
+  }
+  return northDeclinationCache.value;
+}
+
+// CAMBIO: F2: texto y atributos comunes para el indicador inicial y vivo.
+function northReferenceDisplay(meta){
+  if(!meta) return {text:t('orientationPending'),reliable:'pending',level:'warn'};
+  const estimatedDecl=getCachedEstimatedDeclination();
+  const info=describeNorthReference({reliable:meta.reliable,magOffset,estimatedDecl});
+  let text;
+  if(info.key==='unreliable') text=t('orientationRelative');
+  else if(info.key==='magnetic') text=t('orientationMagnetic');
+  else if(info.key==='magnetic-unapplied'){
+    text=t('northMagneticUnapplied').replace('{estimated}',formatNorthDeclination(estimatedDecl));
+  } else if(info.key==='true-mismatch'){
+    text=t('northTrueMismatch')
+      .replace('{applied}',formatNorthDeclination(magOffset))
+      .replace('{estimated}',formatNorthDeclination(estimatedDecl));
+  } else {
+    text=t('northTrue').replace('{decl}',formatNorthDeclination(magOffset));
+  }
+  return {text,reliable:String(meta.reliable),level:info.level};
+}
+
+// CAMBIO: F2: actualizar solo atributos/textos que efectivamente hayan cambiado.
+function paintNorthReference(element,meta){
+  const view=northReferenceDisplay(meta);
+  if(element.dataset.reliable!==view.reliable) element.dataset.reliable=view.reliable;
+  if(element.dataset.level!==view.level) element.dataset.level=view.level;
+  if(element.textContent!==view.text) element.textContent=view.text;
+}
+
+// CAMBIO: F2: una referencia y, con coordenadas GPS, su estimación local.
+function northSettingsHtml(){
+  const view=northReferenceDisplay(sensorState.meta);
+  const estimated=getCachedEstimatedDeclination();
+  return '<div id="settingsNorthReference" class="set-sub" data-level="'+view.level+'">'+
+    esc(t('northReferenceCurrent')+': '+view.text)+'</div>'+
+    (estimated!==null?'<div id="settingsEstimatedDecl" class="set-sub">'+
+      esc(t('northReferenceEstimatedHere')+': '+formatNorthDeclination(estimated))+'</div>':'');
+}
+
 // CAMBIO: Conservar la conversión de iOS y declarar fiabilidad y referencia.
 function resolveOrientationSource({eventType, absolute, alpha, compassHeading, compassAccuracy}){
   if(Number.isFinite(compassHeading)){
@@ -1679,6 +2038,97 @@ function resolveOrientationSource({eventType, absolute, alpha, compassHeading, c
     return { alphaDeg:alpha||0, source:'absolute-event', reliable:true, ref:'magnetic' };
   }
   return { alphaDeg:alpha||0, source:'relative-event', reliable:false, ref:'unknown' };
+}
+
+// CAMBIO: F1a: estadística pura para inclinación lineal y azimut circular.
+function summarizeReadings(samples, mode){
+  const planar=mode==='planar';
+  if(!planar && mode!=='linear') throw new Error('Invalid reading mode');
+  const inclKey=planar?'dip':'plunge', azKey=planar?'dipDir':'trend';
+  const valid=(Array.isArray(samples)?samples:[]).filter(s=>s && Number.isFinite(s[inclKey]));
+  const n=valid.length;
+  const mean={dip:null,dipDir:null,strike:null,trend:null,plunge:null};
+  const sd={incl:null,az:null};
+  const reasons=[];
+  if(n){
+    const inclination=valid.reduce((sum,s)=>sum+s[inclKey],0)/n;
+    mean[inclKey]=inclination;
+    sd.incl=Math.sqrt(valid.reduce((sum,s)=>sum+(s[inclKey]-inclination)**2,0)/n);
+    const reliable=valid.filter(s=>s.reliable===true && Number.isFinite(s[azKey]));
+    // CAMBIO: F1a/B2: usar los umbrales inclusivos compartidos de classifyAttitude.
+    const undefinedAz=planar?inclination<=ATTITUDE_LIMITS.horizontalDip:inclination>=ATTITUDE_LIMITS.verticalPlunge;
+    if(undefinedAz) reasons.push('azimuth-undefined');
+    else if(!reliable.length) reasons.push('azimuth-unreliable');
+    else {
+      const sin=reliable.reduce((sum,s)=>sum+Math.sin(toRad(s[azKey])),0)/reliable.length;
+      const cos=reliable.reduce((sum,s)=>sum+Math.cos(toRad(s[azKey])),0)/reliable.length;
+      const R=Math.hypot(sin,cos);
+      if(R>1e-12){
+        const az=norm360(toDeg(Math.atan2(sin,cos)));
+        mean[azKey]=az;
+        if(planar) mean.strike=norm360(az-90);
+      } else reasons.push('azimuth-undefined');
+      sd.az=toDeg(Math.sqrt(-2*Math.log(Math.min(1,Math.max(Number.MIN_VALUE,R)))));
+            // CAMBIO: F1a: evitar dispersión ficticia cuando todos los azimutes confiables coinciden.
+      if(reliable.every(s=>norm360(s[azKey]-reliable[0][azKey])===0)) sd.az=0;
+    }
+  }
+  if(n<READING_AVG_CONFIG.MIN_SAMPLES){
+    reasons.push('few-samples');
+    return {n,mean,sd,level:'insufficient',reasons};
+  }
+  const ok=sd.incl<=READING_AVG_CONFIG.OK_INCL_SD && (sd.az===null || sd.az<=READING_AVG_CONFIG.OK_AZ_SD);
+  const warn=sd.incl<=READING_AVG_CONFIG.WARN_INCL_SD && (sd.az===null || sd.az<=READING_AVG_CONFIG.WARN_AZ_SD);
+  const level=ok?'ok':warn?'warn':'bad';
+  if(sd.incl>READING_AVG_CONFIG.OK_INCL_SD) reasons.push('inclination-motion');
+  if(sd.az!==null && sd.az>READING_AVG_CONFIG.OK_AZ_SD) reasons.push('azimuth-motion');
+  return {n,mean,sd,level,reasons};
+}
+
+// CAMBIO: F1a: registrar solo lecturas activas; recortar por tiempo y cantidad.
+function pushSensorReading(ts, reading, reliable){
+  if(sensorState.status!=='active'){
+    sensorState.buffer.length=0;
+    return;
+  }
+  sensorState.buffer.push({
+    ts, dip:reading.dip, dipDir:reading.dipDir, strike:reading.strike,
+    trend:reading.trend, plunge:reading.plunge, reliable:reliable===true
+  });
+  const limit=ts-READING_AVG_CONFIG.BUFFER_WINDOW_MS;
+  sensorState.buffer=sensorState.buffer.filter(s=>s.ts>=limit && s.ts<=ts).slice(-READING_AVG_CONFIG.MAX_SAMPLES);
+}
+
+// CAMBIO: F1a: ventana temporal con reloj inyectable y exclusión de latencia.
+function recentSensorReadings(windowMs, skipLastMs=0){
+  if(sensorState.status!=='active'){
+    sensorState.buffer.length=0;
+    return [];
+  }
+  const end=now()-skipLastMs, start=end-windowMs;
+  return sensorState.buffer.filter(s=>s.ts>=start && s.ts<=end);
+}
+
+// CAMBIO: F1a: observar la salida de active y la visibilidad sin alterar B4-3.
+function initReadingBufferLifecycle(){
+  document.addEventListener('visibilitychange',()=>{ sensorState.buffer.length=0; });
+  const dot=document.getElementById('sensorDot');
+  if(dot){
+    new MutationObserver(()=>{
+      if(sensorState.status!=='active') sensorState.buffer.length=0;
+    }).observe(dot,{attributes:true,attributeFilter:['class']});
+  }
+}
+
+// CAMBIO: F1a: indicador textual por ventana LIVE, sin cambios visuales redundantes.
+function updateReadingStability(formKey, mode){
+  const el=document.getElementById('reading_stability_'+formKey);
+  if(!el) return;
+  const result=summarizeReadings(recentSensorReadings(READING_AVG_CONFIG.LIVE_WINDOW_MS),mode);
+  const key={ok:'readingStable',warn:'readingMoving',bad:'readingUnstable',insufficient:'readingMeasuring'}[result.level];
+  const label=t(key);
+  if(el.dataset.level!==result.level) el.dataset.level=result.level;
+  if(el.textContent!==label) el.textContent=label;
 }
 
 // CAMBIO: Una única ruta procesa ángulos, procedencia, estado y actualización visual.
@@ -1698,6 +2148,8 @@ function processOrientationEvent(e, eventType){
   sensorState.last=computeOrientation(source.alphaDeg, e.beta||0, e.gamma||0);
   sensorState.meta={source:source.source, reliable:source.reliable, ref:source.ref, ts};
   onSensorReading();
+  // CAMBIO: F1a: guardar la lectura ya calculada y su fiabilidad en memoria.
+  pushSensorReading(ts, sensorState.last, sensorState.meta.reliable);
   if(!dialRAF){
     dialRAF=true;
     requestAnimationFrame(()=>{ dialRAF=false; updateLiveDial(); updateTopbarStatus(); });
@@ -1732,9 +2184,167 @@ function initSensors(){
   }
 }
 
+// CAMBIO: F4: descripción del GPS sin modificar estados ni consultar el DOM.
+function describeGpsChip(gps){
+  if(gps.supported===false){
+    return {
+      text:t('gpsChipUnavailable'),
+      level:'err',
+      message:t('gpsStatusUnsupported')
+    };
+  }
+
+  if(gps.status==='searching'){
+    return {
+      text:t('gpsChipSearching'),
+      level:'warn',
+      message:t('gpsStatusSearching')
+    };
+  }
+
+  if(gps.errorCode===1 && gps.status==='unavailable'){
+    return {
+      text:t('gpsChipDenied'),
+      level:'err',
+      message:t('gpsStatusDenied')
+    };
+  }
+
+  if(gps.status==='fix'){
+    const accuracy=Number(gps.accuracy);
+    const valid=gps.accuracy!==null && gps.accuracy!==undefined &&
+      Number.isFinite(accuracy) && accuracy>=0;
+
+    if(!valid){
+      return {
+        text:t('gpsChipNoAccuracy'),
+        level:'ok',
+        message:t('gpsStatusNoAccuracy')
+      };
+    }
+
+    const shown=Math.round(accuracy);
+    const poor=accuracy>GPS_WARN_ACCURACY_M;
+    const value=String(shown);
+
+    return {
+      text:t('gpsChipAccuracy')
+        .replace('{symbol}',poor?'⚠':'✔')
+        .replace('{accuracy}',value),
+      level:poor?'warn':'ok',
+      message:t(poor?'gpsStatusPoor':'gpsStatusGood')
+        .replace('{accuracy}',value)
+    };
+  }
+
+  return {
+    text:t('gpsChipUnavailable'),
+    level:'err',
+    message:t(gps.status==='idle'?'gpsStatusIdle':'gpsStatusUnavailable')
+  };
+}
+
+// CAMBIO: F4: descripción del sensor según B4-3 y la clasificación F2.
+function describeSensorChip(sensor,northRef){
+  const status=sensor.status;
+  const message=t(status==='idle'?'sensorStatusIdle':'sensorStatus_'+status);
+
+  if(status==='needs-permission'){
+    return {text:t('sensorChipPermission'),level:'warn',message};
+  }
+
+  if(status==='pending'){
+    return {text:t('sensorChipPending'),level:'warn',message};
+  }
+
+  if(status==='nodata'){
+    return {text:t('sensorChipNoData'),level:'warn',message};
+  }
+
+  if(status!=='active'){
+    return {text:t('sensorChipInactive'),level:'err',message};
+  }
+
+  if(!northRef || northRef.key==='unreliable'){
+    return {
+      text:t('sensorChipRelative'),
+      level:'warn',
+      message:message+' '+t('orientationRelative')
+    };
+  }
+
+  if(northRef.level==='warn'){
+    return {
+      text:t('sensorChipNorthWarning'),
+      level:'warn',
+      message:message+' '+t(
+        northRef.key==='true-mismatch'
+          ? 'northTrueMismatch'
+          : 'northMagneticUnapplied'
+      )
+    };
+  }
+
+  if(northRef.key==='true'){
+    return {
+      text:t('sensorChipTrue'),
+      level:'ok',
+      message:message+' '+t('northTrue')
+    };
+  }
+
+  if(northRef.key==='magnetic'){
+    return {
+      text:t('sensorChipMagnetic'),
+      level:'ok',
+      message:message+' '+t('orientationMagnetic')
+    };
+  }
+
+  return {
+    text:t('sensorChipActiveUnknown'),
+    level:'warn',
+    message:message+' '+t('orientationPending')
+  };
+}
+
+// CAMBIO: F4: adaptar los metadatos reales de F2 para las descripciones.
+function currentStatusChipDescriptions(){
+  const estimated=getCachedEstimatedDeclination();
+  const northRef=sensorState.status==='active' && sensorState.meta
+    ? describeNorthReference({
+        reliable:sensorState.meta.reliable,
+        magOffset,
+        estimatedDecl:estimated
+      })
+    : null;
+
+  const gps=describeGpsChip({
+    ...gpsState,
+    supported:IS_SECURE && !!navigator.geolocation
+  });
+
+  const sensor=describeSensorChip(sensorState,northRef);
+
+  if(sensorState.status==='active' && sensorState.meta){
+    sensor.message=northReferenceDisplay(sensorState.meta).text+
+      ' '+sensorStatusMessage();
+  }
+
+  return {gps,sensor};
+}
+
 function updateTopbarStatus(){
+  // CAMBIO: F4: calcular texto, nivel y mensaje desde el estado actual.
+  const descriptions=currentStatusChipDescriptions();
+
   const gDot=document.getElementById('gpsDot');
-  if(gDot) gDot.className='status-dot'+(gpsState.status==='fix'?' ok':gpsState.status==='searching'?' warn':' err');
+  if(gDot){
+    const cls='status-dot'+
+      (gpsState.status==='fix'?' ok':gpsState.status==='searching'?' warn':' err');
+    if(gDot.className!==cls) gDot.className=cls;
+  }
+
   const sDot=document.getElementById('sensorDot');
   // CAMBIO: B4-3: verde activo, amarillo esperando permiso/datos, rojo restante.
   if(sDot){
@@ -1743,19 +2353,173 @@ function updateTopbarStatus(){
     const msg=sensorStatusMessage();
     if(sDot.title!==msg) sDot.title=msg;
   }
+
+  // CAMBIO: F4: actualizar únicamente los atributos y textos que cambian.
+  for(const type of ['gps','sensor']){
+    const chip=document.getElementById(type+'StatusChip');
+    const label=document.getElementById(type+'ChipText');
+    const description=descriptions[type];
+    if(!chip || !label) continue;
+
+    if(label.textContent!==description.text){
+      label.textContent=description.text;
+    }
+    if(chip.dataset.level!==description.level){
+      chip.dataset.level=description.level;
+    }
+    const accessible=description.text+'. '+description.message;
+    if(chip.getAttribute('aria-label')!==accessible){
+      chip.setAttribute('aria-label',accessible);
+    }
+    if(chip.title!==description.message){
+      chip.title=description.message;
+    }
+  }
+
+  // CAMBIO: F4: sincronizar un panel abierto sin recrearlo.
+  const panel=document.getElementById('statusPanel');
+  if(panel && !panel.hidden){
+    refreshStatusPanel();
+  }
 }
+
+// CAMBIO: F4: abrir el panel y solicitar permiso solo por gesto directo.
+function openStatusChip(type){
+  const panel=document.getElementById('statusPanel');
+  if(!panel || (type!=='gps' && type!=='sensor')) return;
+
+  if(!panel.hidden && panel.dataset.type===type){
+    closeStatusPanel();
+    return;
+  }
+
+  panel.dataset.type=type;
+  panel.hidden=false;
+
+  // CAMBIO: F4: anunciar cuál de los dos controles mantiene abierto el panel.
+  for(const chipType of ['gps','sensor']){
+    const chip=document.getElementById(chipType+'StatusChip');
+    if(chip) chip.setAttribute('aria-expanded',String(chipType===type));
+  }
+
+  refreshStatusPanel();
+
+  if(type==='sensor' && sensorState.status==='needs-permission'){
+    requestSensorPermission();
+  }
+}
+
+// CAMBIO: F4: mantener actualizado el panel sin reconstruir el DOM.
+function refreshStatusPanel(){
+  const panel=document.getElementById('statusPanel');
+  if(!panel || panel.hidden) return;
+
+  const type=panel.dataset.type;
+  if(type!=='gps' && type!=='sensor') return;
+
+  const descriptions=currentStatusChipDescriptions();
+  const description=descriptions[type];
+  const title=document.getElementById('statusPanelTitle');
+  const message=document.getElementById('statusPanelMessage');
+  const retry=document.getElementById('statusPanelRetry');
+  const close=document.getElementById('statusPanelClose');
+
+  if(title){
+    const text=t(type==='gps'?'gpsChipName':'sensorChipName');
+    if(title.textContent!==text) title.textContent=text;
+  }
+
+  if(message && message.textContent!==description.message){
+    message.textContent=description.message;
+  }
+
+  if(close){
+    close.setAttribute('aria-label',t('statusClose'));
+  }
+
+  if(retry){
+    // CAMBIO: F4: permiso denegado no puede reintentarse desde el chip.
+    const denied=type==='gps' && gpsState.errorCode===1 &&
+      gpsState.status==='unavailable';
+
+    const retryable=type==='gps' &&
+      (gpsState.status==='unavailable'||gpsState.status==='idle') &&
+      !denied && IS_SECURE && !!navigator.geolocation;
+
+    retry.hidden=!retryable;
+
+    if(retryable){
+      const text=t('gpsRetry');
+      if(retry.textContent!==text) retry.textContent=text;
+    }
+  }
+}
+
+// CAMBIO: F4: el reintento usa la función GPS existente.
+function retryGpsFromChip(){
+  const panel=document.getElementById('statusPanel');
+  if(!panel || panel.hidden || panel.dataset.type!=='gps') return;
+
+  if(gpsState.status!=='unavailable' && gpsState.status!=='idle') return;
+  if(gpsState.status==='unavailable' && gpsState.errorCode===1) return;
+  if(!IS_SECURE || !navigator.geolocation) return;
+
+  initGPS();
+  closeStatusPanel();
+}
+
+// CAMBIO: F4: cerrar sin alterar estados ni permisos.
+function closeStatusPanel(){
+  const panel=document.getElementById('statusPanel');
+  if(!panel) return;
+
+  panel.hidden=true;
+  panel.removeAttribute('data-type');
+
+  for(const type of ['gps','sensor']){
+    const chip=document.getElementById(type+'StatusChip');
+    if(chip) chip.setAttribute('aria-expanded','false');
+  }
+}
+
+// CAMBIO: F4: activar el cierre exterior sin interferir con los gestos de los chips.
+document.addEventListener('click',function(event){
+  const panel=document.getElementById('statusPanel');
+  if(!panel || panel.hidden) return;
+
+  if(panel.contains(event.target)) return;
+  if(event.target.closest('#gpsStatusChip, #sensorStatusChip')) return;
+
+  closeStatusPanel();
+});
+
+// CAMBIO: F4: cierre accesible mediante Escape.
+document.addEventListener('keydown',function(event){
+  if(event.key==='Escape') closeStatusPanel();
+});
 
 function initGPS(){
   if(!IS_SECURE || !navigator.geolocation) return;
+  // CAMBIO: F4: cancelar exclusivamente la vigilancia GPS anterior.
+  if(gpsWatchId!==null){
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId=null;
+  }
   gpsState.status='searching';
-  navigator.geolocation.watchPosition(pos=>{
+  // CAMBIO: F4: conservar el identificador para el siguiente reintento.
+  gpsWatchId=navigator.geolocation.watchPosition(pos=>{
     gpsState.status='fix';
     gpsState.lat=pos.coords.latitude;
     gpsState.lon=pos.coords.longitude;
     gpsState.alt=pos.coords.altitude ? Math.round(pos.coords.altitude) : null;
     gpsState.accuracy=pos.coords.accuracy ? Math.round(pos.coords.accuracy) : null;
     updateTopbarStatus();
-  }, ()=>{ gpsState.status='unavailable'; updateTopbarStatus(); }, { enableHighAccuracy:true, maximumAge:4000, timeout:20000 });
+  }, err=>{
+    // CAMBIO: F4: conservar el código de error sin cambiar el estado existente.
+    gpsState.errorCode=err.code;
+    gpsState.status='unavailable';
+    updateTopbarStatus();
+  }, { enableHighAccuracy:true, maximumAge:4000, timeout:20000 });
 }
 
 function getDialDiameter(){
@@ -2008,6 +2772,30 @@ function injectDeclinationConventionTranslations(){
 
 // CAMBIO: Registrar las traducciones antes de renderizar Ajustes.
 injectDeclinationConventionTranslations();
+
+// CAMBIO: F2: textos de referencia al norte y sentido de la declinación.
+function injectNorthReferenceTranslations(){
+  Object.assign(I18N.es,{
+    northTrue:'Norte verdadero ✔ (decl. {decl})',
+    northTrueMismatch:'Norte verdadero ⚠: declinación aplicada {applied}, estimada para aquí {estimated}; revisa en Ajustes',
+    northMagneticUnapplied:'Norte magnético ⚠: declinación estimada {estimated} sin aplicar; ve a Ajustes',
+    northReferenceCurrent:'Referencia actual de los azimutes',
+    northReferenceEstimatedHere:'Declinación estimada aquí',
+    northEast:'E',
+    northWest:'O'
+  });
+  Object.assign(I18N.en,{
+    northTrue:'True north ✔ (decl. {decl})',
+    northTrueMismatch:'True north ⚠: applied declination {applied}, estimated here {estimated}; check Settings',
+    northMagneticUnapplied:'Magnetic north ⚠: estimated declination {estimated} not applied; go to Settings',
+    northReferenceCurrent:'Current azimuth reference',
+    northReferenceEstimatedHere:'Estimated declination here',
+    northEast:'E',
+    northWest:'W'
+  });
+}
+// CAMBIO: F2: registrar nuevas traducciones junto a los inyectores previos.
+injectNorthReferenceTranslations();
 
 // CAMBIO: Traducciones del cálculo B3 sin modificar otros diccionarios.
 function injectTrueThicknessTranslations(){
@@ -4743,7 +5531,7 @@ async function renderStationDetail(){
       const pBadge = pc ? `<span class="badge accent" style="margin-left:6px;">📷 ${pc}</span>` : '';
       return `
       <div class="mini-row">
-        <div class="ml"><b>${esc(m.structKind ? (m.texture ? (m.structKind+' - '+m.texture) : m.structKind) : (m.subtype||c.title))}</b>${pBadge}<span>${esc(measSub(m))}</span></div>
+        <div class="ml"><b>${esc(m.structKind ? (m.texture ? (m.structKind+' - '+m.texture) : m.structKind) : (m.subtype||c.title))}</b>${pBadge}<span>${esc(measSub(m))}</span>${m.captureMeta?.panels?Object.entries(m.captureMeta.panels).map(([key,entry])=>`<span class="capture-meta-line">${esc(t('capturePanel_'+key))}: ${esc(describeCaptureMeta(entry,currentLang))}</span>`).join(''):''}</div>
         <div class="mini-actions">
           <button class="icon-sm" onclick="event.stopPropagation();Nav.editMeasurement('${m.id}','${st.id}','${m.type}')" title="Editar">✎</button>
           <button class="icon-sm" onclick="event.stopPropagation();Nav.duplicateMeasurement('${m.id}','${st.id}','${m.type}')" title="${t('duplicate')}">⎘</button>
@@ -4984,6 +5772,13 @@ async function renderMeasForm(){
     m = await dbGet('measurements', state.measId);
   }
   
+  // CAMBIO: F5: cada formulario comienza sin procedencia heredada del anterior.
+  for(const key of Object.keys(sensorCaptureStage)) delete sensorCaptureStage[key];
+  // CAMBIO: F5: inicializar la procedencia guardada al editar o duplicar un registro.
+  for(const [formKey, entry] of Object.entries(m.captureMeta?.panels||{})){
+    sensorCaptureStage[formKey]={...entry};
+  }
+
   pendingPhotos = []; // CAMBIO: Limpiar buffer de fotos
   
   let fields='';
@@ -5633,6 +6428,10 @@ async function saveMeasurement(id, isNew){
     obj.intensity = document.getElementById('f_intensity').value;
   }
   
+  // CAMBIO: F5: agregar captureMeta solo cuando algún panel tenga procedencia en esta sesión.
+  const capturePanels=Object.fromEntries(Object.entries(sensorCaptureStage).map(([key,entry])=>[key,{...entry}]));
+  if(Object.keys(capturePanels).length) obj.captureMeta={version:1,panels:capturePanels};
+
   await dbPut('measurements', obj);
   // CAMBIO: Guardar fotos pendientes ligándolas a la medición ya creada
   let photosFailed = false;
@@ -5655,6 +6454,9 @@ function renderSensorPanel(mode, formKey){
     ? (currentLang==='es'?'Modo plano (apoyar reverso del teléfono)':'Planar mode (back of phone on plane)')
     : (currentLang==='es'?'Modo lineación (alinear borde)':'Linear mode (align edge)');
   const dSize = getDialDiameter();
+    // CAMBIO: F2: resolver la referencia una vez al crear el panel.
+  // CAMBIO: F4: no mostrar una referencia de una lectura antigua fuera de active.
+  const northView=northReferenceDisplay(sensorState.status==='active' ? sensorState.meta : null);
   return `
   <div class="sensor-box scale-${boxScale}" data-mode="${mode}" data-formkey="${formKey}">
     <div class="sensor-head"><b>📡 ${currentLang==='es'?'Captura con sensores':'Sensor Capture'}</b>
@@ -5666,7 +6468,10 @@ function renderSensorPanel(mode, formKey){
     </div>
     <div class="hint">${label}</div>
     <!-- CAMBIO: Mostrar una referencia textual desde el primer render del panel. -->
-    <div id="orientation_ref_${formKey}" class="orientation-ref" role="status" aria-live="polite" data-reliable="${sensorState.meta ? String(sensorState.meta.reliable) : 'pending'}">${sensorState.meta ? t(sensorState.meta.reliable ? 'orientationMagnetic' : 'orientationRelative') : t('orientationPending')}</div>
+    <!-- CAMBIO: F2: referencia exacta, nivel de aviso y atributos B4-1 conservados. -->
+    <div id="orientation_ref_${formKey}" class="orientation-ref" role="status" aria-live="polite" data-reliable="${northView.reliable}" data-level="${northView.level}">${esc(northView.text)}</div>
+    <!-- CAMBIO: F1a: texto de estabilidad independiente de la fiabilidad del norte. -->
+    <div id="reading_stability_${formKey}" class="reading-stability" role="status" aria-live="polite" data-level="insufficient">${t('readingMeasuring')}</div>
     <div id="autoBlock_${formKey}">
       <div class="dial-wrap" style="flex-wrap:wrap; justify-content:center;">
         <svg id="dial_${formKey}" viewBox="0 0 140 140" width="${dSize}" height="${dSize}"></svg>
@@ -5694,14 +6499,15 @@ function updateLiveDial(){
     const formKey=svg.id.replace('dial_','');
     const mode=svg.closest('.sensor-box')?.dataset.mode||'planar';
     drawDial(svg, mode);
-    const r=sensorState.last;
+    // CAMBIO: F4: no reutilizar lecturas antiguas cuando el sensor no está activo.
+    const r=sensorState.status==='active' ? sensorState.last : null;
+    // CAMBIO: F1a: calcular la estabilidad desde la ventana reciente de este modo.
+    updateReadingStability(formKey, mode);
     // CAMBIO: Actualizar la referencia solo cuando cambia, evitando parpadeos.
     const reference=document.getElementById('orientation_ref_'+formKey);
     if(reference){
-      const reliability=sensorState.meta ? String(sensorState.meta.reliable) : 'pending';
-      const label=sensorState.meta ? t(sensorState.meta.reliable ? 'orientationMagnetic' : 'orientationRelative') : t('orientationPending');
-      if(reference.dataset.reliable!==reliability) reference.dataset.reliable=reliability;
-      if(reference.textContent!==label) reference.textContent=label;
+      // CAMBIO: F2: actualizar la referencia completa sin alterar cálculos ni lectura.
+      paintNorthReference(reference,sensorState.meta);
     }
 
     const dd=document.getElementById('live_dipdir_'+formKey);
@@ -5715,7 +6521,8 @@ function updateLiveDial(){
 
     if(mode === 'planar') {
       // CAMBIO: Obtener lectura formateada mediante función pura
-      const readout = formatPlaneReadout(r ? r.dipDir : null, r ? r.dip : null, inputNotation, quadrantPref);
+      // CAMBIO: F4: fuera de active, ambas magnitudes muestran ausencia de datos.
+      const readout = r ? formatPlaneReadout(r.dipDir, r.dip, inputNotation, quadrantPref) : {label1:t(inputNotation==='strike'?'readoutStrike':inputNotation==='quadrant'?'readoutQuadrant':'readoutDipDir'),label2:t('readoutDip'),value1:'—',value2:'—'};
       if(lblDd) lblDd.textContent = readout.label1;
       if(lblDp) lblDp.textContent = readout.label2;
       if(dd) dd.textContent = readout.value1;
@@ -5768,12 +6575,87 @@ function drawDial(svg, mode){
   `;
 }
 
+// CAMBIO: F5: entrada pura de procedencia creada desde el resultado F1a o la última lectura.
+function buildCaptureMeta({source, reliable, magOffset, summary, ts}){
+  const trusted=reliable===true;
+  const offset=Number(magOffset);
+  const averaged=summary && Number.isFinite(summary.n) && summary.n>=READING_AVG_CONFIG.MIN_SAMPLES;
+  const rounded=v=>Number.isFinite(v)?Math.round(v*10)/10:null;
+  return {
+    mode:'sensor',
+    source:['absolute-event','ios-compass','relative-event'].includes(source)?source:null,
+    northRef:trusted?(Number.isFinite(offset)&&offset!==0?'true':'magnetic'):'unknown',
+    declination:trusted&&Number.isFinite(offset)?offset:null,
+    nReadings:averaged?summary.n:1,
+    sdIncl:averaged?rounded(summary.sd?.incl):null,
+    sdAz:averaged?rounded(summary.sd?.az):null,
+    level:averaged&&['ok','warn','bad'].includes(summary.level)?summary.level:'single',
+    ts
+  };
+}
+
+// CAMBIO: F5: descripción pura según el idioma recibido, sin modificar currentLang.
+function describeCaptureMeta(entry, lang){
+  const dict=I18N[lang]||I18N.es;
+  const tr=key=>dict[key]||I18N.es[key]||key;
+  if(entry.mode==='manual') return tr('captureManualLabel');
+  if(entry.mode==='sensor-edited') return tr('captureSensorEdited');
+  const fmt=value=>new Intl.NumberFormat(lang==='en'?'en-US':'es-CL',{maximumFractionDigits:1}).format(value);
+  const parts=[tr('captureSensorLabel')];
+  if(entry.northRef==='true'){
+    const decl=entry.declination;
+    parts.push(tr('captureNorthTrue')+(Number.isFinite(decl)?' ('+fmt(Math.abs(decl))+'° '+tr(decl<0?'northWest':'northEast')+')':''));
+  } else if(entry.northRef==='magnetic') parts.push(tr('captureNorthMagnetic'));
+  else parts.push(tr('captureNorthUnknown'));
+  if(Number.isFinite(entry.nReadings)) parts.push(entry.nReadings===1?tr('captureOneReading'):tr('captureManyReadings').replace('{n}',fmt(entry.nReadings)));
+  if(entry.level==='single') parts.push(tr('captureSingle'));
+  else if(Number.isFinite(entry.sdIncl) || Number.isFinite(entry.sdAz)){
+    parts.push('σ '+(Number.isFinite(entry.sdIncl)?fmt(entry.sdIncl)+'°':'—')+' / '+(Number.isFinite(entry.sdAz)?fmt(entry.sdAz)+'°':'—'));
+  }
+  return parts.join(' · ');
+}
+
+// CAMBIO: F5: solo input/change de controles de orientación, nunca setters ni selector de notación.
+function captureMetaOnUserInput(event){
+  const field=event.target;
+  if(!(field instanceof HTMLElement) || !document.getElementById('measForm')?.contains(field)) return;
+  const match=/^(?:dipDir|dip|dip2|dip3|strike|quad|quadDipSide|trend|plunge)_(p1|l1|fp|fl|c1|v1)$/.exec(field.id);
+  if(!match) return;
+  const key=match[1];
+  const entry=sensorCaptureStage[key];
+  if(entry){
+    if(entry.mode==='sensor' || entry.mode==='sensor-edited') entry.mode='sensor-edited';
+    else if(entry.mode==='manual') entry.ts=now();
+  } else {
+    sensorCaptureStage[key]={mode:'manual',source:null,northRef:null,declination:null,nReadings:null,sdIncl:null,sdAz:null,level:null,ts:now()};
+  }
+}
+
+// CAMBIO: F5: delegado una sola vez y vaciado al abandonar el formulario.
+function initCaptureMetaListeners(){
+  document.addEventListener('input',captureMetaOnUserInput);
+  document.addEventListener('change',captureMetaOnUserInput);
+  const app=document.getElementById('app');
+  if(app) new MutationObserver(()=>{
+    if(!document.getElementById('measForm')){
+      for(const key of Object.keys(sensorCaptureStage)) delete sensorCaptureStage[key];
+    }
+  }).observe(app,{childList:true});
+}
+
+// CAMBIO: F5: activar seguimiento sin intervenir en los cálculos ni eventos existentes.
+initCaptureMetaListeners();
+
 function captureSensorReading(formKey, mode){
   // CAMBIO: B4-3: informar el estado exacto si no hay una lectura activa.
   if(sensorState.status!=='active' || !sensorState.last){ toast(sensorState.status==='active' ? (currentLang==='es'?'Sin datos de sensor':'No sensor data yet') : sensorStatusMessage()); return; }
-  const r=sensorState.last;
+  // CAMBIO: F1a: excluir los últimos 300 ms y capturar la media si hay cinco muestras.
+  const summary=summarizeReadings(recentSensorReadings(READING_AVG_CONFIG.AVG_WINDOW_MS,READING_AVG_CONFIG.AVG_SKIP_LAST_MS),mode);
+  const averaged=summary.n>=READING_AVG_CONFIG.MIN_SAMPLES;
+  const r=averaged ? summary.mean : sensorState.last;
   // CAMBIO: Nunca transferir una dirección sin referencia magnética confiable.
-  const reliable=sensorState.meta?.reliable===true;
+  // CAMBIO: F1a: fiabilidad azimutal de la media; conservar la anterior en fallback.
+  const reliable=averaged ? Number.isFinite(mode==='planar'?r.dipDir:r.trend) : sensorState.meta?.reliable===true;
   if(mode==='planar'){
     // CAMBIO: No escribir azimuts cuando el plano es horizontal.
     const horizontal = classifyAttitude(r.dip, null).plane === 'horizontal';
@@ -5795,6 +6677,10 @@ function captureSensorReading(formKey, mode){
     setVal('trend_'+formKey, (!reliable || classifyAttitude(null, r.plunge).line === 'vertical') ? '' : roundInt(r.trend));
     setVal('plunge_'+formKey, roundInt(r.plunge));
   }
+
+  // CAMBIO: F5: capturar procedencia para el panel, también si F1a recurrió a lectura única.
+  sensorCaptureStage[formKey]=buildCaptureMeta({source:sensorState.meta?.source??null,reliable,magOffset,summary:averaged?summary:null,ts:now()});
+
   // CAMBIO: No calcular rake a partir de una dirección eliminada por falta de referencia.
   if(formKey==='fl' || formKey==='fp'){
     if(reliable) autoCalcRakeIfReady();
@@ -5802,9 +6688,17 @@ function captureSensorReading(formKey, mode){
   }
   // CAMBIO: Sincronizar avisos aunque los setters no disparen eventos.
   updateAttitudeNotices();
-  // CAMBIO: Avisar del motivo por el que se conservaron solo las inclinaciones.
-  if(!reliable){ toast(t('orientationUnreliableCapture')); return; }
-  toast(currentLang==='es'?'Lectura capturada':'Reading captured');
+  // CAMBIO: F1a: informar n, σ y advertir sin bloquear; fallback explícito.
+  if(!averaged){
+    toast(t('readingAverageFallback')+(!reliable?' '+t('orientationUnreliableCapture'):''));
+    return;
+  }
+  const message=t('readingAverage')
+    .replace('{n}',String(summary.n))
+    .replace('{incl}',summary.sd.incl.toFixed(1)+'°')
+    .replace('{az}',summary.sd.az===null?'—':summary.sd.az.toFixed(1)+'°');
+  const warning=summary.level==='bad'?t('readingAverageBad'):summary.level==='warn'?t('readingAverageWarn'):'';
+  toast(message+(warning?' '+warning:'')+(!reliable && summary.reasons.includes('azimuth-unreliable')?' '+t('orientationUnreliableCapture'):''));
 }
 
 function attachSensorInit(){
@@ -8647,6 +9541,8 @@ function renderSettings(){
                 // CAMBIO: Mostrar el convenio sin alterar el valor ni la persistencia de magOffset.
         '<div class="set-sub">' + t('declinationConvention') + '</div>' +
         '<input type="number" step="1" value="' + magOffset + '" id="magOffsetInput" onchange="changeMagOffset(this.value)" style="margin-top:8px;" placeholder="ej. -5 o 8">' +
+                // CAMBIO: F2: referencia efectiva y estimación local, sin controles nuevos.
+        northSettingsHtml() +
         '<button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="autoEstimateDeclination()">📍 Calcular declinación desde GPS actual</button>' +
       '</div>' +
       '<div class="set-item">' +
@@ -8707,7 +9603,17 @@ function changeCompassScale(scale){ compassScale=scale; localStorage.setItem('ge
 function changeBoxScale(scale){ boxScale=scale; localStorage.setItem('geo_box_scale', scale); render(); }
 function changeQuadrantPref(val){ quadrantPref=val; localStorage.setItem('geo_quadrant_pref', val); render(); }
 function changeNeedleMode(val){ needleMode=val; localStorage.setItem('geo_needle_mode', val); render(); }
-function changeMagOffset(val){ magOffset=parseFloat(val)||0; localStorage.setItem('geo_mag_offset', magOffset); render(); }
+function changeMagOffset(val){
+  magOffset=parseFloat(val)||0;
+  localStorage.setItem('geo_mag_offset',magOffset);
+  // CAMBIO: F4: descartar lecturas calculadas con la declinación anterior.
+  sensorState.buffer.length=0;
+  sensorState.last=null;
+  // CAMBIO: F4: utilizar el vigilante B4-3 existente al salir de active.
+  if(sensorState.status==='active') setSensorStatus('pending');
+  updateLiveDial();
+  render();
+}
 
 // CAMBIO: Textos traducidos puros para validaciones
 function injectValidationTranslations() {
@@ -9002,6 +9908,13 @@ if(!mapResizeListenersInstalled){
   injectMapNavTranslations();
     // CAMBIO: B4-3: registrar los mensajes antes de inicializar sensores.
   injectSensorStatusTranslations();
+    // CAMBIO: F4: registrar los textos de chips antes de su primera actualización.
+  injectStatusChipTranslations();
+    // CAMBIO: F1a: traducciones y vaciado del buffer antes de activar sensores.
+  injectReadingAverageTranslations();
+    // CAMBIO: F5: activar traducciones de procedencia en ambos idiomas.
+  injectCaptureMetaTranslations();
+  initReadingBufferLifecycle();
   injectMapPanelTranslations();
   injectWakeLockTranslations(); 
   injectPhotosTranslations(); // CAMBIO: Inicializar diccionario de fotos
